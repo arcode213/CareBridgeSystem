@@ -1,0 +1,302 @@
+import { useEffect, useState, useCallback } from 'react';
+import { ClipboardList, CheckCircle2, Wallet } from 'lucide-react';
+import api from '../utils/api';
+import { formatPkr } from '../utils/formatPkr';
+
+const PAYMENT_OPTIONS = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'jazzcash', label: 'JazzCash' },
+  { value: 'easypaisa', label: 'EasyPaisa' },
+  { value: 'bank_transfer', label: 'Bank transfer' },
+];
+
+const HospitalAdmissions = () => {
+  const [pipeline, setPipeline] = useState([]);
+  const [admissions, setAdmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);
+  const [form, setForm] = useState({
+    serviceDesc: '',
+    serviceAmount: '',
+    billTotalPaisa: '',
+    paymentMethod: 'cash',
+    paymentReference: '',
+  });
+
+  const load = useCallback(async () => {
+    try {
+      const [p, a] = await Promise.all([
+        api.get('/hospitals/referrals-pipeline'),
+        api.get('/hospitals/admissions'),
+      ]);
+      if (p.data.success) setPipeline(p.data.data || []);
+      if (a.data.success) setAdmissions(a.data.data || []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const startAdmission = async (referralId) => {
+    try {
+      await api.post('/hospitals/admissions', { referralId });
+      await load();
+    } catch (e) {
+      alert(e.response?.data?.message || 'Could not start admission');
+    }
+  };
+
+  const saveAdmission = async (id) => {
+    try {
+      const services = [];
+      if (form.serviceDesc && form.serviceAmount) {
+        services.push({
+          description: form.serviceDesc,
+          amountPaisa: Math.round(Number(form.serviceAmount) * 100),
+        });
+      }
+      await api.patch(`/hospitals/admissions/${id}`, {
+        services,
+        billTotalPaisa: Math.round(Number(form.billTotalPaisa) * 100),
+        paymentMethod: form.paymentMethod,
+        paymentReference: form.paymentReference || undefined,
+      });
+      setExpanded(null);
+      await load();
+    } catch (e) {
+      alert(e.response?.data?.message || 'Update failed');
+    }
+  };
+
+  const complete = async (id) => {
+    try {
+      await api.post(`/hospitals/admissions/${id}/complete`);
+      await load();
+    } catch (e) {
+      alert(e.response?.data?.message || 'Complete failed — set bill & payment first');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20 text-slate-500">
+        <ClipboardList className="w-8 h-8 animate-pulse text-blue-500" />
+      </div>
+    );
+  }
+
+  const needsAdmission = pipeline.filter((r) => r.status === 'accepted' && !r.admission);
+
+  return (
+    <div className="space-y-10 max-w-4xl mx-auto">
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-xl bg-indigo-100 text-indigo-600">
+          <ClipboardList className="w-7 h-7" />
+        </div>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Admissions & billing</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Admit accepted referrals, record services in PKR, confirm payment (SRS §4.1, §12).
+          </p>
+        </div>
+      </div>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-amber-500" />
+          Awaiting admission ({needsAdmission.length})
+        </h2>
+        {needsAdmission.length === 0 ? (
+          <p className="text-slate-500 text-sm py-6 bg-white rounded-2xl border border-dashed border-slate-200 text-center">
+            No accepted referrals pending admission.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {needsAdmission.map((r) => (
+              <li
+                key={r._id}
+                className="bg-white border border-slate-100 rounded-2xl p-4 sm:p-5 flex flex-wrap justify-between gap-4 items-center shadow-sm"
+              >
+                <div>
+                  <p className="font-bold text-slate-900">{r.patientName}</p>
+                  <p className="text-xs text-slate-500 font-mono mt-1">{r.referralCode}</p>
+                  {r.assignedDepartment && (
+                    <p className="text-xs text-blue-600 font-medium mt-1">Dept: {r.assignedDepartment}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => startAdmission(r._id)}
+                  className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
+                >
+                  Start admission
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          Active & billing
+        </h2>
+        {admissions.length === 0 ? (
+          <p className="text-slate-500 text-sm py-6 text-center">No admission records yet.</p>
+        ) : (
+          <ul className="space-y-4">
+            {admissions.map((a) => (
+              <li
+                key={a._id}
+                className="bg-white border border-slate-100 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3"
+              >
+                <div className="flex flex-wrap justify-between gap-2">
+                  <div>
+                    <p className="font-bold text-slate-900">{a.referralId?.patientName}</p>
+                    <p className="text-xs font-mono text-slate-500">{a.referralId?.referralCode}</p>
+                  </div>
+                  <span
+                    className={`text-xs font-bold px-2 py-1 rounded-lg ${
+                      a.status === 'billed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-800'
+                    }`}
+                  >
+                    {a.status}
+                  </span>
+                </div>
+
+                {a.status !== 'billed' && (
+                  <>
+                    {expanded === a._id ? (
+                      <div className="mt-4 p-5 rounded-2xl bg-slate-50 border border-slate-100 shadow-inner">
+                        <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-200">
+                          <div>
+                            <h3 className="font-bold text-slate-800">Finalize Billing & Payout</h3>
+                            <p className="text-xs text-slate-500">Record services and confirm payment method</p>
+                          </div>
+                          <div className="text-right bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Consultant Payout Accrual</p>
+                            <p className="font-bold text-blue-700">1,000 PKR <span className="font-normal text-xs text-blue-500">flat rate</span></p>
+                          </div>
+                        </div>
+
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-600">Service Description</label>
+                            <input
+                              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                              placeholder="e.g. ICU Stay & Meds"
+                              value={form.serviceDesc}
+                              onChange={(e) => setForm({ ...form, serviceDesc: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-600">Line Amount (PKR)</label>
+                            <input
+                              type="number"
+                              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                              placeholder="0.00"
+                              value={form.serviceAmount}
+                              onChange={(e) => setForm({ ...form, serviceAmount: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1 sm:col-span-2">
+                            <label className="text-xs font-semibold text-slate-600">Total Patient Bill (PKR) <span className="text-red-500">*</span></label>
+                            <input
+                              type="number"
+                              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-lg font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all bg-white shadow-sm"
+                              placeholder="0.00"
+                              value={form.billTotalPaisa}
+                              onChange={(e) => setForm({ ...form, billTotalPaisa: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-600">Payment Gateway <span className="text-red-500">*</span></label>
+                            <select
+                              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
+                              value={form.paymentMethod}
+                              onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
+                            >
+                              {PAYMENT_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-600">Transaction Ref (Optional)</label>
+                            <input
+                              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                              placeholder="e.g. TID-12345"
+                              value={form.paymentReference}
+                              onChange={(e) => setForm({ ...form, paymentReference: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-6 flex flex-wrap gap-3 items-center justify-end border-t border-slate-200 pt-4">
+                          <button
+                            type="button"
+                            onClick={() => setExpanded(null)}
+                            className="px-4 py-2.5 text-sm font-semibold text-slate-500 hover:bg-slate-200 rounded-xl transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => saveAdmission(a._id)}
+                            className="px-5 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-semibold shadow-md hover:bg-slate-900 transition-colors"
+                          >
+                            Save Draft
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => complete(a._id)}
+                            className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-all flex items-center gap-2"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            Confirm Payment & Close
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpanded(a._id);
+                          setForm({
+                            serviceDesc: '',
+                            serviceAmount: '',
+                            billTotalPaisa: a.billTotalPaisa ? String(a.billTotalPaisa / 100) : '',
+                            paymentMethod: a.paymentMethod || 'cash',
+                            paymentReference: a.paymentReference || '',
+                          });
+                        }}
+                        className="mt-3 px-4 py-2 bg-blue-50 text-blue-700 font-semibold rounded-xl text-sm hover:bg-blue-100 transition-colors w-fit flex items-center gap-2"
+                      >
+                        <Wallet className="w-4 h-4" />
+                        Process Payment
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {a.billTotalPaisa > 0 && (
+                  <p className="text-sm text-slate-600">
+                    Bill: <span className="font-bold text-slate-900">{formatPkr(a.billTotalPaisa)}</span>
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+};
+
+export default HospitalAdmissions;
