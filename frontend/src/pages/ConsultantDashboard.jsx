@@ -1,8 +1,9 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
 
 const ConsultantDashboard = () => {
+  const navigate = useNavigate();
   const [referrals, setReferrals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState([
@@ -87,7 +88,7 @@ const ConsultantDashboard = () => {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">Recent Referrals</h2>
-          <Link to="/referrals" className="text-blue-600 text-sm font-semibold hover:underline">View All</Link>
+          <Link to="/referrals" className="text-blue-600 text-sm font-semibold hover:underline">View All →</Link>
         </div>
         
         {loading ? (
@@ -106,19 +107,21 @@ const ConsultantDashboard = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {referrals.slice(0, 5).map((r) => (
-                  <tr key={r._id} className="hover:bg-gray-50 transition-all cursor-pointer">
-                    <td className="px-6 py-4 font-semibold text-blue-600">{r.referralCode}</td>
-                    <td className="px-6 py-4 text-gray-900">{r.patientName}</td>
-                    <td className="px-6 py-4 text-gray-600">{r.targetHospitalId?.hospitalName || 'Pending'}</td>
+                  <tr key={r._id}
+                    className="hover:bg-blue-50/40 transition-all cursor-pointer"
+                    title="Click to view full details"
+                    onClick={() => navigate('/referrals')}
+                  >
+                    <td className="px-6 py-4 font-semibold text-blue-600 font-mono text-sm">{r.referralCode}</td>
+                    <td className="px-6 py-4 text-gray-900 font-medium">{r.patientName}</td>
+                    <td className="px-6 py-4 text-gray-600 text-sm">{r.targetHospitalId?.hospitalName || 'Pending'}</td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${
-                        r.status === 'pending' ? 'bg-yellow-50 text-yellow-600' :
+                        r.status === 'pending'  ? 'bg-yellow-50 text-yellow-600' :
                         r.status === 'accepted' ? 'bg-green-50 text-green-600' :
                         r.status === 'rejected' ? 'bg-red-50 text-red-600' :
                         'bg-blue-50 text-blue-600'
-                      }`}>
-                        {r.status}
-                      </span>
+                      }`}>{r.status}</span>
                     </td>
                     <td className="px-6 py-4 text-gray-500 text-sm">
                       {new Date(r.createdAt).toLocaleDateString()}

@@ -6,6 +6,7 @@ const adminController = require('../controllers/adminController');
 router.use(protect);
 router.use(authorize(['admin']));
 
+router.get('/users', adminController.listAllUsers);
 router.get('/users/pending', adminController.listPendingUsers);
 router.patch('/users/:id', adminController.updateUserStatus);
 

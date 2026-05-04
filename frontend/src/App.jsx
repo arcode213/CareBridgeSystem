@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './features/auth/AuthContext';
+import { Toaster } from 'react-hot-toast';
 import AuthLayout from './layouts/AuthLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
@@ -17,6 +18,8 @@ import HospitalAdmissions from './pages/HospitalAdmissions';
 import ConsultantEarnings from './pages/ConsultantEarnings';
 import AdminOverview from './pages/admin/AdminOverview';
 import AdminApprovals from './pages/admin/AdminApprovals';
+import AdminConsultants from './pages/admin/AdminConsultants';
+import AdminHospitals from './pages/admin/AdminHospitals';
 import AdminScoring from './pages/admin/AdminScoring';
 import AdminDepartments from './pages/admin/AdminDepartments';
 import AdminPayouts from './pages/admin/AdminPayouts';
@@ -35,6 +38,7 @@ const RoleGuard = ({ children, roles }) => {
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" />
       <Router>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -59,6 +63,8 @@ function App() {
 
             <Route path="/admin/overview" element={<RoleGuard roles={['admin']}><AdminOverview /></RoleGuard>} />
             <Route path="/admin/approvals" element={<RoleGuard roles={['admin']}><AdminApprovals /></RoleGuard>} />
+            <Route path="/admin/consultants" element={<RoleGuard roles={['admin']}><AdminConsultants /></RoleGuard>} />
+            <Route path="/admin/hospitals" element={<RoleGuard roles={['admin']}><AdminHospitals /></RoleGuard>} />
             <Route path="/admin/scoring" element={<RoleGuard roles={['admin']}><AdminScoring /></RoleGuard>} />
             <Route path="/admin/departments" element={<RoleGuard roles={['admin']}><AdminDepartments /></RoleGuard>} />
             <Route path="/admin/payouts" element={<RoleGuard roles={['admin']}><AdminPayouts /></RoleGuard>} />

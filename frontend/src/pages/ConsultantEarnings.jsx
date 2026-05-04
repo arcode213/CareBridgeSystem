@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp } from 'lucide-react';
+import { Wallet, TrendingUp, Eye } from 'lucide-react';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
+import toast from 'react-hot-toast';
+import DetailModal from '../components/DetailModal';
 
 const ConsultantEarnings = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     const fetchEarnings = async () => {
@@ -60,7 +63,7 @@ const ConsultantEarnings = () => {
                 <span className="font-bold tabular-nums text-lg">{formatPkr(data.monthlyEarningsPaisa)}</span>
               </div>
               <button 
-                onClick={() => alert('Withdrawal feature coming soon! (TODO)')}
+                onClick={() => toast('Withdrawal feature coming soon!', { icon: '🏦' })}
                 className="px-5 py-2.5 bg-white text-indigo-700 font-bold rounded-xl text-sm shadow-md hover:bg-blue-50 transition-colors active:scale-95"
               >
                 Withdraw Funds
@@ -94,8 +97,10 @@ const ConsultantEarnings = () => {
               <tr>
                 <th className="px-5 sm:px-8 py-3 font-bold">Date</th>
                 <th className="px-5 sm:px-8 py-3 font-bold">Referral</th>
+                <th className="px-5 sm:px-8 py-3 font-bold">Patient</th>
                 <th className="px-5 sm:px-8 py-3 font-bold">Status</th>
                 <th className="px-5 sm:px-8 py-3 font-bold text-right">Amount</th>
+                <th className="px-5 sm:px-8 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -107,18 +112,34 @@ const ConsultantEarnings = () => {
                 </tr>
               ) : (
                 payouts.map((p) => (
-                  <tr key={p._id} className="hover:bg-slate-50/80">
-                    <td className="px-5 sm:px-8 py-4 text-slate-600 whitespace-nowrap">
+                  <tr key={p._id}
+                    className="hover:bg-blue-50/30 transition-colors cursor-pointer"
+                    onClick={() => setSelected(p)}
+                  >
+                    <td className="px-5 sm:px-8 py-4 text-slate-600 whitespace-nowrap text-sm">
                       {new Date(p.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-5 sm:px-8 py-4 font-mono text-xs">{p.referralId?.referralCode || '—'}</td>
+                    <td className="px-5 sm:px-8 py-4 font-mono text-xs font-medium text-blue-600">
+                      {p.referralId?.referralCode || '—'}
+                    </td>
+                    <td className="px-5 sm:px-8 py-4 text-sm text-slate-600">
+                      {p.referralId?.patientName || '—'}
+                    </td>
                     <td className="px-5 sm:px-8 py-4">
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-xs font-bold">
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold">
                         {p.status}
                       </span>
                     </td>
-                    <td className="px-5 sm:px-8 py-4 text-right font-semibold tabular-nums">
+                    <td className="px-5 sm:px-8 py-4 text-right font-bold tabular-nums text-emerald-700">
                       {formatPkr(p.amountPaisa)}
+                    </td>
+                    <td className="px-3 py-4">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setSelected(p); }}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                      >
+                        <Eye size={15} />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -127,6 +148,46 @@ const ConsultantEarnings = () => {
           </table>
         </div>
       </div>
+
+      {/* Payout Detail Slide-over */}
+      <DetailModal
+        isOpen={!!selected}
+        onClose={() => setSelected(null)}
+        title="Payout Details"
+        subtitle={selected ? `${selected.referralId?.referralCode || 'N/A'} · ${formatPkr(selected.amountPaisa)}` : ''}
+      >
+        {selected && (
+          <div className="space-y-6">
+            <div className="bg-emerald-50 rounded-xl p-5 text-center">
+              <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Amount Earned</p>
+              <p className="text-4xl font-black text-emerald-700 tabular-nums">{formatPkr(selected.amountPaisa)}</p>
+              <span className="mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                {selected.status}
+              </span>
+            </div>
+
+            {selected.referralId && (
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Linked Referral</p>
+                <div className="bg-slate-50 p-4 rounded-xl grid grid-cols-2 gap-4">
+                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Referral Code</p><p className="font-mono text-sm font-medium text-blue-600">{selected.referralId.referralCode}</p></div>
+                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Patient</p><p className="text-sm font-medium text-slate-800">{selected.referralId.patientName || '—'}</p></div>
+                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Status</p><p className="text-sm font-medium capitalize text-slate-800">{selected.referralId.status || '—'}</p></div>
+                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Submitted</p><p className="text-sm font-medium text-slate-800">{selected.referralId.createdAt ? new Date(selected.referralId.createdAt).toLocaleDateString('en-PK') : '—'}</p></div>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Payout Timeline</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Accrued On</p><p className="text-sm font-medium text-slate-800">{new Date(selected.createdAt).toLocaleString('en-PK')}</p></div>
+                {selected.paidAt && <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Paid At</p><p className="text-sm font-medium text-slate-800">{new Date(selected.paidAt).toLocaleString('en-PK')}</p></div>}
+              </div>
+            </div>
+          </div>
+        )}
+      </DetailModal>
     </div>
   );
 };

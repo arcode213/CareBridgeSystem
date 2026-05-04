@@ -53,6 +53,8 @@ const DashboardLayout = () => {
           <>
             <NavLink to="/admin/overview" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600'}`}>Overview</NavLink>
             <NavLink to="/admin/approvals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600'}`}>Approvals</NavLink>
+            <NavLink to="/admin/consultants" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600'}`}>Consultants</NavLink>
+            <NavLink to="/admin/hospitals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600'}`}>Hospitals</NavLink>
             <NavLink to="/admin/scoring" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600'}`}>Scoring</NavLink>
             <NavLink to="/admin/departments" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600'}`}>Depts</NavLink>
             <NavLink to="/admin/payouts" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600'}`}>Payouts</NavLink>
@@ -92,9 +94,11 @@ const DashboardLayout = () => {
             <>
               <NavLink to="/admin/overview" className={linkClass}>Overview</NavLink>
               <NavLink to="/admin/approvals" className={linkClass}>Approvals</NavLink>
+              <NavLink to="/admin/consultants" className={linkClass}>Consultants</NavLink>
+              <NavLink to="/admin/hospitals" className={linkClass}>Hospitals</NavLink>
+              <NavLink to="/admin/payouts" className={linkClass}>Payouts</NavLink>
               <NavLink to="/admin/scoring" className={linkClass}>Scoring weights</NavLink>
               <NavLink to="/admin/departments" className={linkClass}>Departments</NavLink>
-              <NavLink to="/admin/payouts" className={linkClass}>Payouts</NavLink>
               <NavLink to="/admin/settings" className={linkClass}>Settings</NavLink>
             </>
           )}

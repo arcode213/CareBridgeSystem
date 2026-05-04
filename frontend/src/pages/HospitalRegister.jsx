@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { ArrowLeft } from 'lucide-react';
 
 const WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU'];
 
@@ -36,8 +38,6 @@ const HospitalRegister = () => {
   });
   const [departments, setDepartments] = useState(['Internal Medicine']);
   const [bedsInventory, setBedsInventory] = useState(defaultBeds);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -62,8 +62,10 @@ const HospitalRegister = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    if (departments.length === 0) {
+      toast.error('Please select at least one department.');
+      return;
+    }
     const bedsPayload = bedsInventory.map((row) => ({
       ward: row.ward,
       totalBeds: Number(row.totalBeds),
@@ -83,229 +85,175 @@ const HospitalRegister = () => {
 
     const result = await register(payload);
     if (result.success) {
-      setSuccess('Registration successful! Waiting for admin approval.');
+      toast.success('Hospital registered! Awaiting admin approval.');
       setTimeout(() => navigate('/login'), 3000);
     } else {
-      setError(result.message);
+      toast.error(result.message || 'Registration failed');
     }
   };
 
+  const inputClass = "w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm text-sm";
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">Hospital Registration</h2>
-        <p className="mt-2 text-center text-sm text-slate-600">Onboard your facility (departments, beds, and map location required for referrals)</p>
+    <div className="w-full">
+      <div className="mb-6">
+        <Link to="/register" className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors mb-4">
+          <ArrowLeft size={16} className="mr-1" /> Back to roles
+        </Link>
+        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+          Hospital Registration
+        </h2>
+        <p className="mt-2 text-sm text-slate-600">
+          Onboard your facility — departments, beds, and location are required for referrals.
+        </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-2xl">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-2xl sm:px-10 border border-slate-100">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && <div className="bg-red-50 text-red-700 p-3 rounded-xl text-sm text-center font-medium">{error}</div>}
-            {success && <div className="bg-green-50 text-green-700 p-3 rounded-xl text-sm text-center font-medium">{success}</div>}
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        {/* Section 1: Facility Details */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Facility Details</h3>
+            <div className="flex-1 h-px bg-slate-100"></div>
+          </div>
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Facility Details</h3>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Hospital Name</label>
-                <input
-                  name="hospitalName"
-                  type="text"
-                  required
-                  value={formData.hospitalName}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="City General Hospital"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Reg Number</label>
-                  <input
-                    name="registrationNumber"
-                    type="text"
-                    required
-                    value={formData.registrationNumber}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    placeholder="H-12345"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Admin Name</label>
-                  <input
-                    name="name"
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    placeholder="John Admin"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Address</label>
-                <input
-                  name="address"
-                  type="text"
-                  required
-                  value={formData.address}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="Main Road, Karachi"
-                />
-              </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Hospital Name</label>
+            <input name="hospitalName" type="text" required value={formData.hospitalName}
+              onChange={handleChange} className={inputClass} placeholder="City General Hospital" />
+          </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Departments served</label>
-                <div className="flex flex-wrap gap-2">
-                  {DEPT_OPTIONS.map((dept) => (
-                    <button
-                      key={dept}
-                      type="button"
-                      onClick={() => toggleDepartment(dept)}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                        departments.includes(dept)
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
-                      }`}
-                    >
-                      {dept}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-slate-500 mt-2">Select all departments your hospital accepts for referrals.</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Latitude</label>
-                  <input
-                    name="lat"
-                    type="text"
-                    required
-                    value={formData.lat}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Longitude</label>
-                  <input
-                    name="lng"
-                    type="text"
-                    required
-                    value={formData.lng}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Bed inventory (all wards required)</label>
-                <div className="overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-slate-600">
-                      <tr>
-                        <th className="text-left px-3 py-2">Ward</th>
-                        <th className="text-left px-3 py-2">Total beds</th>
-                        <th className="text-left px-3 py-2">Available</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bedsInventory.map((row) => (
-                        <tr key={row.ward} className="border-t border-slate-100">
-                          <td className="px-3 py-2 font-medium">{row.ward}</td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              min={0}
-                              required
-                              value={row.totalBeds}
-                              onChange={(e) => updateBed(row.ward, 'totalBeds', e.target.value)}
-                              className="w-24 px-2 py-1 rounded-lg border border-slate-200"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              min={0}
-                              required
-                              value={row.availableBeds}
-                              onChange={(e) => updateBed(row.ward, 'availableBeds', e.target.value)}
-                              className="w-24 px-2 py-1 rounded-lg border border-slate-200"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Registration Number</label>
+              <input name="registrationNumber" type="text" required value={formData.registrationNumber}
+                onChange={handleChange} className={inputClass} placeholder="H-12345" />
             </div>
-
-            <div className="space-y-4 pt-2 border-t border-slate-100">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Account Credentials</h3>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Email address</label>
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="admin@hospital.com"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Phone</label>
-                  <input
-                    name="phone"
-                    type="tel"
-                    required
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    placeholder="021-3456789"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Password</label>
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    placeholder="••••••••"
-                  />
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Admin Full Name</label>
+              <input name="name" type="text" required value={formData.name}
+                onChange={handleChange} className={inputClass} placeholder="John Admin" />
             </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={isLoading || departments.length === 0}
-              className="w-full py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70"
-            >
-              {isLoading ? 'Processing...' : 'Register Hospital'}
-            </button>
-          </form>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Hospital Address</label>
+            <input name="address" type="text" required value={formData.address}
+              onChange={handleChange} className={inputClass} placeholder="Main Road, Karachi" />
+          </div>
 
-          <div className="mt-6 text-center text-sm">
-            <span className="text-slate-600">Already have an account? </span>
-            <Link to="/login" className="font-bold text-blue-600 hover:text-blue-500">
-              Sign in
-            </Link>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Departments Served</label>
+            <div className="flex flex-wrap gap-2">
+              {DEPT_OPTIONS.map((dept) => (
+                <button key={dept} type="button" onClick={() => toggleDepartment(dept)}
+                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                    departments.includes(dept)
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400 hover:text-blue-600'
+                  }`}>
+                  {dept}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400 mt-2">Select all departments your hospital accepts for referrals.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Latitude</label>
+              <input name="lat" type="text" required value={formData.lat}
+                onChange={handleChange} className={inputClass} placeholder="24.8607" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Longitude</label>
+              <input name="lng" type="text" required value={formData.lng}
+                onChange={handleChange} className={inputClass} placeholder="67.0099" />
+            </div>
           </div>
         </div>
+
+        {/* Section 2: Bed Inventory */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Bed Inventory</h3>
+            <div className="flex-1 h-px bg-slate-100"></div>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold">Ward</th>
+                  <th className="text-left px-4 py-3 font-semibold">Total Beds</th>
+                  <th className="text-left px-4 py-3 font-semibold">Available</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bedsInventory.map((row) => (
+                  <tr key={row.ward} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-semibold text-slate-700">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold ${
+                        row.ward === 'ICU' || row.ward === 'NICU' || row.ward === 'PICU'
+                          ? 'bg-red-50 text-red-600'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}>{row.ward}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <input type="number" min={0} required value={row.totalBeds}
+                        onChange={(e) => updateBed(row.ward, 'totalBeds', e.target.value)}
+                        className="w-24 px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <input type="number" min={0} required value={row.availableBeds}
+                        onChange={(e) => updateBed(row.ward, 'availableBeds', e.target.value)}
+                        className="w-24 px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Section 3: Account Credentials */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Account Credentials</h3>
+            <div className="flex-1 h-px bg-slate-100"></div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
+            <input name="email" type="email" required value={formData.email}
+              onChange={handleChange} className={inputClass} placeholder="admin@hospital.com" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number</label>
+              <input name="phone" type="tel" required value={formData.phone}
+                onChange={handleChange} className={inputClass} placeholder="021-3456789" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
+              <input name="password" type="password" required value={formData.password}
+                onChange={handleChange} className={inputClass} placeholder="••••••••" />
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" disabled={isLoading || departments.length === 0}
+          className="w-full py-3.5 px-4 border border-transparent rounded-xl shadow-md hover:shadow-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70">
+          {isLoading ? 'Processing...' : 'Register Hospital'}
+        </button>
+      </form>
+
+      <div className="mt-8 text-center text-sm">
+        <span className="text-slate-600">Already have an account? </span>
+        <Link to="/login" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">Sign in</Link>
       </div>
     </div>
   );
 };
 
 export default HospitalRegister;
+

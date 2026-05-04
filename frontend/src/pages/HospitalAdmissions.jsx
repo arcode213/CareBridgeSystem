@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ClipboardList, CheckCircle2, Wallet } from 'lucide-react';
+import { ClipboardList, CheckCircle2, Wallet, ChevronDown, ChevronUp, User, FileText } from 'lucide-react';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
+import toast from 'react-hot-toast';
+import DetailModal from '../components/DetailModal';
 
 const PAYMENT_OPTIONS = [
   { value: 'cash', label: 'Cash' },
@@ -43,9 +45,10 @@ const HospitalAdmissions = () => {
   const startAdmission = async (referralId) => {
     try {
       await api.post('/hospitals/admissions', { referralId });
+      toast.success('Admission started!');
       await load();
     } catch (e) {
-      alert(e.response?.data?.message || 'Could not start admission');
+      toast.error(e.response?.data?.message || 'Could not start admission');
     }
   };
 
@@ -64,19 +67,21 @@ const HospitalAdmissions = () => {
         paymentMethod: form.paymentMethod,
         paymentReference: form.paymentReference || undefined,
       });
+      toast.success('Billing draft saved.');
       setExpanded(null);
       await load();
     } catch (e) {
-      alert(e.response?.data?.message || 'Update failed');
+      toast.error(e.response?.data?.message || 'Update failed');
     }
   };
 
   const complete = async (id) => {
     try {
       await api.post(`/hospitals/admissions/${id}/complete`);
+      toast.success('Case closed — consultant payout triggered.');
       await load();
     } catch (e) {
-      alert(e.response?.data?.message || 'Complete failed — set bill & payment first');
+      toast.error(e.response?.data?.message || 'Complete failed — set bill & payment first');
     }
   };
 
@@ -116,24 +121,57 @@ const HospitalAdmissions = () => {
         ) : (
           <ul className="space-y-3">
             {needsAdmission.map((r) => (
-              <li
-                key={r._id}
-                className="bg-white border border-slate-100 rounded-2xl p-4 sm:p-5 flex flex-wrap justify-between gap-4 items-center shadow-sm"
+              <li key={r._id}
+                className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden"
               >
-                <div>
-                  <p className="font-bold text-slate-900">{r.patientName}</p>
-                  <p className="text-xs text-slate-500 font-mono mt-1">{r.referralCode}</p>
-                  {r.assignedDepartment && (
-                    <p className="text-xs text-blue-600 font-medium mt-1">Dept: {r.assignedDepartment}</p>
-                  )}
+                <div className="p-4 sm:p-5 flex flex-wrap justify-between gap-4 items-center">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-bold text-base flex items-center justify-center shrink-0">
+                      {r.patientName?.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900">{r.patientName}</p>
+                      <p className="text-xs text-slate-500 font-mono mt-0.5">{r.referralCode}</p>
+                      {r.assignedDepartment && (
+                        <span className="inline-block mt-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                          {r.assignedDepartment}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(expanded === `pre-${r._id}` ? null : `pre-${r._id}`)}
+                      className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+                      title="View patient details"
+                    >
+                      {expanded === `pre-${r._id}` ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startAdmission(r._id)}
+                      className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm"
+                    >
+                      Start admission
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => startAdmission(r._id)}
-                  className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
-                >
-                  Start admission
-                </button>
+
+                {/* Expandable patient info */}
+                {expanded === `pre-${r._id}` && (
+                  <div className="border-t border-slate-100 bg-slate-50 px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Age / Gender</p><p className="font-medium text-slate-700">{r.age}y · {r.gender}</p></div>
+                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Phone</p><p className="font-medium text-slate-700">{r.phone || '—'}</p></div>
+                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Urgency</p><p className="font-medium text-slate-700 capitalize">{r.urgency}</p></div>
+                    {r.symptomsText && (
+                      <div className="col-span-2 sm:col-span-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Symptoms</p>
+                        <p className="text-slate-700">{r.symptomsText}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

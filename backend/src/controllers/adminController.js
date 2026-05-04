@@ -16,10 +16,10 @@ exports.listPendingUsers = async (req, res) => {
       users.map(async (u) => {
         const base = { ...u };
         if (u.role === 'consultant') {
-          base.profile = await Consultant.findOne({ userId: u._id }).select('pmdcNumber specialty clinicName').lean();
+          base.profile = await Consultant.findOne({ userId: u._id }).select('pmdcNumber specialty clinicName clinicAddress').lean();
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
-            .select('hospitalName registrationNumber departments bedsInventory')
+            .select('hospitalName registrationNumber departments bedsInventory address')
             .lean();
         }
         return base;
@@ -32,6 +32,40 @@ exports.listPendingUsers = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to list pending users' });
   }
 };
+
+exports.listAllUsers = async (req, res) => {
+  console.log(`[ADMIN] listAllUsers hit: role=${req.query.role}, status=${req.query.status}`);
+  try {
+    const filter = { status: { $ne: 'pending' } };
+    if (req.query.role) filter.role = req.query.role;
+    console.log('[ADMIN] Filter:', filter);
+    const users = await User.find(filter).select('-passwordHash').sort({ createdAt: -1 }).lean();
+    console.log(`[ADMIN] Found ${users.length} users`);
+
+    const enriched = await Promise.all(
+      users.map(async (u) => {
+        const base = { ...u };
+        if (u.role === 'consultant') {
+          base.profile = await Consultant.findOne({ userId: u._id })
+            .select('pmdcNumber specialty clinicName clinicAddress totalEarnings monthlyEarnings promoCode isVerified preferredHospitals')
+            .lean();
+        } else if (u.role === 'hospital') {
+          base.profile = await Hospital.findOne({ userId: u._id })
+            .select('hospitalName registrationNumber departments bedsInventory address city area isActive')
+            .lean();
+        }
+        return base;
+      })
+    );
+
+    console.log(`[ADMIN] Returning ${enriched.length} enriched users`);
+    res.json({ success: true, data: enriched });
+  } catch (error) {
+    console.error('[ADMIN] listAllUsers Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to list users', details: error.message });
+  }
+};
+
 
 exports.updateUserStatus = async (req, res) => {
   try {
@@ -224,8 +258,8 @@ exports.updatePlatformSettings = async (req, res) => {
 exports.listPayouts = async (req, res) => {
   try {
     const rows = await Payout.find()
-      .populate('consultantId', 'pmdcNumber')
-      .populate('referralId', 'referralCode')
+      .populate({ path: 'consultantId', select: 'pmdcNumber specialty promoCode', populate: { path: 'userId', select: 'name email' } })
+      .populate('referralId', 'referralCode patientName status createdAt')
       .sort({ createdAt: -1 })
       .limit(200)
       .lean();
@@ -234,3 +268,4 @@ exports.listPayouts = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed' });
   }
 };
+

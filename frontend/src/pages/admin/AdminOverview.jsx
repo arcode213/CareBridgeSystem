@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Building2, Users, Inbox, Wallet, Activity } from 'lucide-react';
+import { Building2, Users, Inbox, Wallet, Activity, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { formatPkr } from '../../utils/formatPkr';
 
@@ -38,10 +39,10 @@ const AdminOverview = () => {
   }));
 
   const cards = [
-    { label: 'Total users', value: data.totalUsers, icon: Users, color: 'bg-blue-500' },
-    { label: 'Pending approvals', value: data.pendingApprovals, icon: Inbox, color: 'bg-amber-500' },
-    { label: 'Referrals (all time)', value: data.totalReferrals, icon: Activity, color: 'bg-violet-500' },
-    { label: 'Active hospitals', value: data.activeHospitals, icon: Building2, color: 'bg-emerald-500' },
+    { label: 'Total users',       value: data.totalUsers,      icon: Users,     color: 'bg-blue-500',    href: '/admin/consultants' },
+    { label: 'Pending approvals', value: data.pendingApprovals, icon: Inbox,     color: 'bg-amber-500',   href: '/admin/approvals' },
+    { label: 'Referrals (all time)', value: data.totalReferrals, icon: Activity, color: 'bg-violet-500',  href: null },
+    { label: 'Active hospitals',  value: data.activeHospitals, icon: Building2, color: 'bg-emerald-500', href: '/admin/hospitals' },
   ];
 
   return (
@@ -52,18 +53,28 @@ const AdminOverview = () => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {cards.map(({ label, value, icon: Icon, color }) => (
-          <div
-            key={label}
-            className="rounded-2xl bg-white border border-slate-100 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className={`inline-flex p-2 rounded-xl ${color} text-white mb-3`}>
-              <Icon className="w-5 h-5" />
+        {cards.map(({ label, value, icon: Icon, color, href }) => {
+          const inner = (
+            <>
+              <div className={`inline-flex p-2 rounded-xl ${color} text-white mb-3`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <p className="text-xs sm:text-sm font-medium text-slate-500">{label}</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 mt-1 tabular-nums">{value}</p>
+              {href && <ArrowRight className="absolute top-4 right-4 w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors" />}
+            </>
+          );
+          return href ? (
+            <Link key={label} to={href}
+              className="relative group rounded-2xl bg-white border border-slate-100 p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition-all block">
+              {inner}
+            </Link>
+          ) : (
+            <div key={label} className="relative rounded-2xl bg-white border border-slate-100 p-4 sm:p-5 shadow-sm">
+              {inner}
             </div>
-            <p className="text-xs sm:text-sm font-medium text-slate-500">{label}</p>
-            <p className="text-xl sm:text-2xl font-bold text-slate-900 mt-1 tabular-nums">{value}</p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">

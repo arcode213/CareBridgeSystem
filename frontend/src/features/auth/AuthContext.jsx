@@ -9,20 +9,48 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUser({ id: payload.id, role: payload.role, name: payload.name });
-      } catch {
-        setToken(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
+    let timeoutId = null;
+
+    const initializeAuth = () => {
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const currentTime = Date.now() / 1000;
+
+          if (payload.exp && payload.exp < currentTime) {
+            throw new Error('Token expired');
+          }
+
+          setUser({ id: payload.id || payload._id, role: payload.role, name: payload.name });
+
+          // Auto logout when token expires
+          if (payload.exp) {
+            const timeUntilExpiry = (payload.exp - currentTime) * 1000;
+            timeoutId = setTimeout(() => {
+              logout();
+            }, timeUntilExpiry);
+          }
+        } catch (e) {
+          console.error('Session restore failed:', e);
+          setToken(null);
+          setUser(null);
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+        }
+      } else {
+        setUser(null);
       }
-    } else {
-      setUser(null);
-    }
+      setIsInitializing(false);
+    };
+
+    initializeAuth();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [token]);
 
   const login = async (email, password) => {
@@ -40,6 +68,7 @@ export const AuthProvider = ({ children }) => {
         if (data.data.refreshToken) {
           localStorage.setItem('refreshToken', data.data.refreshToken);
         }
+        // Set user immediately so it's available without waiting for useEffect
         setUser(data.data.user);
         return { success: true, user: data.data.user };
       }
@@ -76,12 +105,18 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    window.location.href = '/login'; // Force redirect to login on logout
   };
 
   const isConsultant = user?.role === 'consultant';
   const isHospital = user?.role === 'hospital';
   const isAdmin = user?.role === 'admin';
   const hasRole = (roles = []) => !!user && roles.includes(user.role);
+
+  // Do not render children until initial token parsing is done
+  if (isInitializing) {
+    return null; // Or a loading spinner
+  }
 
   return (
     <AuthContext.Provider
