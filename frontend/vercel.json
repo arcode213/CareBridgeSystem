@@ -1,10 +1,8 @@
 {
   "version": 2,
-  "cleanUrls": true,
-  "framework": "vite",
   "rewrites": [
     {
-      "source": "/((?!assets|favicon\\.ico|robots\\.txt).*)",
+      "source": "/((?!assets|favicon.ico|robots.txt).*)",
       "destination": "/index.html"
     }
   ],
