@@ -27,7 +27,7 @@ const ConsultantRegister = () => {
     e.preventDefault();
     const result = await register(formData);
     if (result.success) {
-      toast.success('Registration successful! Waiting for admin approval.');
+      toast.success(result.message || 'Registration successful! Please check your email for verification.', { duration: 6000 });
       setTimeout(() => navigate('/login'), 3000);
     } else {
       toast.error(result.message || 'Registration failed');

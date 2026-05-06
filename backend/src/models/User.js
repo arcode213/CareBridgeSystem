@@ -30,6 +30,12 @@ const UserSchema = new mongoose.Schema(
       enum: ['pending', 'active', 'suspended'],
       default: 'pending',
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: String,
+    emailVerificationExpires: Date,
   },
   { timestamps: true }
 );

@@ -7,6 +7,7 @@ const Payout = require('../models/Payout');
 const DepartmentCatalog = require('../models/DepartmentCatalog');
 const ScoringConfig = require('../models/ScoringConfig');
 const PlatformSettings = require('../models/PlatformSettings');
+const { logAction } = require('../utils/logger');
 
 exports.listPendingUsers = async (req, res) => {
   try {
@@ -89,6 +90,14 @@ exports.updateUserStatus = async (req, res) => {
       await Consultant.updateOne({ userId: user._id }, { isVerified: true });
     }
 
+    await logAction({
+      req,
+      action: 'USER_STATUS_CHANGE',
+      entityId: user._id,
+      entityModel: 'User',
+      details: { role: user.role, newStatus: status }
+    });
+
     res.json({
       success: true,
       message: `User ${status === 'active' ? 'approved' : 'updated'}`,
@@ -170,6 +179,15 @@ exports.updateScoringConfig = async (req, res) => {
     if (!doc) doc = new ScoringConfig(update);
     else Object.assign(doc, update);
     await doc.save();
+
+    await logAction({
+      req,
+      action: 'SCORING_CONFIG_UPDATE',
+      entityId: doc._id,
+      entityModel: 'ScoringConfig',
+      details: update
+    });
+
     res.json({ success: true, data: doc });
   } catch (e) {
     const msg = e.message || 'Update failed';
@@ -249,6 +267,15 @@ exports.updatePlatformSettings = async (req, res) => {
       doc.payoutPaisaPerClosedCase = Math.max(0, Number(payoutPaisaPerClosedCase));
     }
     await doc.save();
+
+    await logAction({
+      req,
+      action: 'PLATFORM_SETTINGS_UPDATE',
+      entityId: doc._id,
+      entityModel: 'PlatformSettings',
+      details: { payoutPaisaPerClosedCase }
+    });
+
     res.json({ success: true, data: doc });
   } catch (e) {
     res.status(400).json({ success: false, message: e.message });
@@ -266,6 +293,38 @@ exports.listPayouts = async (req, res) => {
     res.json({ success: true, data: rows });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Failed' });
+  }
+};
+
+exports.markPayoutAsPaid = async (req, res) => {
+  try {
+    const { payoutId } = req.params;
+    const { note } = req.body;
+
+    const payout = await Payout.findById(payoutId);
+    if (!payout) {
+      return res.status(404).json({ success: false, message: 'Payout not found' });
+    }
+
+    if (payout.status === 'paid') {
+      return res.status(400).json({ success: false, message: 'Already paid' });
+    }
+
+    payout.status = 'paid';
+    payout.note = note || payout.note;
+    await payout.save();
+
+    await logAction({
+      req,
+      action: 'PAYOUT_DISBURSED',
+      entityId: payout._id,
+      entityModel: 'Payout',
+      details: { amountPaisa: payout.amountPaisa, consultantId: payout.consultantId }
+    });
+
+    res.json({ success: true, message: 'Payout marked as paid' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Update failed' });
   }
 };
 

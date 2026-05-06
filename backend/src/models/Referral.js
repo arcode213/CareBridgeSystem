@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Counter = require('./Counter');
+const { encrypt, decrypt } = require('../utils/crypto');
 
 const ReferralSchema = new mongoose.Schema(
   {
@@ -11,7 +12,11 @@ const ReferralSchema = new mongoose.Schema(
     gender: { type: String, enum: ['male', 'female', 'other'], required: true },
     phone: { type: String, required: true },
     area: { type: String },
-    cnic: { type: String }, // encrypted at rest in production
+    cnic: { 
+      type: String, 
+      set: encrypt, 
+      get: decrypt 
+    }, 
     // Clinical Info
     urgency: { type: String, enum: ['emergency', 'urgent', 'routine'], required: true },
     symptomsText: { type: String },
@@ -44,7 +49,11 @@ const ReferralSchema = new mongoose.Schema(
     admittedAt: { type: Date },
     closedAt: { type: Date },
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { getters: true },
+    toObject: { getters: true }
+  }
 );
 
 // Auto-generate referral code (atomic per year)

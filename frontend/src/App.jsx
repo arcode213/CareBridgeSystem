@@ -1,13 +1,17 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './features/auth/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { io } from 'socket.io-client';
+import { AuthProvider, useAuth } from './features/auth/AuthContext';
 import { Toaster } from 'react-hot-toast';
+import { SOCKET_URL } from './config';
 import AuthLayout from './layouts/AuthLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ConsultantRegister from './pages/ConsultantRegister';
 import HospitalRegister from './pages/HospitalRegister';
-import Landing from './pages/Landing';
+import VerifyEmail from './pages/VerifyEmail';
 import ConsultantDashboard from './pages/ConsultantDashboard';
 import SmartIntakeForm from './pages/SmartIntakeForm';
 import ReferralsList from './pages/ReferralsList';
@@ -24,7 +28,6 @@ import AdminScoring from './pages/admin/AdminScoring';
 import AdminDepartments from './pages/admin/AdminDepartments';
 import AdminPayouts from './pages/admin/AdminPayouts';
 import AdminSettings from './pages/admin/AdminSettings';
-import { useAuth } from './features/auth/AuthContext';
 
 const RoleGuard = ({ children, roles }) => {
   const { user, token } = useAuth();
@@ -35,13 +38,62 @@ const RoleGuard = ({ children, roles }) => {
   return children;
 };
 
+/** Global Socket Listener to invalidate TanStack queries on real-time events */
+const SocketListener = () => {
+  const { token, user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!token || !user) return undefined;
+
+    const socket = io(SOCKET_URL, { transports: ['websocket'] });
+
+    if (user.role === 'hospital') {
+      socket.emit('join_hospital', { token });
+      socket.on('NEW_REFERRAL', () => {
+        queryClient.invalidateQueries({ queryKey: ['inbox'] });
+        queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+      });
+      socket.on('REFERRAL_ESCALATED', () => {
+        queryClient.invalidateQueries({ queryKey: ['inbox'] });
+        queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+      });
+      socket.on('STATUS_UPDATE', () => {
+        queryClient.invalidateQueries({ queryKey: ['inbox'] });
+        queryClient.invalidateQueries({ queryKey: ['admissions'] });
+        queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+      });
+      socket.on('BED_UPDATE', () => {
+        queryClient.invalidateQueries({ queryKey: ['beds'] });
+      });
+    }
+
+    if (user.role === 'consultant') {
+      socket.emit('join_consultant', { token });
+      socket.on('STATUS_UPDATE', () => {
+        queryClient.invalidateQueries({ queryKey: ['referrals'] });
+        queryClient.invalidateQueries({ queryKey: ['earnings'] });
+      });
+      socket.on('REFERRAL_ESCALATED', () => {
+        queryClient.invalidateQueries({ queryKey: ['referrals'] });
+      });
+    }
+
+    return () => socket.disconnect();
+  }, [token, user, queryClient]);
+
+  return null;
+};
+
 function App() {
   return (
     <AuthProvider>
+      <SocketListener />
       <Toaster position="top-right" />
       <Router>
         <Routes>
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
 
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />

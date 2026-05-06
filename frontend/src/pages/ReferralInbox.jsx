@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { io } from 'socket.io-client';
 import { Inbox, X, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../utils/api';
-import { SOCKET_URL } from '../config';
 import toast from 'react-hot-toast';
+import { useInbox } from '../hooks/useReferrals';
 
 function formatSlaCountdown(deadline, now) {
   if (!deadline) return '—';
@@ -29,23 +28,14 @@ const Field = ({ label, value }) => (
 );
 
 const ReferralInbox = () => {
-  const [referrals, setReferrals]   = useState([]);
+  const { data: referrals = [], isLoading, refetch } = useInbox();
   const [departments, setDepartments] = useState([]);
-  const [loading, setLoading]       = useState(true);
   const [now, setNow]               = useState(() => Date.now());
   const [expandedId, setExpandedId] = useState(null);   // expanded detail card
   const [acceptFor, setAcceptFor]   = useState(null);   // accept modal
   const [deptChoice, setDeptChoice] = useState('');
   const [rejectFor, setRejectFor]   = useState(null);   // reject modal
   const [rejectReason, setRejectReason] = useState('');
-
-  const fetchInbox = useCallback(async () => {
-    try {
-      const res = await api.get('/referrals/inbox');
-      if (res.data.success) setReferrals(res.data.data);
-    } catch (err) { console.error('Failed to fetch inbox:', err); }
-    finally { setLoading(false); }
-  }, []);
 
   const loadDepartments = useCallback(async () => {
     try {
@@ -54,18 +44,8 @@ const ReferralInbox = () => {
     } catch { setDepartments([]); }
   }, []);
 
-  useEffect(() => { fetchInbox(); loadDepartments(); }, [fetchInbox, loadDepartments]);
+  useEffect(() => { loadDepartments(); }, [loadDepartments]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return undefined;
-    const socket = io(SOCKET_URL, { transports: ['websocket'] });
-    socket.emit('join_hospital', { token });
-    socket.on('NEW_REFERRAL', fetchInbox);
-    socket.on('REFERRAL_ESCALATED', fetchInbox);
-    return () => socket.disconnect();
-  }, [fetchInbox]);
 
   const submitAccept = async () => {
     if (departments.length && !deptChoice) { toast.error('Select a department for routing.'); return; }
@@ -74,7 +54,8 @@ const ReferralInbox = () => {
       const res = await api.patch(`/referrals/${acceptFor}/status`, body);
       if (res.data.success) {
         toast.success('Referral accepted!');
-        setAcceptFor(null); setDeptChoice(''); fetchInbox();
+        setAcceptFor(null); setDeptChoice(''); 
+        refetch();
       }
     } catch (err) { toast.error(err.response?.data?.message || 'Accept failed'); }
   };
@@ -85,12 +66,13 @@ const ReferralInbox = () => {
       const res = await api.patch(`/referrals/${rejectFor}/status`, { status: 'rejected', reason: rejectReason });
       if (res.data.success) {
         toast.success('Referral rejected.');
-        setRejectFor(null); setRejectReason(''); fetchInbox();
+        setRejectFor(null); setRejectReason(''); 
+        refetch();
       }
     } catch (err) { toast.error(err.response?.data?.message || 'Reject failed'); }
   };
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex items-center justify-center min-h-[40vh] text-slate-500">
       <Inbox className="w-8 h-8 animate-pulse text-blue-500" />
     </div>

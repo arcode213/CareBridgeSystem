@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
-import { ClipboardList, CheckCircle2, Wallet, ChevronDown, ChevronUp, User, FileText } from 'lucide-react';
+import { useState } from 'react';
+import { ClipboardList, CheckCircle2, Wallet, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
-import DetailModal from '../components/DetailModal';
+import { useAdmissions, useHospitalPipeline } from '../hooks/useReferrals';
+import { useQueryClient } from '@tanstack/react-query';
 
 const PAYMENT_OPTIONS = [
   { value: 'cash', label: 'Cash' },
@@ -13,9 +14,10 @@ const PAYMENT_OPTIONS = [
 ];
 
 const HospitalAdmissions = () => {
-  const [pipeline, setPipeline] = useState([]);
-  const [admissions, setAdmissions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: pipeline = [], isLoading: pipelineLoading } = useHospitalPipeline();
+  const { data: admissions = [], isLoading: admissionsLoading } = useAdmissions();
+  
   const [expanded, setExpanded] = useState(null);
   const [form, setForm] = useState({
     serviceDesc: '',
@@ -25,28 +27,12 @@ const HospitalAdmissions = () => {
     paymentReference: '',
   });
 
-  const load = useCallback(async () => {
-    try {
-      const [p, a] = await Promise.all([
-        api.get('/hospitals/referrals-pipeline'),
-        api.get('/hospitals/admissions'),
-      ]);
-      if (p.data.success) setPipeline(p.data.data || []);
-      if (a.data.success) setAdmissions(a.data.data || []);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
   const startAdmission = async (referralId) => {
     try {
       await api.post('/hospitals/admissions', { referralId });
       toast.success('Admission started!');
-      await load();
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+      queryClient.invalidateQueries({ queryKey: ['admissions'] });
     } catch (e) {
       toast.error(e.response?.data?.message || 'Could not start admission');
     }
@@ -69,7 +55,7 @@ const HospitalAdmissions = () => {
       });
       toast.success('Billing draft saved.');
       setExpanded(null);
-      await load();
+      queryClient.invalidateQueries({ queryKey: ['admissions'] });
     } catch (e) {
       toast.error(e.response?.data?.message || 'Update failed');
     }
@@ -77,15 +63,42 @@ const HospitalAdmissions = () => {
 
   const complete = async (id) => {
     try {
+      // If payment method is JazzCash, initiate gateway flow
+      if (form.paymentMethod === 'jazzcash') {
+        const res = await api.get(`/payments/initiate-jazzcash/${id}`);
+        if (res.data.success) {
+          const { url, params } = res.data.data;
+          
+          // Create a form and submit it to redirect to JazzCash
+          const formEl = document.createElement('form');
+          formEl.method = 'POST';
+          formEl.action = url;
+          
+          Object.entries(params).forEach(([key, value]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = value;
+            formEl.appendChild(input);
+          });
+          
+          document.body.appendChild(formEl);
+          formEl.submit();
+          return;
+        }
+      }
+
+      // Default cash/manual closure
       await api.post(`/hospitals/admissions/${id}/complete`);
       toast.success('Case closed — consultant payout triggered.');
-      await load();
+      queryClient.invalidateQueries({ queryKey: ['admissions'] });
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] });
     } catch (e) {
       toast.error(e.response?.data?.message || 'Complete failed — set bill & payment first');
     }
   };
 
-  if (loading) {
+  if (pipelineLoading || admissionsLoading) {
     return (
       <div className="flex justify-center py-20 text-slate-500">
         <ClipboardList className="w-8 h-8 animate-pulse text-blue-500" />

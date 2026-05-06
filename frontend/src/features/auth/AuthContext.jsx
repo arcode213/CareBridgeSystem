@@ -72,7 +72,7 @@ export const AuthProvider = ({ children }) => {
         setUser(data.data.user);
         return { success: true, user: data.data.user };
       }
-      return { success: false, message: data.message };
+      return { success: false, message: data.message, needsVerification: data.needsVerification };
     } catch {
       return { success: false, message: 'Server error' };
     } finally {

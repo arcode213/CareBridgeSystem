@@ -40,11 +40,13 @@ const authRoutes = require('./routes/auth');
 const referralRoutes = require('./routes/referralRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 app.use('/v1/auth', authRoutes);
 app.use('/v1/referrals', referralRoutes);
 app.use('/v1/hospitals', hospitalRoutes);
 app.use('/v1/admin', adminRoutes);
+app.use('/v1/payments', paymentRoutes);
 
 // Root Endpoint
 app.get('/', (req, res) => {

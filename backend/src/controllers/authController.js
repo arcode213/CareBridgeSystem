@@ -3,6 +3,8 @@ const Consultant = require('../models/Consultant');
 const Hospital = require('../models/Hospital');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { sendVerificationEmail } = require('../utils/emailService');
 
 const ALLOWED_WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU'];
 
@@ -102,6 +104,9 @@ exports.register = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
@@ -109,7 +114,12 @@ exports.register = async (req, res) => {
       passwordHash,
       role,
       status: 'pending',
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationExpires,
     });
+
+    // Send verification email (async)
+    sendVerificationEmail(user, verificationToken);
 
     if (role === 'consultant') {
       const pmdc = String(req.body.pmdcNumber || '').trim();
@@ -159,7 +169,7 @@ exports.register = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful. Pending admin approval.',
+      message: 'Registration successful. Please verify your email to proceed.',
       data: { userId: user._id, role: user.role, status: user.status },
     });
   } catch (error) {
@@ -180,6 +190,14 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    if (!user.isEmailVerified) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Please verify your email address before logging in.',
+        needsVerification: true 
+      });
     }
 
     if (user.status === 'pending') {
@@ -208,6 +226,38 @@ exports.login = async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ success: false, message: 'Server error during login' });
+  }
+};
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Verification token is required' });
+    }
+
+    const user = await User.findOne({
+      emailVerificationToken: token,
+      emailVerificationExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification token' });
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully. You can now log in.',
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({ success: false, message: 'Server error during email verification' });
   }
 };
 

@@ -20,5 +20,6 @@ router.delete('/departments/:id', adminController.deleteDepartment);
 router.get('/settings', adminController.getPlatformSettings);
 router.put('/settings', adminController.updatePlatformSettings);
 router.get('/payouts', adminController.listPayouts);
+router.patch('/payouts/:payoutId', adminController.markPayoutAsPaid);
 
 module.exports = router;

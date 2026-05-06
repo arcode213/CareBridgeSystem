@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -6,8 +6,16 @@ import toast from 'react-hot-toast';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'hospital') navigate('/hospital/dashboard');
+      else if (user.role === 'admin') navigate('/admin/overview');
+      else navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,7 +30,11 @@ const Login = () => {
         navigate('/dashboard');
       }
     } else {
-      toast.error(result.message || 'Login failed');
+      if (result.needsVerification) {
+        toast.error('Please verify your email address. Check your inbox!', { duration: 6000, icon: '✉️' });
+      } else {
+        toast.error(result.message || 'Login failed');
+      }
     }
   };
 

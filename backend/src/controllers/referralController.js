@@ -9,6 +9,8 @@ const { slaDeadlineFromUrgency } = require('../utils/sla');
 const { resolveDepartmentFromSymptoms } = require('../services/departmentService');
 const { getScoringWeights } = require('../services/scoringWeightsService');
 const suggestionCache = require('../utils/suggestionCache');
+const { logAction } = require('../utils/logger');
+const { updateHospitalStats } = require('../services/statsService');
 
 /** Only hospitals tied to an active hospital user (registration + admin approval). */
 async function filterHospitalsEligibleForReferrals(hospitals) {
@@ -197,6 +199,14 @@ exports.createReferral = async (req, res) => {
 
     await referral.save();
 
+    await logAction({
+      req,
+      action: 'REFERRAL_CREATED',
+      entityId: referral._id,
+      entityModel: 'Referral',
+      details: { targetHospitalId, urgency }
+    });
+
     const io = req.app.get('io');
     if (io) {
       io.to(`hospital:${targetHospitalId}`).emit('NEW_REFERRAL', {
@@ -337,6 +347,7 @@ exports.updateReferralStatus = async (req, res) => {
       referral.rejectionReason = r;
     }
 
+    const oldStatus = referral.status;
     referral.status = status;
     const now = new Date();
     if (status === 'accepted') {
@@ -353,6 +364,19 @@ exports.updateReferralStatus = async (req, res) => {
     }
 
     await referral.save();
+
+    // Recalculate hospital performance metrics (Factor 5: SLA History)
+    if (['accepted', 'rejected'].includes(status)) {
+      await updateHospitalStats(hospital._id);
+    }
+
+    await logAction({
+      req,
+      action: 'REFERRAL_STATUS_CHANGE',
+      entityId: referral._id,
+      entityModel: 'Referral',
+      details: { oldStatus, newStatus: status, reason }
+    });
 
     const io = req.app.get('io');
     if (io) {
@@ -398,6 +422,7 @@ exports.getConsultantEarnings = async (req, res) => {
     res.json({
       success: true,
       data: {
+        consultant: await Consultant.findById(consultant._id).populate('userId', 'name email phone'),
         totalEarningsPaisa: consultant.totalEarnings || 0,
         monthlyEarningsPaisa: consultant.monthlyEarnings || 0,
         referralCount: referrals.length,
@@ -407,5 +432,53 @@ exports.getConsultantEarnings = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching earnings' });
+  }
+};
+exports.createWithdrawalRequest = async (req, res) => {
+  try {
+    const { amountPaisa, paymentMethod, mobileNumber } = req.body;
+    const consultant = await Consultant.findOne({ userId: req.user.id });
+
+    if (!consultant) {
+      return res.status(404).json({ success: false, message: 'Consultant not found' });
+    }
+
+    if (!amountPaisa || amountPaisa < 50000) { // Min 500 PKR
+      return res.status(400).json({ success: false, message: 'Minimum withdrawal is 500 PKR' });
+    }
+
+    if (consultant.totalEarnings < amountPaisa) {
+      return res.status(400).json({ success: false, message: 'Insufficient balance' });
+    }
+
+    // Since we don't have a WithdrawalRequest model yet, I'll log it and update Payouts status
+    // For now, I'll create a Payout record with status 'pending_withdrawal'
+    const withdrawal = await Payout.create({
+      consultantId: consultant._id,
+      amountPaisa: -amountPaisa, // Negative to reflect withdrawal in history
+      status: 'pending',
+      note: `Withdrawal request via ${paymentMethod} (${mobileNumber})`,
+    });
+
+    // Deduct from consultant's total earnings
+    consultant.totalEarnings -= amountPaisa;
+    await consultant.save();
+
+    await logAction({
+      req,
+      action: 'WITHDRAWAL_REQUESTED',
+      entityId: withdrawal._id,
+      entityModel: 'Payout',
+      details: { amountPaisa, paymentMethod, mobileNumber }
+    });
+
+    res.json({
+      success: true,
+      message: 'Withdrawal request submitted successfully.',
+      data: withdrawal
+    });
+  } catch (error) {
+    console.error('Withdrawal error:', error);
+    res.status(500).json({ success: false, message: 'Failed to process withdrawal' });
   }
 };

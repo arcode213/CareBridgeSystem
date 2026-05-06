@@ -1,26 +1,31 @@
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, Eye } from 'lucide-react';
+import { Wallet, TrendingUp, Eye, FileText } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
 import DetailModal from '../components/DetailModal';
+import WithdrawModal from '../components/WithdrawModal';
+import { generateEarningsPDF } from '../utils/pdfGenerator';
 
 const ConsultantEarnings = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+
+  const fetchEarnings = async () => {
+    try {
+      const res = await api.get('/referrals/earnings');
+      if (res.data.success) setData(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch earnings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchEarnings = async () => {
-      try {
-        const res = await api.get('/referrals/earnings');
-        if (res.data.success) setData(res.data.data);
-      } catch (err) {
-        console.error('Failed to fetch earnings:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchEarnings();
   }, []);
 
@@ -43,10 +48,27 @@ const ConsultantEarnings = () => {
         <div className="p-2 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg">
           <Wallet className="w-6 h-6" />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Earnings</h1>
           <p className="text-slate-500 text-sm mt-1">Accrued payouts when hospitals close billed cases (§12.2).</p>
         </div>
+        <button
+          onClick={async () => {
+            if (data) {
+              try {
+                await generateEarningsPDF(data.consultant || {}, data.referrals || [], data.payouts || []);
+                toast.success('Statement downloaded');
+              } catch (e) {
+                console.error(e);
+                toast.error('Failed to generate PDF');
+              }
+            }
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 font-semibold text-sm hover:bg-slate-50 shadow-sm transition-all"
+        >
+          <FileText size={16} className="text-blue-600" />
+          Download Statement
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -63,7 +85,7 @@ const ConsultantEarnings = () => {
                 <span className="font-bold tabular-nums text-lg">{formatPkr(data.monthlyEarningsPaisa)}</span>
               </div>
               <button 
-                onClick={() => toast('Withdrawal feature coming soon!', { icon: '🏦' })}
+                onClick={() => setShowWithdraw(true)}
                 className="px-5 py-2.5 bg-white text-indigo-700 font-bold rounded-xl text-sm shadow-md hover:bg-blue-50 transition-colors active:scale-95"
               >
                 Withdraw Funds
@@ -188,6 +210,13 @@ const ConsultantEarnings = () => {
           </div>
         )}
       </DetailModal>
+
+      <WithdrawModal
+        isOpen={showWithdraw}
+        onClose={() => setShowWithdraw(false)}
+        balancePaisa={data.totalEarningsPaisa}
+        onRefresh={fetchEarnings}
+      />
     </div>
   );
 };

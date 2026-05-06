@@ -85,8 +85,8 @@ const HospitalRegister = () => {
 
     const result = await register(payload);
     if (result.success) {
-      toast.success('Hospital registered! Awaiting admin approval.');
-      setTimeout(() => navigate('/login'), 3000);
+      toast.success(result.message || 'Hospital registered! Please check your email for verification.', { duration: 6000 });
+      setTimeout(() => navigate('/login'), 4000);
     } else {
       toast.error(result.message || 'Registration failed');
     }

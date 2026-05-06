@@ -17,6 +17,7 @@ router.get('/suggestions', authorize(['consultant']), getSuggestions);
 router.post('/', authorize(['consultant']), createReferral);
 router.get('/mine', authorize(['consultant']), getMyReferrals);
 router.get('/earnings', authorize(['consultant']), getConsultantEarnings);
+router.post('/withdraw', authorize(['consultant']), require('../controllers/referralController').createWithdrawalRequest);
 
 router.get('/inbox', authorize(['hospital']), getHospitalInbox);
 
