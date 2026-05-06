@@ -22,7 +22,6 @@
     "express-rate-limit": "^8.4.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "mailtrap": "^4.5.1",
     "mongoose": "^9.6.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.13",
