@@ -6,6 +6,10 @@ const {
   getReferralPipeline,
   getBeds,
   updateBeds,
+  listDoctors,
+  addDoctor,
+  updateDoctor,
+  deleteDoctor,
 } = require('../controllers/hospitalController');
 const admissionController = require('../controllers/admissionController');
 const { protect, authorize } = require('../middleware/auth');
@@ -15,9 +19,16 @@ router.use(authorize(['hospital']));
 
 router.get('/dashboard', getDashboardStats);
 router.get('/analytics', getHospitalAnalytics);
+router.get('/financial-ledger', require('../controllers/hospitalController').getFinancialLedger);
 router.get('/referrals-pipeline', getReferralPipeline);
 router.get('/beds', getBeds);
 router.patch('/beds', updateBeds);
+router.patch('/departments', require('../controllers/hospitalController').updateDepartments);
+
+router.get('/doctors', listDoctors);
+router.post('/doctors', addDoctor);
+router.patch('/doctors/:id', updateDoctor);
+router.delete('/doctors/:id', deleteDoctor);
 
 router.get('/admissions', admissionController.listAdmissions);
 router.post('/admissions', admissionController.createAdmission);

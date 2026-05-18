@@ -3,6 +3,7 @@ import { Inbox, X, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { useInbox } from '../hooks/useReferrals';
+import ClinicalNotesLog from '../components/ClinicalNotesLog';
 
 function formatSlaCountdown(deadline, now) {
   if (!deadline) return '—';
@@ -131,6 +132,11 @@ const ReferralInbox = () => {
                           {referral.department}
                         </span>
                       )}
+                      {referral.targetDoctorId && (
+                        <span className="inline-block mt-1.5 ml-2 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                          To: Dr. {referral.targetDoctorId.name.replace(/^Dr\.\s*/i, '')}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -150,35 +156,77 @@ const ReferralInbox = () => {
               {isExpanded && (
                 <div className="border-t border-slate-100 px-5 pb-6 pt-4 space-y-5">
                   {/* Patient + Clinical grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl">
                     <Field label="Patient Name"   value={referral.patientName} />
                     <Field label="Age / Gender"   value={`${referral.age}y · ${referral.gender}`} />
                     <Field label="Phone"          value={referral.phone} />
+                    <Field label="Patient CNIC"   value={referral.cnic} />
+                    <Field label="Guardian"       value={referral.guardianName} />
+                    <Field label="Guardian CNIC"  value={referral.guardianCnic} />
                     <Field label="Area"           value={referral.area} />
                     <Field label="Department"     value={referral.department} />
-                    <Field label="Urgency"        value={referral.urgency} />
                   </div>
 
-                  {referral.symptomsText && (
+                  {referral.summaryNotes && (
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Symptoms</p>
-                      <p className="text-sm text-slate-700 bg-slate-50 rounded-xl px-4 py-3">{referral.symptomsText}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Clinical Summary (Consultant)</p>
+                      <p className="text-sm text-slate-700 italic border-l-4 border-blue-200 pl-3 py-2 bg-blue-50/30 rounded-r-xl">{referral.summaryNotes}</p>
                     </div>
                   )}
 
-                  {referral.diagnosisText && (
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Provisional Diagnosis</p>
-                      <p className="text-sm text-slate-700 bg-slate-50 rounded-xl px-4 py-3">{referral.diagnosisText}</p>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {referral.symptomsText && (
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Symptoms</p>
+                        <p className="text-sm text-slate-700 bg-slate-50 rounded-xl px-4 py-3">{referral.symptomsText}</p>
+                      </div>
+                    )}
+
+                    {referral.diagnosisText && (
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Provisional Diagnosis</p>
+                        <p className="text-sm text-slate-700 bg-slate-50 rounded-xl px-4 py-3">{referral.diagnosisText}</p>
+                      </div>
+                    )}
+                  </div>
 
                   {referral.notes && (
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Clinical Notes</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Internal Notes</p>
                       <p className="text-sm text-slate-700 bg-slate-50 rounded-xl px-4 py-3">{referral.notes}</p>
                     </div>
                   )}
+
+                  {referral.attachments && referral.attachments.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Uploaded Medical Reports & Attachments</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {referral.attachments.map((url, idx) => {
+                          const name = url.split('/').pop() || `Attachment_${idx + 1}`;
+                          return (
+                            <a 
+                              key={idx} 
+                              href={url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-all font-semibold text-xs text-slate-700 truncate"
+                            >
+                              📄 {name.slice(-30)}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Clinical Notes Log (Interactive) */}
+                  <div className="border-t border-slate-100 pt-5">
+                    <ClinicalNotesLog 
+                      referralId={referral._id} 
+                      initialNotes={referral.clinicalNotes} 
+                      onNoteAdded={() => refetch()} 
+                    />
+                  </div>
 
                   {/* Action buttons */}
                   <div className="flex gap-3 pt-2">

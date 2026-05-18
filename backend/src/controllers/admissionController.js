@@ -124,6 +124,8 @@ exports.updateAdmission = async (req, res) => {
   }
 };
 
+const billingService = require('../services/billingService');
+
 /** Finalize billing: closes referral, accrues consultant payout (SRS §12.2). */
 exports.completeAdmission = async (req, res) => {
   try {
@@ -135,7 +137,7 @@ exports.completeAdmission = async (req, res) => {
     const admission = await Admission.findOne({
       _id: req.params.id,
       hospitalId: hospital._id,
-    }).populate('referralId');
+    });
 
     if (!admission) {
       return res.status(404).json({ success: false, message: 'Admission not found' });
@@ -158,50 +160,18 @@ exports.completeAdmission = async (req, res) => {
       });
     }
 
-    const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
-    const payoutAmount = settings?.payoutPaisaPerClosedCase ?? 100000;
-
-    admission.status = 'billed';
-    admission.completedAt = new Date();
-    await admission.save();
-
-    const refId = admission.referralId?._id || admission.referralId;
-    const referral = await Referral.findById(refId);
-    if (referral) {
-      referral.status = 'closed';
-      referral.closedAt = new Date();
-      await referral.save();
-    }
-
-    await Payout.create({
-      consultantId: admission.consultantId,
-      referralId: refId,
-      admissionId: admission._id,
-      amountPaisa: payoutAmount,
-      status: 'accrued',
-      note: `Case closed — bill ${bill} paisa (${pm})`,
-    });
-
-    await Consultant.findByIdAndUpdate(admission.consultantId, {
-      $inc: { totalEarnings: payoutAmount, monthlyEarnings: payoutAmount },
-    });
-
     const io = req.app.get('io');
-    if (io && referral) {
-      io.to(`consultant:${admission.consultantId.toString()}`).emit('STATUS_UPDATE', {
-        referralId: referral._id.toString(),
-        status: 'closed',
-      });
-      io.to(`hospital:${hospital._id.toString()}`).emit('STATUS_UPDATE', {
-        referralId: referral._id.toString(),
-        status: 'closed',
-      });
-    }
+    const finalized = await billingService.finalizeAdmission(
+      admission._id,
+      pm,
+      admission.paymentReference,
+      io
+    );
 
     res.json({
       success: true,
       message: 'Admission completed; consultant payout accrued',
-      data: { admission, payoutPaisa: payoutAmount },
+      data: finalized,
     });
   } catch (e) {
     console.error(e);

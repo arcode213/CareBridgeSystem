@@ -76,7 +76,12 @@ const scoreHospital = (hospital, referralData, consultant, weights = DEFAULT_WEI
     consultant &&
     consultant.preferredHospitals &&
     consultant.preferredHospitals.some((id) => id.toString() === hospital._id.toString());
-  const prefScore = isPreferred ? w.preference : 0;
+  
+  /** Auto-learning preference (Q5) */
+  const historicalCount = (consultant && consultant.referralHistoryCount && consultant.referralHistoryCount.get(hospital._id.toString())) || 0;
+  const historyBonus = Math.min(w.preference, historicalCount * 2); // 2 points per past referral, max out at preference weight
+
+  const prefScore = isPreferred ? w.preference : historyBonus;
   totalScore += prefScore;
   breakdown.preference = prefScore;
 

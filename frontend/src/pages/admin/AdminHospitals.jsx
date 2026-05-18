@@ -26,6 +26,13 @@ const AdminHospitals = () => {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [actionId, setActionId] = useState(null);
+  const [customDeduction, setCustomDeduction] = useState(20);
+
+  useEffect(() => {
+    if (selected?.profile?.deductionPercentage != null) {
+      setCustomDeduction(selected.profile.deductionPercentage);
+    }
+  }, [selected]);
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +59,45 @@ const AdminHospitals = () => {
       toast.error(e.response?.data?.message || 'Action failed');
     } finally {
       setActionId(null);
+    }
+  };
+
+  const handleDelete = async (userId) => {
+    if (window.confirm('Are you absolutely sure you want to permanently delete this hospital? This cannot be undone.')) {
+      setActionId(userId);
+      try {
+        const res = await api.delete(`/admin/users/${userId}`);
+        if (res.data.success) {
+          toast.success('Hospital deleted successfully');
+          setSelected(null);
+          await load();
+        }
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to delete hospital');
+      } finally {
+        setActionId(null);
+      }
+    }
+  };
+
+  const handleChangePassword = async (userId) => {
+    const newPass = window.prompt('Enter new password for this user (minimum 6 characters):');
+    if (newPass) {
+      if (newPass.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return;
+      }
+      setActionId(userId);
+      try {
+        const res = await api.post(`/admin/users/${userId}/change-password`, { password: newPass });
+        if (res.data.success) {
+          toast.success('Password updated successfully');
+        }
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to update password');
+      } finally {
+        setActionId(null);
+      }
     }
   };
 
@@ -94,68 +140,77 @@ const AdminHospitals = () => {
               <th className="px-5 py-3.5 font-semibold">Hospital</th>
               <th className="px-5 py-3.5 font-semibold">Reg. No.</th>
               <th className="px-5 py-3.5 font-semibold">Departments</th>
+              <th className="px-5 py-3.5 font-semibold">Beds Available</th>
               <th className="px-5 py-3.5 font-semibold">Status</th>
               <th className="px-5 py-3.5 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="px-5 py-12 text-center text-slate-500">No hospitals found.</td></tr>
-            ) : filtered.map(h => (
-              <tr key={h._id}
-                className="hover:bg-teal-50/30 transition-colors cursor-pointer"
-                onClick={() => setSelected(h)}
-              >
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-700 font-bold text-sm flex items-center justify-center shrink-0">
-                      {(h.profile?.hospitalName || h.name)?.charAt(0)}
+              <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-500">No hospitals found.</td></tr>
+            ) : filtered.map(h => {
+              const availableBeds = h.profile?.bedsInventory?.reduce((acc, curr) => acc + (curr.availableBeds || 0), 0) || 0;
+              return (
+                <tr key={h._id}
+                  className="hover:bg-teal-50/30 transition-colors cursor-pointer"
+                  onClick={() => setSelected(h)}
+                >
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-700 font-bold text-sm flex items-center justify-center shrink-0">
+                        {(h.profile?.hospitalName || h.name)?.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">{h.profile?.hospitalName || h.name}</p>
+                        <p className="text-xs text-slate-500">{h.email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">{h.profile?.hospitalName || h.name}</p>
-                      <p className="text-xs text-slate-500">{h.email}</p>
+                  </td>
+                  <td className="px-5 py-4 font-mono text-xs text-slate-700">{h.profile?.registrationNumber || '—'}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex flex-wrap gap-1">
+                      {(h.profile?.departments || []).slice(0, 2).map(d => (
+                        <span key={d} className="px-2 py-0.5 bg-teal-50 text-teal-700 text-[10px] font-semibold rounded-full">{d}</span>
+                      ))}
+                      {(h.profile?.departments || []).length > 2 && (
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-semibold rounded-full">
+                          +{(h.profile?.departments || []).length - 2}
+                        </span>
+                      )}
                     </div>
-                  </div>
-                </td>
-                <td className="px-5 py-4 font-mono text-xs text-slate-700">{h.profile?.registrationNumber || '—'}</td>
-                <td className="px-5 py-4">
-                  <div className="flex flex-wrap gap-1">
-                    {(h.profile?.departments || []).slice(0, 2).map(d => (
-                      <span key={d} className="px-2 py-0.5 bg-teal-50 text-teal-700 text-[10px] font-semibold rounded-full">{d}</span>
-                    ))}
-                    {(h.profile?.departments || []).length > 2 && (
-                      <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-semibold rounded-full">
-                        +{(h.profile?.departments || []).length - 2}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-5 py-4">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-lg capitalize ${statusBadge(h.status)}`}>
-                    {h.status}
-                  </span>
-                </td>
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => setSelected(h)}
-                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-teal-600 transition-colors">
-                      <Eye size={16} />
-                    </button>
-                    <button
-                      onClick={() => toggleStatus(h._id, h.status)}
-                      disabled={actionId === h._id}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 ${
-                        h.status === 'active'
-                          ? 'text-red-600 hover:bg-red-50'
-                          : 'text-emerald-600 hover:bg-emerald-50'
-                      }`}
-                    >
-                      {actionId === h._id ? '…' : h.status === 'active' ? 'Suspend' : 'Activate'}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-5 py-4 font-semibold text-xs text-slate-700">
+                    <span className={availableBeds > 0 ? 'text-emerald-600' : 'text-red-500'}>
+                      {availableBeds} beds available
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-lg capitalize ${statusBadge(h.status)}`}>
+                      {h.status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => setSelected(h)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-teal-600 transition-colors">
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={() => toggleStatus(h._id, h.status)}
+                        disabled={actionId === h._id}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 ${
+                          h.status === 'active'
+                            ? 'text-red-600 hover:bg-red-50'
+                            : 'text-emerald-600 hover:bg-emerald-50'
+                        }`}
+                      >
+                        {actionId === h._id ? '…' : h.status === 'active' ? 'Suspend' : 'Activate'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -170,15 +225,45 @@ const AdminHospitals = () => {
       >
         {selected && (
           <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-teal-100 text-teal-700 font-black text-2xl flex items-center justify-center">
-                {(selected.profile?.hospitalName || selected.name)?.charAt(0)}
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">{selected.profile?.hospitalName || selected.name}</h3>
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg capitalize ${statusBadge(selected.status)}`}>
-                  {selected.status}
-                </span>
+            {/* Header info */}
+            <div className="flex flex-col gap-4 border-b border-slate-100 pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-teal-100 text-teal-700 font-black text-xl flex items-center justify-center shrink-0">
+                    {(selected.profile?.hospitalName || selected.name)?.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">{selected.profile?.hospitalName || selected.name}</h3>
+                    <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md capitalize ${statusBadge(selected.status)}`}>
+                      {selected.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleStatus(selected._id, selected.status)}
+                    disabled={actionId === selected._id}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                      selected.status === 'active'
+                        ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {actionId === selected._id ? '…' : selected.status === 'active' ? 'Suspend' : 'Activate'}
+                  </button>
+                  <button
+                    onClick={() => handleChangePassword(selected._id)}
+                    className="px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
+                  >
+                    🔑 Password
+                  </button>
+                  <button
+                    onClick={() => handleDelete(selected._id)}
+                    className="px-3 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold transition-all"
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -246,22 +331,54 @@ const AdminHospitals = () => {
                     </div>
                   </div>
                 )}
+                {/* Platform Deduction settings */}
+                <div className="border-t border-slate-100 pt-5">
+                  <div className="flex items-center gap-2 text-teal-700 font-bold text-sm mb-3">
+                    🛡️ Platform Deduction Configuration
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">Hospital Platform Cut (%)</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Define the platform percentage cut automatically deducted from patient payments at this hospital.</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder="20"
+                        value={customDeduction}
+                        onChange={(e) => setCustomDeduction(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                        className="w-20 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                      />
+                      <button
+                        onClick={async () => {
+                          try {
+                            setActionId(selected._id);
+                            await api.post(`/admin/hospitals/${selected._id}/deduction`, { deductionPercentage: customDeduction });
+                            toast.success(`Deduction percentage updated to ${customDeduction}%`);
+                            // Re-apply locally
+                            setSelected(prev => ({
+                              ...prev,
+                              profile: { ...prev.profile, deductionPercentage: customDeduction }
+                            }));
+                            await load();
+                          } catch (err) {
+                            toast.error('Failed to update deduction percentage');
+                          } finally {
+                            setActionId(null);
+                          }
+                        }}
+                        disabled={actionId === selected._id}
+                        className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+                      >
+                        Update
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </>
             )}
-
-            <div className="pt-4 border-t border-slate-100">
-              <button
-                onClick={() => toggleStatus(selected._id, selected.status)}
-                disabled={actionId === selected._id}
-                className={`w-full py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 ${
-                  selected.status === 'active'
-                    ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                }`}
-              >
-                {actionId === selected._id ? 'Updating…' : selected.status === 'active' ? 'Suspend Hospital' : 'Activate Hospital'}
-              </button>
-            </div>
           </div>
         )}
       </DetailModal>

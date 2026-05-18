@@ -8,11 +8,14 @@ const {
   updateReferralStatus,
   getReferralDetails,
   getConsultantEarnings,
+  getHospitalDoctors,
+  addClinicalNote
 } = require('../controllers/referralController');
 const { protect, authorize } = require('../middleware/auth');
 
 router.use(protect);
 
+router.get('/hospitals/:id/doctors', authorize(['consultant']), getHospitalDoctors);
 router.get('/suggestions', authorize(['consultant']), getSuggestions);
 router.post('/', authorize(['consultant']), createReferral);
 router.get('/mine', authorize(['consultant']), getMyReferrals);
@@ -32,5 +35,6 @@ router.patch('/:id/reject', authorize(['hospital']), (req, res, next) => {
 
 router.get('/:id', authorize(['consultant', 'hospital']), getReferralDetails);
 router.patch('/:id/status', authorize(['hospital']), updateReferralStatus);
+router.post('/:id/notes', authorize(['consultant', 'hospital']), addClinicalNote);
 
 module.exports = router;

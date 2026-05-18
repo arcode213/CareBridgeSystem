@@ -1,0 +1,3297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareBridge Health - Complete Developer Blueprint</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header img {
+            max-width: 200px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        .meta-bar {
+            background: #e53e3e;
+            color: white;
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            font-size: 0.9em;
+        }
+        .content {
+            padding: 40px;
+        }
+        .section {
+            margin-bottom: 50px;
+            border-bottom: 3px solid #e2e8f0;
+            padding-bottom: 40px;
+        }
+        .section:last-child {
+            border-bottom: none;
+        }
+        h2 {
+            color: #1e3a5f;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 5px solid #e53e3e;
+        }
+        h3 {
+            color: #2c5282;
+            font-size: 1.3em;
+            margin: 25px 0 15px 0;
+            padding: 10px 15px;
+            background: #ebf8ff;
+            border-radius: 5px;
+        }
+        h4 {
+            color: #4a5568;
+            font-size: 1.1em;
+            margin: 20px 0 10px 0;
+        }
+        .highlight-box {
+            background: #fff5f5;
+            border-left: 5px solid #e53e3e;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .info-box {
+            background: #ebf8ff;
+            border-left: 5px solid #3182ce;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .success-box {
+            background: #f0fff4;
+            border-left: 5px solid #38a169;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .warning-box {
+            background: #fffaf0;
+            border-left: 5px solid #dd6b20;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+        th {
+            background: #1e3a5f;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        tr:nth-child(even) {
+            background: #f7fafc;
+        }
+        tr:hover {
+            background: #edf2f7;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .image-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+            transition: transform 0.3s;
+        }
+        .image-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .image-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .image-card .caption {
+            padding: 15px;
+            font-size: 0.9em;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        .code-block {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 15px 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin: 2px;
+        }
+        .badge-red { background: #fed7d7; color: #c53030; }
+        .badge-green { background: #c6f6d5; color: #22543d; }
+        .badge-blue { background: #bee3f8; color: #2a4365; }
+        .badge-orange { background: #feebc8; color: #7c2d12; }
+        .badge-purple { background: #e9d8fd; color: #553c9a; }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+        }
+        @media (max-width: 768px) {
+            .two-column { grid-template-columns: 1fr; }
+            .meta-bar { flex-direction: column; gap: 5px; }
+            .content { padding: 20px; }
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 10px 15px;
+            margin: 5px 0;
+            background: #f7fafc;
+            border-radius: 5px;
+            border-left: 3px solid #3182ce;
+        }
+        .feature-list li::before {
+            content: "✓ ";
+            color: #38a169;
+            font-weight: bold;
+        }
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            background: #e53e3e;
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .flow-diagram {
+            background: #f7fafc;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .flow-step {
+            display: inline-block;
+            padding: 15px 25px;
+            margin: 10px;
+            background: white;
+            border: 2px solid #3182ce;
+            border-radius: 8px;
+            font-weight: 600;
+            position: relative;
+        }
+        .flow-arrow {
+            display: inline-block;
+            color: #e53e3e;
+            font-size: 1.5em;
+            margin: 0 10px;
+            vertical-align: middle;
+        }
+        .toc {
+            background: #f7fafc;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 40px;
+        }
+        .toc h3 {
+            margin-top: 0;
+            background: none;
+            padding: 0;
+        }
+        .toc ul {
+            list-style: none;
+            columns: 2;
+        }
+        .toc li {
+            padding: 5px 0;
+            break-inside: avoid;
+        }
+        .toc a {
+            color: #2c5282;
+            text-decoration: none;
+        }
+        .toc a:hover {
+            color: #e53e3e;
+        }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .kpi-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        .kpi-card .number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #1e3a5f;
+        }
+        .kpi-card .label {
+            font-size: 0.9em;
+            color: #718096;
+            margin-top: 5px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-green { background: #48bb78; }
+        .status-red { background: #e53e3e; }
+        .status-orange { background: #ed8936; }
+        .status-gray { background: #a0aec0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <img src="images/carebridge_logo.jpeg" alt="CareBridge Health Logo">
+            <h1>CareBridge Health</h1>
+            <p class="subtitle">Complete Developer Blueprint & Technical Specification</p>
+            <p style="margin-top: 15px; font-size: 0.9em;">Healthcare Referral Management SaaS Platform</p>
+        </div>
+
+        <!-- META BAR -->
+        <div class="meta-bar">
+            <span><strong>Project:</strong> CareBridge Health</span>
+            <span><strong>Version:</strong> Phase 1 (May 2026)</span>
+            <span><strong>Stack:</strong> MERN Stack</span>
+            <span><strong>Target:</strong> Pakistan Healthcare Market</span>
+            <span><strong>Prepared For:</strong> Development Team</span>
+        </div>
+
+        <!-- CONTENT -->
+        <div class="content">
+
+            <!-- TABLE OF CONTENTS -->
+            <div class="toc">
+                <h3>📑 Table of Contents</h3>
+                <ul>
+                    <li><a href="#sec1">1. Project Overview & Architecture</a></li>
+                    <li><a href="#sec2">2. Super Admin Control Center</a></li>
+                    <li><a href="#sec3">3. User Management Module</a></li>
+                    <li><a href="#sec4">4. Hospital Management Module</a></li>
+                    <li><a href="#sec5">5. Referral Management Center</a></li>
+                    <li><a href="#sec6">6. Smart Referral Engine</a></li>
+                    <li><a href="#sec7">7. Bed Management Center</a></li>
+                    <li><a href="#sec8">8. Wallet & Payout System</a></li>
+                    <li><a href="#sec9">9. Notification Control Center</a></li>
+                    <li><a href="#sec10">10. Compliance & Audit</a></li>
+                    <li><a href="#sec11">11. Reports & Analytics</a></li>
+                    <li><a href="#sec12">12. Theme Engine</a></li>
+                    <li><a href="#sec13">13. Role-Based Dashboards</a></li>
+                    <li><a href="#sec14">14. Tech Stack & Standards</a></li>
+                    <li><a href="#sec15">15. Database Schema</a></li>
+                    <li><a href="#sec16">16. API Endpoints</a></li>
+                    <li><a href="#sec17">17. Security Requirements</a></li>
+                    <li><a href="#sec18">18. Mobile Requirements</a></li>
+                    <li><a href="#sec19">19. Future Roadmap</a></li>
+                    <li><a href="#sec20">20. Development Phases</a></li>
+                </ul>
+            </div>
+
+            <!-- SECTION 1: PROJECT OVERVIEW -->
+            <div class="section" id="sec1">
+                <h2>1. Project Overview & Architecture</h2>
+
+                <div class="highlight-box">
+                    <strong>Platform Vision:</strong> CareBridge Health is a comprehensive Healthcare Referral Management SaaS platform designed to bridge the gap between doctors (consultants), hospitals (IPD), laboratories, and patients in Pakistan. The platform enables seamless patient referrals, real-time bed management, commission tracking, and emergency escalation.
+                </div>
+
+                <h3>1.1 Core Platform Identity</h3>
+                <div class="image-grid">
+                    <div class="image-card">
+                        <img src="images/carebridge_logo.jpeg" alt="CareBridge Logo">
+                        <div class="caption">Official CareBridge Health Brand Logo<br><span class="badge badge-blue">Brand Asset</span></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="images/2_Medical_Admin_Dashboard_Templates.png" alt="Medical Dashboard Reference">
+                        <div class="caption">Healthcare Dashboard UI Reference Style<br><span class="badge badge-purple">UI Reference</span></div>
+                    </div>
+                </div>
+
+                <h3>1.2 System Architecture Overview</h3>
+                <div class="flow-diagram">
+                    <div class="flow-step">Doctor/Consultant<br><span class="badge badge-blue">Creator</span></div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">CareBridge Platform<br><span class="badge badge-purple">Core Engine</span></div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Hospital/IPD<br><span class="badge badge-green">Receiver</span></div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Patient<br><span class="badge badge-orange">Beneficiary</span></div>
+                </div>
+
+                <h3>1.3 Three-Tier User Structure (From Care Bridge Portal Doc)</h3>
+                <table>
+                    <tr>
+                        <th>Role</th>
+                        <th>Primary Function</th>
+                        <th>Key Actions</th>
+                        <th>Access Level</th>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-blue">Doctor</span></td>
+                        <td>Create referrals, manage patients</td>
+                        <td>Patient intake, hospital selection, bed reservation, follow-up notes</td>
+                        <td>Consultant Dashboard + Mobile</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-green">Hospital (IPD)</span></td>
+                        <td>Receive patients, manage beds & treatment</td>
+                        <td>Accept/reject referrals, update bed status, patient care updates, nursing notes</td>
+                        <td>Hospital Dashboard</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-red">Admin</span></td>
+                        <td>Monitor, authorize, commission management</td>
+                        <td>Profile verification, commission tracking, referral monitoring, financial oversight</td>
+                        <td>Super Admin Control Center</td>
+                    </tr>
+                </table>
+
+                <h3>1.4 Key Business Rules (From Original Portal Document)</h3>
+                <div class="warning-box">
+                    <strong>Critical Business Logic:</strong>
+                    <ul class="feature-list">
+                        <li>System-generated first password for all users (Doctor, Hospital, Admin)</li>
+                        <li>One doctor can create multiple portal IDs with different usernames/passwords</li>
+                        <li>Patient records are end-to-end encrypted between Doctor, IPD, and Admin</li>
+                        <li>Patient Guardian ID and CNIC required for tracking</li>
+                        <li>Unique serial ID generated for every patient</li>
+                        <li>Real-time updates shared between Doctor portal and IPD portal immediately upon reservation</li>
+                        <li>Admin CANNOT interfere in treatment activity - only monitoring and authorization</li>
+                        <li>Commission records display ONLY in admin portal</li>
+                        <li>Hospital pays doctor through bank account; platform commission recorded separately</li>
+                        <li>Platform bank account API connected in Admin portal</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SECTION 2: SUPER ADMIN CONTROL CENTER -->
+            <div class="section" id="sec2">
+                <h2>2. Super Admin Control Center</h2>
+
+                <div class="info-box">
+                    <strong>Purpose:</strong> The Super Admin module is the CENTRAL COMMAND SYSTEM of the entire platform. It provides complete operational authority over all business functions and must support future scalability including multi-city expansion, native mobile apps, AI-based referral engine, HMS integrations, white-label hospital themes, and Urdu language support.
+                </div>
+
+                <h3>2.1 Admin Panel Layout Structure</h3>
+                <div class="code-block">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  TOP NAVIGATION BAR                                                         │
+│  Logo | Search | Global Alerts | Notifications | Quick Actions | Profile    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  LEFT SIDEBAR        │  MAIN CONTENT AREA (Dynamic Module Rendering)     │
+│                      │                                                     │
+│  Dashboard           │  Content changes based on selected sidebar item     │
+│  Users               │                                                     │
+│  Hospitals           │  Layout Rules:                                      │
+│  Consultants         │  • Sticky sidebar navigation                        │
+│  Referrals           │  • Top bar with global actions                      │
+│  Emergency Center    │  • Dynamic content rendering                        │
+│  Bed Management      │  • Responsive grid system                         │
+│  Wallets             │  • Real-time data updates                           │
+│  Analytics           │  • Mobile-responsive design                         │
+│  Notifications       │  • Minimal click navigation                         │
+│  Settings            │                                                     │
+│                      │                                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+                </div>
+
+                <h3>2.2 Super Admin Core Rights</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>User Controls</h4>
+                        <ul class="feature-list">
+                            <li>Create users</li>
+                            <li>Suspend users</li>
+                            <li>Delete users</li>
+                            <li>Reset passwords</li>
+                            <li>Force logout</li>
+                            <li>Assign permissions</li>
+                            <li>Verify licenses/documents</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Referral Controls</h4>
+                        <ul class="feature-list">
+                            <li>Override referrals</li>
+                            <li>Reassign referrals</li>
+                            <li>Force accept/reject</li>
+                            <li>Escalate emergencies</li>
+                            <li>Close referrals</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="two-column">
+                    <div>
+                        <h4>Financial Controls</h4>
+                        <ul class="feature-list">
+                            <li>Manage payouts</li>
+                            <li>Edit wallet balances</li>
+                            <li>Approve withdrawals</li>
+                            <li>Configure commissions</li>
+                            <li>Create invoices</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>System Controls</h4>
+                        <ul class="feature-list">
+                            <li>Modify scoring engine</li>
+                            <li>Change SLA timers</li>
+                            <li>Configure notification triggers</li>
+                            <li>Enable/disable modules</li>
+                            <li>Add cities/departments/symptoms dynamically</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>2.3 Admin Dashboard Home Screen</h3>
+                <div class="image-grid">
+                    <div class="image-card">
+                        <img src="images/1_Healthcare_Admin_Dashboard_UI_UX.png" alt="Healthcare Dashboard UI">
+                        <div class="caption">Healthcare Admin Dashboard UI Reference<br><span class="badge badge-purple">Design Reference</span></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="images/7_Responsive_Medical_Dashboard_Bootstrap.png" alt="Medical Dashboard">
+                        <div class="caption">Medical Dashboard with Analytics<br><span class="badge badge-purple">Design Reference</span></div>
+                    </div>
+                </div>
+
+                <h3>2.4 Required KPI Widgets (Dashboard Cards)</h3>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="number">245</div>
+                        <div class="label">Total Referrals Today</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number" style="color: #e53e3e;">18</div>
+                        <div class="label">Emergency Cases Active</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number" style="color: #ed8936;">36</div>
+                        <div class="label">Pending Hospital Responses</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number" style="color: #38a169;">1.2M</div>
+                        <div class="label">Wallet Balance (PKR)</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">87%</div>
+                        <div class="label">ICU Occupancy</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">92%</div>
+                        <div class="label">SLA Compliance</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">78%</div>
+                        <div class="label">Success Rate</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number" style="color: #ed8936;">12</div>
+                        <div class="label">Pending Verifications</div>
+                    </div>
+                </div>
+
+                <h3>2.5 Live Referral Activity Panel</h3>
+                <table>
+                    <tr>
+                        <th>Case</th>
+                        <th>Status</th>
+                        <th>Hospital</th>
+                        <th>Time Left</th>
+                        <th>Indicator</th>
+                    </tr>
+                    <tr>
+                        <td>Emergency NICU</td>
+                        <td><span class="badge badge-red">Pending</span></td>
+                        <td>South City</td>
+                        <td>2 mins</td>
+                        <td><span class="status-indicator status-red"></span> Critical</td>
+                    </tr>
+                    <tr>
+                        <td>Cardiac Case</td>
+                        <td><span class="badge badge-green">Accepted</span></td>
+                        <td>South City</td>
+                        <td>—</td>
+                        <td><span class="status-indicator status-green"></span> Active</td>
+                    </tr>
+                    <tr>
+                        <td>ICU Case</td>
+                        <td><span class="badge badge-orange">Escalated</span></td>
+                        <td>Top 10 Hospitals</td>
+                        <td>Active</td>
+                        <td><span class="status-indicator status-orange"></span> Escalated</td>
+                    </tr>
+                    <tr>
+                        <td>Orthopedic</td>
+                        <td><span class="badge badge-blue">Completed</span></td>
+                        <td>Midciti</td>
+                        <td>—</td>
+                        <td><span class="status-indicator status-gray"></span> Done</td>
+                    </tr>
+                </table>
+
+                <h3>2.6 Bed Occupancy Visualization</h3>
+                <table>
+                    <tr>
+                        <th>Bed Type</th>
+                        <th>Occupancy Rate</th>
+                        <th>Visual Bar</th>
+                        <th>Status</th>
+                    </tr>
+                    <tr>
+                        <td>ICU</td>
+                        <td>87%</td>
+                        <td>███████████████░░░</td>
+                        <td><span class="badge badge-red">High</span></td>
+                    </tr>
+                    <tr>
+                        <td>NICU</td>
+                        <td>65%</td>
+                        <td>████████████░░░░░░░</td>
+                        <td><span class="badge badge-orange">Moderate</span></td>
+                    </tr>
+                    <tr>
+                        <td>PICU</td>
+                        <td>71%</td>
+                        <td>█████████████░░░░░░</td>
+                        <td><span class="badge badge-orange">Moderate</span></td>
+                    </tr>
+                </table>
+
+                <div class="success-box">
+                    <strong>Dashboard Requirements:</strong>
+                    <ul class="feature-list">
+                        <li>Real-time WebSocket updates for ALL KPIs</li>
+                        <li>Color-coded status indicators (Red=Emergency, Orange=Pending, Green=Success)</li>
+                        <li>Responsive grid layout for all screen sizes</li>
+                        <li>Auto-refresh every 30 seconds for non-WebSocket fallback</li>
+                        <li>Sound alerts for emergency cases</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SECTION 3: USER MANAGEMENT -->
+            <div class="section" id="sec3">
+                <h2>3. User Management Module</h2>
+
+                <h3>3.1 Module Purpose</h3>
+                <p>Manage all platform users including Consultants (Doctors), Hospitals, Admins, and pending verifications. This is the USER LIFECYCLE CONTROL center.</p>
+
+                <h3>3.2 Tab Structure</h3>
+                <div class="code-block">
+Tabs: [All Users] [Consultants] [Hospitals] [Admins] [Pending Verification] [Suspended Accounts]
+                </div>
+
+                <h3>3.3 User Table View (Columns)</h3>
+                <table>
+                    <tr>
+                        <th>Column</th>
+                        <th>Description</th>
+                        <th>Data Type</th>
+                        <th>Filterable</th>
+                    </tr>
+                    <tr>
+                        <td>Name</td>
+                        <td>Full name of user/hospital</td>
+                        <td>String</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Role</td>
+                        <td>Consultant / Hospital / Admin</td>
+                        <td>Enum</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>City</td>
+                        <td>Operational city</td>
+                        <td>String</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Verification Status</td>
+                        <td>Approved / Pending / Rejected</td>
+                        <td>Enum</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Last Login</td>
+                        <td>Last activity timestamp</td>
+                        <td>DateTime</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Wallet Balance</td>
+                        <td>Financial summary (PKR)</td>
+                        <td>Decimal</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Referral Count</td>
+                        <td>Performance metric</td>
+                        <td>Integer</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Status</td>
+                        <td>Active / Suspended / Blacklisted</td>
+                        <td>Enum</td>
+                        <td>Yes</td>
+                    </tr>
+                </table>
+
+                <h3>3.4 Sample User Table Data</h3>
+                <table>
+                    <tr>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>City</th>
+                        <th>Verification</th>
+                        <th>Status</th>
+                        <th>Wallet</th>
+                    </tr>
+                    <tr>
+                        <td>Dr. Ali Khan</td>
+                        <td><span class="badge badge-blue">Consultant</span></td>
+                        <td>Karachi</td>
+                        <td><span class="badge badge-green">Approved</span></td>
+                        <td><span class="badge badge-green">Active</span></td>
+                        <td>45,000 PKR</td>
+                    </tr>
+                    <tr>
+                        <td>South City Hospital</td>
+                        <td><span class="badge badge-green">Hospital</span></td>
+                        <td>Karachi</td>
+                        <td><span class="badge badge-green">Approved</span></td>
+                        <td><span class="badge badge-green">Active</span></td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td>Dr. Sara Ahmed</td>
+                        <td><span class="badge badge-blue">Consultant</span></td>
+                        <td>Karachi</td>
+                        <td><span class="badge badge-orange">Pending</span></td>
+                        <td><span class="badge badge-orange">Pending</span></td>
+                        <td>0 PKR</td>
+                    </tr>
+                    <tr>
+                        <td>Admin User</td>
+                        <td><span class="badge badge-purple">Admin</span></td>
+                        <td>Karachi</td>
+                        <td><span class="badge badge-green">Approved</span></td>
+                        <td><span class="badge badge-red">Suspended</span></td>
+                        <td>—</td>
+                    </tr>
+                </table>
+
+                <h3>3.5 Consultant Profile Screen Structure</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>Basic Information Section</h4>
+                        <ul class="feature-list">
+                            <li>Full Name</li>
+                            <li>PMDC Number (Pakistan Medical & Dental Council)</li>
+                            <li>CNIC (Computerized National Identity Card)</li>
+                            <li>Contact Details (Phone, Email)</li>
+                            <li>City</li>
+                            <li>Specialization</li>
+                            <li>Clinic Location(s)</li>
+                        </ul>
+
+                        <h4>Documents Section</h4>
+                        <ul class="feature-list">
+                            <li>PMDC Certificate (Upload & Verify)</li>
+                            <li>CNIC Upload (Front & Back)</li>
+                            <li>Additional Certificates</li>
+                            <li>Degree Verification</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Referral Performance Section</h4>
+                        <ul class="feature-list">
+                            <li>Total Referrals (Lifetime)</li>
+                            <li>Accepted Cases</li>
+                            <li>Rejected Cases</li>
+                            <li>Emergency Cases</li>
+                            <li>Average SLA (Response Time)</li>
+                            <li>Success Rate %</li>
+                        </ul>
+
+                        <h4>Wallet Section</h4>
+                        <ul class="feature-list">
+                            <li>Current Balance</li>
+                            <li>Pending Amount (Clearance)</li>
+                            <li>Withdrawn Amount (Historical)</li>
+                            <li>Commission Structure (Fixed/%)</li>
+                        </ul>
+
+                        <h4>Activity Logs</h4>
+                        <ul class="feature-list">
+                            <li>Login History (IP, Device, Time)</li>
+                            <li>Device History</li>
+                            <li>Referral Actions Log</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>3.6 Super Admin Actions on Users</h3>
+                <div class="highlight-box">
+                    <strong>CRITICAL:</strong> All admin actions must be logged in Audit Logs with timestamp, admin ID, and reason.
+                </div>
+                <table>
+                    <tr>
+                        <th>Action</th>
+                        <th>Description</th>
+                        <th>Confirmation Required</th>
+                        <th>Notification Sent</th>
+                    </tr>
+                    <tr>
+                        <td>Approve Consultant</td>
+                        <td>Verify and activate consultant account</td>
+                        <td>Yes</td>
+                        <td>Email + WhatsApp</td>
+                    </tr>
+                    <tr>
+                        <td>Reject Consultant</td>
+                        <td>Reject with reason</td>
+                        <td>Yes</td>
+                        <td>Email</td>
+                    </tr>
+                    <tr>
+                        <td>Suspend Account</td>
+                        <td>Temporary disable</td>
+                        <td>Yes</td>
+                        <td>Email + Popup</td>
+                    </tr>
+                    <tr>
+                        <td>Force Password Reset</td>
+                        <td>Generate new system password</td>
+                        <td>Yes</td>
+                        <td>Email + SMS</td>
+                    </tr>
+                    <tr>
+                        <td>Disable Referrals</td>
+                        <td>Stop user from creating referrals</td>
+                        <td>Yes</td>
+                        <td>Popup</td>
+                    </tr>
+                    <tr>
+                        <td>Edit Payout Structure</td>
+                        <td>Per-consultant commission settings</td>
+                        <td>Yes</td>
+                        <td>Email</td>
+                    </tr>
+                    <tr>
+                        <td>Assign Permissions</td>
+                        <td>Granular role permissions</td>
+                        <td>No</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>Restrict Cities</td>
+                        <td>Limit operational cities</td>
+                        <td>No</td>
+                        <td>Popup</td>
+                    </tr>
+                    <tr>
+                        <td>Blacklist Account</td>
+                        <td>Permanent ban</td>
+                        <td>Yes (Double)</td>
+                        <td>Email</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- SECTION 4: HOSPITAL MANAGEMENT -->
+            <div class="section" id="sec4">
+                <h2>4. Hospital Management Module</h2>
+
+                <h3>4.1 Module Objective</h3>
+                <p>Manage hospitals, departments, doctors, beds, and operational settings. This is the HOSPITAL LIFECYCLE CONTROL center.</p>
+
+                <h3>4.2 Hospital List View</h3>
+                <table>
+                    <tr>
+                        <th>Hospital</th>
+                        <th>City</th>
+                        <th>Departments</th>
+                        <th>ICU Beds</th>
+                        <th>SLA %</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr>
+                        <td>South City</td>
+                        <td>Karachi</td>
+                        <td>18</td>
+                        <td>8</td>
+                        <td>92%</td>
+                        <td><span class="badge badge-green">Active</span></td>
+                        <td>View | Edit | Beds</td>
+                    </tr>
+                    <tr>
+                        <td>Midciti</td>
+                        <td>Karachi</td>
+                        <td>24</td>
+                        <td>5</td>
+                        <td>89%</td>
+                        <td><span class="badge badge-green">Active</span></td>
+                        <td>View | Edit | Beds</td>
+                    </tr>
+                    <tr>
+                        <td>Aga Khan</td>
+                        <td>Karachi</td>
+                        <td>32</td>
+                        <td>12</td>
+                        <td>95%</td>
+                        <td><span class="badge badge-green">Active</span></td>
+                        <td>View | Edit | Beds</td>
+                    </tr>
+                </table>
+
+                <h3>4.3 Hospital Profile UI Sections</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>General Information</h4>
+                        <ul class="feature-list">
+                            <li>Hospital Name</li>
+                            <li>License Number (SHCC)</li>
+                            <li>Contact Details</li>
+                            <li>City</li>
+                            <li>Address</li>
+                            <li>Emergency Availability (24/7?)</li>
+                            <li>Geo Location (Lat/Long)</li>
+                        </ul>
+
+                        <h4>Documents</h4>
+                        <ul class="feature-list">
+                            <li>SHCC License Upload</li>
+                            <li>Rate List Upload</li>
+                            <li>Legal Agreements</li>
+                            <li>NOC Documents</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Department Management</h4>
+                        <ul class="feature-list">
+                            <li>Add Departments</li>
+                            <li>Edit Departments</li>
+                            <li>Remove Departments</li>
+                            <li>Add Ward Types</li>
+                            <li>Add Procedures</li>
+                            <li>Add Treatments</li>
+                        </ul>
+
+                        <h4>Doctor Management</h4>
+                        <ul class="feature-list">
+                            <li>Add Doctors</li>
+                            <li>Assign Specialties</li>
+                            <li>Set Availability Schedules</li>
+                            <li>Enable/Disable Referral Acceptance</li>
+                            <li>Mark On-Call Status</li>
+                        </ul>
+
+                        <h4>Bed Management Types</h4>
+                        <ul class="feature-list">
+                            <li>ICU (Intensive Care Unit)</li>
+                            <li>NICU (Neonatal ICU)</li>
+                            <li>PICU (Pediatric ICU)</li>
+                            <li>HDU (High Dependency Unit)</li>
+                            <li>General Ward</li>
+                            <li>Private Room</li>
+                            <li>Emergency Bay</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>4.4 Financial Settings Per Hospital</h3>
+                <table>
+                    <tr>
+                        <th>Setting</th>
+                        <th>Description</th>
+                        <th>Configuration</th>
+                    </tr>
+                    <tr>
+                        <td>Commission Model</td>
+                        <td>Fixed or percentage-based commissions per hospital</td>
+                        <td>Dropdown + Input</td>
+                    </tr>
+                    <tr>
+                        <td>Referral Pricing</td>
+                        <td>Procedure-based and hospital-specific pricing tiers</td>
+                        <td>Matrix Table</td>
+                    </tr>
+                    <tr>
+                        <td>Invoice Settings</td>
+                        <td>Auto-generate invoices, configure billing cycles and tax</td>
+                        <td>Form + Toggle</td>
+                    </tr>
+                </table>
+
+                <div class="warning-box">
+                    <strong>From Portal Document:</strong> Hospitals can add their number of beds and doctors quantity themselves. Availability of department and updates must be updated in real-time and shared between hospital and doctor portals.
+                </div>
+            </div>
+
+            <!-- SECTION 5: REFERRAL MANAGEMENT -->
+            <div class="section" id="sec5">
+                <h2>5. Referral Management Center</h2>
+
+                <h3>5.1 Module Objective</h3>
+                <p>Control ALL referrals in real-time. This is the OPERATIONAL HEART of the platform.</p>
+
+                <h3>5.2 Referral Table Structure</h3>
+                <table>
+                    <tr>
+                        <th>Referral ID</th>
+                        <th>Patient</th>
+                        <th>Consultant</th>
+                        <th>Hospital</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>SLA Timer</th>
+                    </tr>
+                    <tr>
+                        <td>RF-1001</td>
+                        <td>Ahmed</td>
+                        <td>Dr. Ali</td>
+                        <td>South City</td>
+                        <td><span class="badge badge-red">Emergency</span></td>
+                        <td><span class="badge badge-orange">Pending</span></td>
+                        <td>2:45 remaining</td>
+                    </tr>
+                    <tr>
+                        <td>RF-1002</td>
+                        <td>Sara</td>
+                        <td>Dr. Khan</td>
+                        <td>Midciti</td>
+                        <td><span class="badge badge-blue">Normal</span></td>
+                        <td><span class="badge badge-green">Accepted</span></td>
+                        <td>—</td>
+                    </tr>
+                    <tr>
+                        <td>RF-1003</td>
+                        <td>Omar</td>
+                        <td>Dr. Fatima</td>
+                        <td>Aga Khan</td>
+                        <td><span class="badge badge-orange">Urgent</span></td>
+                        <td><span class="badge badge-blue">In Progress</span></td>
+                        <td>8:30 remaining</td>
+                    </tr>
+                </table>
+
+                <h3>5.3 Referral Detail Screen Sections</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>Patient Information</h4>
+                        <ul class="feature-list">
+                            <li>Name</li>
+                            <li>Age</li>
+                            <li>Gender</li>
+                            <li>Symptoms</li>
+                            <li>Diagnosis</li>
+                            <li>Emergency Level (1-5)</li>
+                            <li>Patient Guardian ID & CNIC</li>
+                            <li>Unique Serial ID</li>
+                        </ul>
+
+                        <h4>Referral Information</h4>
+                        <ul class="feature-list">
+                            <li>Referred by (Consultant)</li>
+                            <li>Suggested Hospitals (AI Ranked)</li>
+                            <li>Selected Hospital</li>
+                            <li>Escalation Status</li>
+                            <li>SLA Countdown Timer</li>
+                            <li>Created Timestamp</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Financial Information</h4>
+                        <ul class="feature-list">
+                            <li>Referral Type</li>
+                            <li>Commission Mode</li>
+                            <li>Expected Billing Range</li>
+                            <li>Doctor Commission</li>
+                            <li>Platform Fee</li>
+                        </ul>
+
+                        <h4>Timeline Activity (Audit Trail)</h4>
+                        <ul class="feature-list">
+                            <li>Referral Created → [Timestamp]</li>
+                            <li>Hospital Viewed → [Timestamp]</li>
+                            <li>Hospital Responded → [Timestamp]</li>
+                            <li>Escalation Triggered → [Timestamp]</li>
+                            <li>Patient Admitted → [Timestamp]</li>
+                            <li>Case Closed → [Timestamp]</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>5.4 Admin Controls on Referrals</h3>
+                <div class="highlight-box">
+                    <strong>CRITICAL ADMIN POWERS:</strong> These actions bypass normal workflow and must require confirmation + reason logging.
+                </div>
+                <table>
+                    <tr>
+                        <th>Action</th>
+                        <th>Description</th>
+                        <th>Impact</th>
+                    </tr>
+                    <tr>
+                        <td>Force Assign Hospital</td>
+                        <td>Override AI suggestion and assign specific hospital</td>
+                        <td>High</td>
+                    </tr>
+                    <tr>
+                        <td>Override Rejection</td>
+                        <td>Force hospital to accept rejected referral</td>
+                        <td>Critical</td>
+                    </tr>
+                    <tr>
+                        <td>Transfer Referral</td>
+                        <td>Move patient to different hospital</td>
+                        <td>High</td>
+                    </tr>
+                    <tr>
+                        <td>Close Case</td>
+                        <td>Manually mark referral as completed/cancelled</td>
+                        <td>Medium</td>
+                    </tr>
+                    <tr>
+                        <td>Mark Emergency</td>
+                        <td>Upgrade any case to emergency priority</td>
+                        <td>Critical</td>
+                    </tr>
+                    <tr>
+                        <td>Escalate Manually</td>
+                        <td>Push to Top 10 hospitals network</td>
+                        <td>High</td>
+                    </tr>
+                    <tr>
+                        <td>Freeze Referral</td>
+                        <td>Temporarily pause all actions on referral</td>
+                        <td>Medium</td>
+                    </tr>
+                    <tr>
+                        <td>Blacklist Hospital</td>
+                        <td>Prevent hospital from receiving future referrals</td>
+                        <td>Critical</td>
+                    </tr>
+                </table>
+
+                <h3>5.5 Status Colors (Universal Across All Dashboards)</h3>
+                <table>
+                    <tr>
+                        <th>Status</th>
+                        <th>Color Code</th>
+                        <th>Hex</th>
+                        <th>Use Case</th>
+                    </tr>
+                    <tr>
+                        <td><span class="status-indicator status-green"></span> Accepted</td>
+                        <td>Green</td>
+                        <td>#38a169</td>
+                        <td>Hospital accepted referral</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-indicator status-orange"></span> Pending</td>
+                        <td>Orange</td>
+                        <td>#ed8936</td>
+                        <td>Waiting for hospital response</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-indicator status-red"></span> Emergency</td>
+                        <td>Red</td>
+                        <td>#e53e3e</td>
+                        <td>Emergency priority case</td>
+                    </tr>
+                    <tr>
+                        <td><span class="status-indicator status-gray"></span> Rejected</td>
+                        <td>Gray</td>
+                        <td>#a0aec0</td>
+                        <td>Hospital rejected referral</td>
+                    </tr>
+                </table>
+
+                <div class="info-box">
+                    <strong>From Portal Document:</strong> Once the doctor selects an institute and treatment, the service is dedicatedly reserved on the Doctor's portal and IPD portal immediately. After reservation, once the hospital receives the patient, the patient record and updates are shared with the doctor and hospital in real-time.
+                </div>
+            </div>
+
+            <!-- SECTION 6: SMART REFERRAL ENGINE -->
+            <div class="section" id="sec6">
+                <h2>6. Smart Referral Engine Panel</h2>
+
+                <h3>6.1 Purpose</h3>
+                <p>Control AI-like matching logic for hospital recommendations. This is the INTELLIGENCE ENGINE of the platform.</p>
+
+                <h3>6.2 Scoring Weight Settings (Configurable by Admin)</h3>
+                <table>
+                    <tr>
+                        <th>Factor</th>
+                        <th>Default Weight</th>
+                        <th>Description</th>
+                        <th>Editable</th>
+                    </tr>
+                    <tr>
+                        <td>Bed Availability</td>
+                        <td>30%</td>
+                        <td>Real-time bed count availability</td>
+                        <td>Yes (Slider 0-100%)</td>
+                    </tr>
+                    <tr>
+                        <td>Distance</td>
+                        <td>20%</td>
+                        <td>Proximity from patient location</td>
+                        <td>Yes (Slider 0-100%)</td>
+                    </tr>
+                    <tr>
+                        <td>Hospital Rating</td>
+                        <td>15%</td>
+                        <td>Historical performance score</td>
+                        <td>Yes (Slider 0-100%)</td>
+                    </tr>
+                    <tr>
+                        <td>Budget Match</td>
+                        <td>15%</td>
+                        <td>Alignment with patient budget</td>
+                        <td>Yes (Slider 0-100%)</td>
+                    </tr>
+                    <tr>
+                        <td>Consultant Preference</td>
+                        <td>10%</td>
+                        <td>Doctor's preferred hospitals</td>
+                        <td>Yes (Slider 0-100%)</td>
+                    </tr>
+                    <tr>
+                        <td>Doctor Availability</td>
+                        <td>10%</td>
+                        <td>Specific doctor on-call status</td>
+                        <td>Yes (Slider 0-100%)</td>
+                    </tr>
+                </table>
+
+                <div class="success-box">
+                    <strong>Admin Controls for Scoring Engine:</strong>
+                    <ul class="feature-list">
+                        <li>Drag sliders to adjust weights (must total 100%)</li>
+                        <li>Save changes instantly (no page reload)</li>
+                        <li>Rollback to previous version</li>
+                        <li>Enable/disable entire scoring logic</li>
+                        <li>Preview scoring results before saving</li>
+                    </ul>
+                </div>
+
+                <h3>6.3 Emergency Escalation Rules (Auto-Triggered)</h3>
+                <div class="code-block">
+RULE 1: IF no hospital response in 3 minutes → Expand to Top 10 hospitals
+RULE 2: IF Emergency priority detected → Auto-assign nearest facility with capacity
+RULE 3: IF ICU bed unavailable → Search HDU / NICU / PICU alternatives
+RULE 4: IF all beds full in network → Escalate to network admin + SMS alert
+RULE 5: IF SLA timer expires → Auto-escalate + mark as critical
+                </div>
+
+                <h3>6.4 SLA Configuration (Editable by Admin)</h3>
+                <table>
+                    <tr>
+                        <th>Priority Level</th>
+                        <th>Timer</th>
+                        <th>Color</th>
+                        <th>Escalation Action</th>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-red">Emergency</span></td>
+                        <td>3 minutes</td>
+                        <td>Red flashing</td>
+                        <td>Auto-expand + Sound alert</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-orange">Urgent</span></td>
+                        <td>10 minutes</td>
+                        <td>Orange pulse</td>
+                        <td>Expand to 5 nearest hospitals</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-blue">Normal</span></td>
+                        <td>30 minutes</td>
+                        <td>Blue static</td>
+                        <td>Reminder notification</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- SECTION 7: BED MANAGEMENT -->
+            <div class="section" id="sec7">
+                <h2>7. Bed Management Center</h2>
+
+                <h3>7.1 Objective</h3>
+                <p>Monitor LIVE hospital bed availability across the entire network. This is the CAPACITY MANAGEMENT system.</p>
+
+                <h3>7.2 Live Bed Matrix</h3>
+                <table>
+                    <tr>
+                        <th>Hospital</th>
+                        <th>ICU</th>
+                        <th>NICU</th>
+                        <th>PICU</th>
+                        <th>General</th>
+                        <th>HDU</th>
+                        <th>Emergency</th>
+                    </tr>
+                    <tr>
+                        <td>South City</td>
+                        <td>2/10</td>
+                        <td>1/5</td>
+                        <td>1/3</td>
+                        <td>12/50</td>
+                        <td>1/4</td>
+                        <td>3/8</td>
+                    </tr>
+                    <tr>
+                        <td>Midciti</td>
+                        <td>4/8</td>
+                        <td>2/6</td>
+                        <td>1/4</td>
+                        <td>20/60</td>
+                        <td>3/6</td>
+                        <td>5/10</td>
+                    </tr>
+                    <tr>
+                        <td>Aga Khan</td>
+                        <td>6/18</td>
+                        <td>3/8</td>
+                        <td>2/6</td>
+                        <td>35/100</td>
+                        <td>5/10</td>
+                        <td>8/15</td>
+                    </tr>
+                </table>
+
+                <h3>7.3 Bed Type Definitions</h3>
+                <table>
+                    <tr>
+                        <th>Type</th>
+                        <th>Full Name</th>
+                        <th>Use Case</th>
+                        <th>Priority Level</th>
+                    </tr>
+                    <tr>
+                        <td>ICU</td>
+                        <td>Intensive Care Unit</td>
+                        <td>Critical patients requiring constant monitoring</td>
+                        <td><span class="badge badge-red">Highest</span></td>
+                    </tr>
+                    <tr>
+                        <td>NICU</td>
+                        <td>Neonatal ICU</td>
+                        <td>Newborn critical care</td>
+                        <td><span class="badge badge-red">Highest</span></td>
+                    </tr>
+                    <tr>
+                        <td>PICU</td>
+                        <td>Pediatric ICU</td>
+                        <td>Children critical care</td>
+                        <td><span class="badge badge-red">Highest</span></td>
+                    </tr>
+                    <tr>
+                        <td>HDU</td>
+                        <td>High Dependency Unit</td>
+                        <td>Step-down from ICU</td>
+                        <td><span class="badge badge-orange">High</span></td>
+                    </tr>
+                    <tr>
+                        <td>General</td>
+                        <td>General Ward</td>
+                        <td>Standard admission</td>
+                        <td><span class="badge badge-blue">Normal</span></td>
+                    </tr>
+                    <tr>
+                        <td>Private</td>
+                        <td>Private Room</td>
+                        <td>Private accommodation</td>
+                        <td><span class="badge badge-blue">Normal</span></td>
+                    </tr>
+                    <tr>
+                        <td>Emergency</td>
+                        <td>Emergency Bay</td>
+                        <td>Immediate stabilization</td>
+                        <td><span class="badge badge-red">Highest</span></td>
+                    </tr>
+                </table>
+
+                <h3>7.4 Admin Controls on Beds</h3>
+                <table>
+                    <tr>
+                        <th>Control</th>
+                        <th>Description</th>
+                        <th>Permission Level</th>
+                    </tr>
+                    <tr>
+                        <td>Override Occupancy</td>
+                        <td>Manually set bed count (bypass hospital update)</td>
+                        <td>Super Admin Only</td>
+                    </tr>
+                    <tr>
+                        <td>Lock Hospital</td>
+                        <td>Prevent new referrals to this hospital</td>
+                        <td>Super Admin Only</td>
+                    </tr>
+                    <tr>
+                        <td>Emergency-Only Mode</td>
+                        <td>Only accept emergency referrals</td>
+                        <td>Super Admin + Hospital Admin</td>
+                    </tr>
+                    <tr>
+                        <td>Force Updates</td>
+                        <td>Require hospital to update bed status</td>
+                        <td>Super Admin Only</td>
+                    </tr>
+                    <tr>
+                        <td>Audit Update History</td>
+                        <td>View all bed status changes with timestamps</td>
+                        <td>Super Admin Only</td>
+                    </tr>
+                    <tr>
+                        <td>Detect Inactivity</td>
+                        <td>Alert if hospital hasn't updated in X minutes</td>
+                        <td>Auto + Super Admin</td>
+                    </tr>
+                </table>
+
+                <div class="warning-box">
+                    <strong>From Portal Document:</strong> Bed & Treatment allocation updates must be shared real-time. Once the doctor selects an institute and treatment, the service is dedicatedly reserved immediately on both Doctor portal and IPD portal.
+                </div>
+            </div>
+
+            <!-- SECTION 8: WALLET & PAYOUT -->
+            <div class="section" id="sec8">
+                <h2>8. Wallet & Payout Center</h2>
+
+                <h3>8.1 Objective</h3>
+                <p>Manage consultant earnings and hospital commissions. This is the FINANCIAL ENGINE of the platform.</p>
+
+                <h3>8.2 Consultant Wallet View</h3>
+                <table>
+                    <tr>
+                        <th>Field</th>
+                        <th>Description</th>
+                        <th>Example</th>
+                    </tr>
+                    <tr>
+                        <td>Available Balance</td>
+                        <td>Ready to withdraw (PKR)</td>
+                        <td>45,000 PKR</td>
+                    </tr>
+                    <tr>
+                        <td>Pending Clearance</td>
+                        <td>Funds awaiting clearance period</td>
+                        <td>12,000 PKR</td>
+                    </tr>
+                    <tr>
+                        <td>Requested Withdrawal</td>
+                        <td>Awaiting admin approval</td>
+                        <td>35,000 PKR</td>
+                    </tr>
+                    <tr>
+                        <td>Paid Amount (Historical)</td>
+                        <td>Total lifetime payouts</td>
+                        <td>450,000 PKR</td>
+                    </tr>
+                    <tr>
+                        <td>Commission Type</td>
+                        <td>Fixed PKR or Percentage %</td>
+                        <td>15% per referral</td>
+                    </tr>
+                </table>
+
+                <h3>8.3 Payout Approval UI</h3>
+                <div class="code-block">
+┌─────────────────────────────────────────────────┐
+│  PAYOUT APPROVAL                                  │
+├─────────────────────────────────────────────────┤
+│  Consultant: Dr. Ali                              │
+│  Requested: PKR 35,000                            │
+│  Bank: Meezan Bank                                │
+│  Account: ****4521                                │
+│  Status: PENDING                                  │
+│                                                  │
+│  [  APPROVE  ] [  REJECT  ] [  HOLD  ]           │
+│  [ Request Documents ]                            │
+└─────────────────────────────────────────────────┘
+                </div>
+
+                <h3>8.4 Payment Configuration (Admin Controlled)</h3>
+                <table>
+                    <tr>
+                        <th>Configuration</th>
+                        <th>Description</th>
+                        <th>Level</th>
+                    </tr>
+                    <tr>
+                        <td>Fixed PKR Referral Fees</td>
+                        <td>Set fixed amount per procedure type</td>
+                        <td>Global / Per Hospital</td>
+                    </tr>
+                    <tr>
+                        <td>Percentage-Based Commissions</td>
+                        <td>% of hospital billing</td>
+                        <td>Global / Per Consultant</td>
+                    </tr>
+                    <tr>
+                        <td>Procedure-Based Payouts</td>
+                        <td>Different rates for different procedures</td>
+                        <td>Global / Per Hospital</td>
+                    </tr>
+                    <tr>
+                        <td>Hospital-Specific Pricing</td>
+                        <td>Custom rates per hospital</td>
+                        <td>Per Hospital</td>
+                    </tr>
+                    <tr>
+                        <td>Consultant-Specific Pricing</td>
+                        <td>Custom rates per consultant</td>
+                        <td>Per Consultant</td>
+                    </tr>
+                </table>
+
+                <div class="highlight-box">
+                    <strong>From Portal Document - Commission Structure:</strong>
+                    <ul class="feature-list">
+                        <li>Commission record is ONLY driven and displayed in admin portal</li>
+                        <li>Doctor and IPD commission structure can be adjusted through admin</li>
+                        <li>Doctor referral and commission calculator generated in Admin</li>
+                        <li>Commission formula and percentage can be adjusted in ranges by admin for every patient, every IPD, etc.</li>
+                        <li>Hospital pays doctor through their bank account</li>
+                        <li>Platform commission received and recorded in admin portal</li>
+                        <li>Platform Bank account API connected in Admin portal</li>
+                    </ul>
+                </div>
+
+                <h3>8.5 Commission Flow Diagram</h3>
+                <div class="flow-diagram">
+                    <div class="flow-step">Patient Pays<br>Hospital</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Hospital<br>Deducts<br>Commission</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Platform<br>Receives<br>Fee</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Doctor<br>Receives<br>Commission</div>
+                </div>
+            </div>
+
+            <!-- SECTION 9: NOTIFICATIONS -->
+            <div class="section" id="sec9">
+                <h2>9. Notification Control Center</h2>
+
+                <h3>9.1 Purpose</h3>
+                <p>Manage all notification channels and triggers. This is the COMMUNICATION HUB of the platform.</p>
+
+                <h3>9.2 Notification Matrix (Event-Based)</h3>
+                <table>
+                    <tr>
+                        <th>Event</th>
+                        <th>Popup</th>
+                        <th>WhatsApp</th>
+                        <th>Email</th>
+                        <th>Sound</th>
+                    </tr>
+                    <tr>
+                        <td>Referral Accepted</td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                    </tr>
+                    <tr>
+                        <td>Emergency Escalation</td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                    </tr>
+                    <tr>
+                        <td>Wallet Approved</td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                    </tr>
+                    <tr>
+                        <td>New Referral</td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-orange">Conditional</span></td>
+                    </tr>
+                    <tr>
+                        <td>SLA Warning</td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                    </tr>
+                    <tr>
+                        <td>Bed Status Change</td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                    </tr>
+                </table>
+
+                <h3>9.3 WhatsApp API Integration</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>Supported Providers</h4>
+                        <ul class="feature-list">
+                            <li>WATI</li>
+                            <li>Twilio</li>
+                            <li>Meta Cloud API</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Admin Controls</h4>
+                        <ul class="feature-list">
+                            <li>Add API Keys</li>
+                            <li>Configure Providers</li>
+                            <li>Edit Message Templates</li>
+                            <li>Enable/Disable Automation</li>
+                            <li>View Delivery Reports</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <strong>Notification Requirements:</strong>
+                    <ul class="feature-list">
+                        <li>Real-time popup alerts for all user roles</li>
+                        <li>WhatsApp Business API integration for Pakistan</li>
+                        <li>Email SMTP configuration per organization</li>
+                        <li>Sound alerts for emergency cases (configurable)</li>
+                        <li>Badge counters on sidebar menu items</li>
+                        <li>Notification history with read/unread status</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SECTION 10: COMPLIANCE & AUDIT -->
+            <div class="section" id="sec10">
+                <h2>10. Compliance Center & Audit Logs</h2>
+
+                <h3>10.1 Objective</h3>
+                <p>Manage medico-legal compliance and track all system activities. This is the GOVERNANCE & SECURITY layer.</p>
+
+                <h3>10.2 Data Retention Settings</h3>
+                <table>
+                    <tr>
+                        <th>Data Type</th>
+                        <th>Retention Options</th>
+                        <th>Default</th>
+                        <th>Configurable</th>
+                    </tr>
+                    <tr>
+                        <td>Patient Records</td>
+                        <td>2 years / 5 years / Permanent</td>
+                        <td>5 years</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Referral History</td>
+                        <td>2 years / 5 years / Permanent</td>
+                        <td>Permanent</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Audit Logs</td>
+                        <td>2 years / 5 years / Permanent</td>
+                        <td>Permanent</td>
+                        <td>Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Financial Records</td>
+                        <td>5 years / 7 years / Permanent</td>
+                        <td>7 years</td>
+                        <td>Yes</td>
+                    </tr>
+                </table>
+
+                <h3>10.3 Dynamic Field Controls (Required/Optional)</h3>
+                <table>
+                    <tr>
+                        <th>Field</th>
+                        <th>Status</th>
+                        <th>Impact</th>
+                    </tr>
+                    <tr>
+                        <td>Patient CNIC</td>
+                        <td>Optional / Required (Toggle)</td>
+                        <td>Blocks referral creation if required and missing</td>
+                    </tr>
+                    <tr>
+                        <td>Patient Guardian ID</td>
+                        <td>Optional / Required (Toggle)</td>
+                        <td>From Portal Doc: Required for tracking</td>
+                    </tr>
+                    <tr>
+                        <td>PMDC Number</td>
+                        <td>Required (Fixed)</td>
+                        <td>Cannot register without valid PMDC</td>
+                    </tr>
+                    <tr>
+                        <td>SHCC License</td>
+                        <td>Required (Fixed)</td>
+                        <td>Cannot register hospital without SHCC</td>
+                    </tr>
+                    <tr>
+                        <td>Patient Intake Form</td>
+                        <td>Required (Fixed)</td>
+                        <td>From Portal Doc: Mandatory for all patients</td>
+                    </tr>
+                </table>
+
+                <h3>10.4 Audit Logs Tracking</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>Tracked Activities</h4>
+                        <ul class="feature-list">
+                            <li>Login Activities (IP, Device, Time)</li>
+                            <li>Referral Changes (Create, Update, Delete)</li>
+                            <li>Payment Edits (Amount, Status, Approver)</li>
+                            <li>Scoring Changes (Weights, Rules)</li>
+                            <li>Bed Overrides (Manual updates)</li>
+                            <li>Permission Changes (Role modifications)</li>
+                            <li>User Status Changes (Suspend, Activate)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Log Format</h4>
+                        <div class="code-block">
+{
+  "timestamp": "2026-05-10T14:30:00Z",
+  "userId": "admin_001",
+  "userRole": "SuperAdmin",
+  "action": "REFERRAL_OVERRIDE",
+  "targetId": "RF-1001",
+  "targetType": "Referral",
+  "oldValue": { "hospital": "South City" },
+  "newValue": { "hospital": "Aga Khan" },
+  "reason": "Emergency escalation",
+  "ipAddress": "192.168.1.1",
+  "userAgent": "Mozilla/5.0..."
+}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="warning-box">
+                    <strong>End-to-End Encryption Requirement:</strong> From Portal Document - "The patient and recommendation records would be end-to-end encrypted between Doctor, IPD and Admin and the details shall not be breach." All patient data must be encrypted at rest and in transit.
+                </div>
+            </div>
+
+            <!-- SECTION 11: REPORTS & ANALYTICS -->
+            <div class="section" id="sec11">
+                <h2>11. Reports & Analytics</h2>
+
+                <h3>11.1 Operational Reports</h3>
+                <table>
+                    <tr>
+                        <th>Report</th>
+                        <th>Description</th>
+                        <th>Frequency</th>
+                        <th>Export</th>
+                    </tr>
+                    <tr>
+                        <td>Referral Trends</td>
+                        <td>Daily/Weekly/Monthly referral volume</td>
+                        <td>Real-time + Scheduled</td>
+                        <td>PDF, Excel</td>
+                    </tr>
+                    <tr>
+                        <td>Emergency Trends</td>
+                        <td>Emergency case patterns and response times</td>
+                        <td>Real-time + Scheduled</td>
+                        <td>PDF, Excel</td>
+                    </tr>
+                    <tr>
+                        <td>Hospital Performance</td>
+                        <td>Acceptance rates, SLA compliance per hospital</td>
+                        <td>Daily + Weekly</td>
+                        <td>PDF, Excel</td>
+                    </tr>
+                    <tr>
+                        <td>SLA Compliance</td>
+                        <td>Average response times by priority</td>
+                        <td>Real-time</td>
+                        <td>PDF, Excel</td>
+                    </tr>
+                    <tr>
+                        <td>Bed Occupancy</td>
+                        <td>Utilization rates by bed type and hospital</td>
+                        <td>Real-time</td>
+                        <td>PDF, Excel</td>
+                    </tr>
+                    <tr>
+                        <td>Consultant Performance</td>
+                        <td>Referral volume, success rate per doctor</td>
+                        <td>Weekly + Monthly</td>
+                        <td>PDF, Excel</td>
+                    </tr>
+                </table>
+
+                <h3>11.2 Financial Reports</h3>
+                <table>
+                    <tr>
+                        <th>Report</th>
+                        <th>Description</th>
+                        <th>Access</th>
+                    </tr>
+                    <tr>
+                        <td>Consultant Payouts</td>
+                        <td>All pending and completed payouts</td>
+                        <td>Admin Only</td>
+                    </tr>
+                    <tr>
+                        <td>Hospital Commissions</td>
+                        <td>Commission structure and payments</td>
+                        <td>Admin Only</td>
+                    </tr>
+                    <tr>
+                        <td>Revenue Trends</td>
+                        <td>Platform revenue over time</td>
+                        <td>Admin Only</td>
+                    </tr>
+                    <tr>
+                        <td>Pending Withdrawals</td>
+                        <td>All pending withdrawal requests</td>
+                        <td>Admin Only</td>
+                    </tr>
+                    <tr>
+                        <td>Commission Calculator</td>
+                        <td>Per patient, per IPD breakdown</td>
+                        <td>Admin Only (From Portal Doc)</td>
+                    </tr>
+                </table>
+
+                <h3>11.3 Compliance Reports</h3>
+                <table>
+                    <tr>
+                        <th>Report</th>
+                        <th>Description</th>
+                        <th>Trigger</th>
+                    </tr>
+                    <tr>
+                        <td>Expiring Licenses</td>
+                        <td>PMDC/SHCC licenses nearing expiry</td>
+                        <td>Auto (30 days before)</td>
+                    </tr>
+                    <tr>
+                        <td>Suspended Accounts</td>
+                        <td>List of all suspended users with reasons</td>
+                        <td>On-demand</td>
+                    </tr>
+                    <tr>
+                        <td>Audit Logs Summary</td>
+                        <td>All admin actions in date range</td>
+                        <td>On-demand</td>
+                    </tr>
+                    <tr>
+                        <td>Data Access Log</td>
+                        <td>Who accessed what patient data when</td>
+                        <td>On-demand + Monthly</td>
+                    </tr>
+                </table>
+
+                <div class="image-grid">
+                    <div class="image-card">
+                        <img src="images/3_Referral_Dashboard_.png" alt="Referral Dashboard">
+                        <div class="caption">Referral Dashboard Analytics Example<br><span class="badge badge-purple">Analytics Reference</span></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="images/5_Referral_Dashboard_.png" alt="Referral Performance">
+                        <div class="caption">Referral Performance Charts<br><span class="badge badge-purple">Analytics Reference</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 12: THEME ENGINE -->
+            <div class="section" id="sec12">
+                <h2>12. Theme Engine & White-Label</h2>
+
+                <h3>12.1 Objective</h3>
+                <p>Allow white-label customization for hospital branding. This is the BRANDING & CUSTOMIZATION system.</p>
+
+                <h3>12.2 Admin Controls</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>Theme Customization</h4>
+                        <ul class="feature-list">
+                            <li>Upload Custom Logos</li>
+                            <li>Change Primary Colors</li>
+                            <li>Create Hospital-Specific Themes</li>
+                            <li>Modify Widget Layouts</li>
+                            <li>Enable/Disable Dark Mode</li>
+                            <li>Custom CSS Injection (Advanced)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Theme Presets</h4>
+                        <ul class="feature-list">
+                            <li>Blue Corporate (Default)</li>
+                            <li>Green Medical</li>
+                            <li>Dark Emergency</li>
+                            <li>Custom Hospital Branding</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>12.3 Color System (Default)</h3>
+                <table>
+                    <tr>
+                        <th>Purpose</th>
+                        <th>Color Name</th>
+                        <th>Hex Code</th>
+                        <th>Usage</th>
+                    </tr>
+                    <tr>
+                        <td>Primary</td>
+                        <td>Medical Blue</td>
+                        <td>#3182ce</td>
+                        <td>Buttons, Links, Headers</td>
+                    </tr>
+                    <tr>
+                        <td>Emergency</td>
+                        <td>Alert Red</td>
+                        <td>#e53e3e</td>
+                        <td>Emergency cases, Critical alerts</td>
+                    </tr>
+                    <tr>
+                        <td>Success</td>
+                        <td>Medical Green</td>
+                        <td>#38a169</td>
+                        <td>Accepted, Completed, Active</td>
+                    </tr>
+                    <tr>
+                        <td>Warning</td>
+                        <td>Amber Orange</td>
+                        <td>#ed8936</td>
+                        <td>Pending, Urgent, SLA warning</td>
+                    </tr>
+                    <tr>
+                        <td>Background</td>
+                        <td>Light Gray</td>
+                        <td>#f7fafc</td>
+                        <td>Page background</td>
+                    </tr>
+                    <tr>
+                        <td>Sidebar</td>
+                        <td>Dark Navy</td>
+                        <td>#1e3a5f</td>
+                        <td>Navigation sidebar</td>
+                    </tr>
+                </table>
+
+                <div class="info-box">
+                    <strong>White-Label Requirements:</strong>
+                    <ul class="feature-list">
+                        <li>Per-hospital branding with custom logos</li>
+                        <li>Custom color schemes per hospital</li>
+                        <li>Logo replacement on all PDF exports</li>
+                        <li>Custom email templates per hospital</li>
+                        <li>Domain mapping support (Phase 2)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- SECTION 13: ROLE-BASED DASHBOARDS -->
+            <div class="section" id="sec13">
+                <h2>13. Role-Based Dashboards</h2>
+
+                <div class="info-box">
+                    <strong>Overview:</strong> The platform has FOUR distinct dashboard types, each designed for specific user needs. All dashboards must be mobile-responsive and follow the same design system.
+                </div>
+
+                <h3>13.1 Access Matrix (Role Permissions)</h3>
+                <table>
+                    <tr>
+                        <th>Module</th>
+                        <th>Super Admin</th>
+                        <th>Hospital Admin</th>
+                        <th>Consultant</th>
+                        <th>Lab Admin</th>
+                    </tr>
+                    <tr>
+                        <td>Edit Scoring Engine</td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                    </tr>
+                    <tr>
+                        <td>Manage Beds</td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                    </tr>
+                    <tr>
+                        <td>Approve Payout</td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                    </tr>
+                    <tr>
+                        <td>Create Referral</td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                    </tr>
+                    <tr>
+                        <td>Accept Referral</td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                    </tr>
+                    <tr>
+                        <td>Upload Reports</td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-red">No</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                    </tr>
+                    <tr>
+                        <td>View Analytics</td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-green">Yes</span></td>
+                        <td><span class="badge badge-green">Yes (Own)</span></td>
+                        <td><span class="badge badge-green">Yes (Own)</span></td>
+                    </tr>
+                </table>
+
+                <h3>13.2 CONSULTANT (Doctor) Dashboard</h3>
+                <div class="highlight-box">
+                    <strong>Design Philosophy:</strong> MUST BE MOBILE-FIRST. One-thumb usability for all actions. Large touch-friendly buttons (min 44px). Sticky bottom navigation bar. Quick emergency button always visible.
+                </div>
+
+                <div class="image-grid">
+                    <div class="image-card">
+                        <img src="images/6_Apollo_Bootstrap_Medical_Admin_Dashboard.png" alt="Doctor Dashboard">
+                        <div class="caption">Doctor Dashboard UI Reference<br><span class="badge badge-blue">Mobile-First Design</span></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="images/8_Professional_Bootstrap_5_Admin_Template.png" alt="Medical Dashboard">
+                        <div class="caption">Medical Dashboard Mobile View<br><span class="badge badge-blue">Mobile-First Design</span></div>
+                    </div>
+                </div>
+
+                <h4>Consultant Sidebar Menu</h4>
+                <div class="code-block">
+Dashboard
+Create Referral
+My Referrals
+Emergency Referrals
+Favorite Hospitals
+Wallet
+Withdrawal Requests
+Notifications
+Profile Settings
+Support
+                </div>
+
+                <h4>Consultant KPI Widgets</h4>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="number">58</div>
+                        <div class="label">Total Referrals</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number" style="color: #e53e3e;">4</div>
+                        <div class="label">Emergency Cases</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number" style="color: #38a169;">85K</div>
+                        <div class="label">Earnings (PKR)</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">92%</div>
+                        <div class="label">Acceptance Rate</div>
+                    </div>
+                </div>
+
+                <h4>Create Referral - 4 Step Form</h4>
+                <table>
+                    <tr>
+                        <th>Step</th>
+                        <th>Name</th>
+                        <th>Fields</th>
+                        <th>Required</th>
+                    </tr>
+                    <tr>
+                        <td><span class="step-number">1</span></td>
+                        <td>Patient Details</td>
+                        <td>Name, Age, Gender, Phone, CNIC (optional), City, Emergency Toggle</td>
+                        <td>Name, Age, Phone</td>
+                    </tr>
+                    <tr>
+                        <td><span class="step-number">2</span></td>
+                        <td>Medical Details</td>
+                        <td>Symptoms, Diagnosis, Department, Treatment, Bed Type, Report Upload</td>
+                        <td>Symptoms, Department</td>
+                    </tr>
+                    <tr>
+                        <td><span class="step-number">3</span></td>
+                        <td>Preferences</td>
+                        <td>Preferred Hospital, Preferred Doctor, Budget Range, Distance</td>
+                        <td>None (Optional)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="step-number">4</span></td>
+                        <td>Smart Suggestions</td>
+                        <td>AI-ranked hospital list with Distance, Bed Status, Acceptance Rate</td>
+                        <td>Select Hospital</td>
+                    </tr>
+                </table>
+
+                <h4>Smart Hospital Suggestions Table</h4>
+                <table>
+                    <tr>
+                        <th>Hospital</th>
+                        <th>Distance</th>
+                        <th>Bed Status</th>
+                        <th>Acceptance Rate</th>
+                        <th>Action</th>
+                    </tr>
+                    <tr>
+                        <td>South City</td>
+                        <td>3 km</td>
+                        <td><span class="badge badge-green">ICU Available</span></td>
+                        <td>92%</td>
+                        <td><span class="badge badge-blue">Refer Now</span></td>
+                    </tr>
+                    <tr>
+                        <td>Midciti</td>
+                        <td>5 km</td>
+                        <td><span class="badge badge-green">ICU Available</span></td>
+                        <td>89%</td>
+                        <td><span class="badge badge-blue">Refer Now</span></td>
+                    </tr>
+                    <tr>
+                        <td>Aga Khan</td>
+                        <td>8 km</td>
+                        <td><span class="badge badge-orange">HDU Only</span></td>
+                        <td>95%</td>
+                        <td><span class="badge badge-blue">Refer Now</span></td>
+                    </tr>
+                </table>
+
+                <h3>13.3 HOSPITAL Dashboard</h3>
+                <div class="image-grid">
+                    <div class="image-card">
+                        <img src="images/4_Meydikul_Medical_SaaS_Dashboard_UI.png" alt="Hospital Dashboard">
+                        <div class="caption">Hospital ERP-Style Dashboard<br><span class="badge badge-green">Hospital UI</span></div>
+                    </div>
+                </div>
+
+                <h4>Hospital Sidebar Menu</h4>
+                <div class="code-block">
+Dashboard
+Incoming Referrals
+Emergency Center
+Bed Management
+Doctors
+Departments
+Wallet & Billing
+Invoices
+Reports
+Notifications
+Profile Settings
+Support
+                </div>
+
+                <h4>Hospital KPI Widgets</h4>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="number" style="color: #ed8936;">22</div>
+                        <div class="label">Pending Referrals</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number" style="color: #e53e3e;">4</div>
+                        <div class="label">Emergency Cases</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">85%</div>
+                        <div class="label">Acceptance Rate</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">3</div>
+                        <div class="label">ICU Beds Available</div>
+                    </div>
+                </div>
+
+                <h4>Incoming Referral Card Layout</h4>
+                <div class="code-block">
+┌─────────────────────────────────────────────────┐
+│  [EMERGENCY] Cardiac Patient - ICU Required      │
+│  Consultant: Dr. Ali Khan                          │
+│  Distance: 3 km | ETA: 8 minutes                 │
+│  SLA: 2:45 remaining                             │
+│                                                  │
+│  [ ACCEPT ] [ REJECT ] [ REQUEST DETAILS ]       │
+│  [ TRANSFER DEPT ]                               │
+└─────────────────────────────────────────────────┘
+                </div>
+
+                <h4>Bed Management Live UI</h4>
+                <table>
+                    <tr>
+                        <th>Bed Type</th>
+                        <th>Total</th>
+                        <th>Occupied</th>
+                        <th>Available</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr>
+                        <td>ICU</td>
+                        <td>10</td>
+                        <td>8</td>
+                        <td><span class="badge badge-green">2</span></td>
+                        <td>Update | Lock | Emergency Reserve</td>
+                    </tr>
+                    <tr>
+                        <td>NICU</td>
+                        <td>8</td>
+                        <td>5</td>
+                        <td><span class="badge badge-green">3</span></td>
+                        <td>Update | Lock | Emergency Reserve</td>
+                    </tr>
+                    <tr>
+                        <td>PICU</td>
+                        <td>5</td>
+                        <td>4</td>
+                        <td><span class="badge badge-orange">1</span></td>
+                        <td>Update | Lock | Emergency Reserve</td>
+                    </tr>
+                </table>
+
+                <h3>13.4 LABORATORY Dashboard</h3>
+                <h4>Lab Sidebar Menu</h4>
+                <div class="code-block">
+Dashboard
+Incoming Referrals
+Emergency Diagnostics
+Test Management
+Sample Tracking
+Reports Upload
+Radiology Uploads
+Doctors & Consultants
+Wallet & Earnings
+Invoices
+Analytics
+Notifications
+Profile Settings
+Support
+                </div>
+
+                <h4>Lab KPI Widgets</h4>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="number" style="color: #ed8936;">36</div>
+                        <div class="label">Pending Tests</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number" style="color: #e53e3e;">5</div>
+                        <div class="label">Emergency</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">145</div>
+                        <div class="label">Completed</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">450K</div>
+                        <div class="label">Revenue (PKR)</div>
+                    </div>
+                </div>
+
+                <h4>Test Categories</h4>
+                <div class="two-column">
+                    <div>
+                        <ul class="feature-list">
+                            <li>Pathology</li>
+                            <li>Radiology</li>
+                            <li>Cardiology Diagnostics</li>
+                            <li>MRI</li>
+                            <li>CT Scan</li>
+                            <li>Ultrasound</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <ul class="feature-list">
+                            <li>Blood Tests</li>
+                            <li>Histopathology</li>
+                            <li>Molecular Testing</li>
+                            <li>COVID/PCR</li>
+                            <li>Home Sampling Services</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h4>Sample Tracking Flow</h4>
+                <div class="flow-diagram">
+                    <div class="flow-step">Referral<br>Received</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Sample<br>Collection</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Processing</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Quality<br>Review</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Report<br>Uploaded</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-step">Consultant<br>Notified</div>
+                </div>
+
+                <h4>Report Upload Features</h4>
+                <ul class="feature-list">
+                    <li>Upload PDF reports</li>
+                    <li>Upload images/scans (JPG, PNG)</li>
+                    <li>DICOM support (Phase 2)</li>
+                    <li>Add comments and findings</li>
+                    <li>Add critical alerts</li>
+                    <li>Send urgent notifications</li>
+                </ul>
+            </div>
+
+            <!-- SECTION 14: TECH STACK -->
+            <div class="section" id="sec14">
+                <h2>14. Technology Stack & Design Standards</h2>
+
+                <h3>14.1 Recommended Tech Stack</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>Frontend</h4>
+                        <ul class="feature-list">
+                            <li>React.js 18+</li>
+                            <li>Next.js (SSR/SSG)</li>
+                            <li>Tailwind CSS</li>
+                            <li>ShadCN UI Components</li>
+                            <li>Framer Motion (Animations)</li>
+                        </ul>
+
+                        <h4>Backend</h4>
+                        <ul class="feature-list">
+                            <li>Node.js</li>
+                            <li>Express.js</li>
+                            <li>MongoDB (Primary DB)</li>
+                            <li>Redis (Caching)</li>
+                            <li>Socket.IO (Real-time)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Analytics</h4>
+                        <ul class="feature-list">
+                            <li>Recharts</li>
+                            <li>ApexCharts</li>
+                        </ul>
+
+                        <h4>Authentication</h4>
+                        <ul class="feature-list">
+                            <li>JWT Tokens</li>
+                            <li>Role-based Permissions</li>
+                            <li>OTP Verification (SMS)</li>
+                        </ul>
+
+                        <h4>Cloud & Hosting</h4>
+                        <ul class="feature-list">
+                            <li>AWS / DigitalOcean</li>
+                            <li>Firebase (Notifications)</li>
+                            <li>S3/Spaces (File Storage)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>14.2 Architecture Requirements</h3>
+                <table>
+                    <tr>
+                        <th>Requirement</th>
+                        <th>Implementation</th>
+                        <th>Priority</th>
+                    </tr>
+                    <tr>
+                        <td>Real-time Updates</td>
+                        <td>WebSocket (Socket.IO) for live referral updates, bed status, emergency alerts</td>
+                        <td><span class="badge badge-red">Critical</span></td>
+                    </tr>
+                    <tr>
+                        <td>Scalability</td>
+                        <td>Redis caching, MongoDB sharding ready for multi-city expansion</td>
+                        <td><span class="badge badge-red">Critical</span></td>
+                    </tr>
+                    <tr>
+                        <td>Security</td>
+                        <td>JWT + role-based access + OTP for all authentication flows</td>
+                        <td><span class="badge badge-red">Critical</span></td>
+                    </tr>
+                    <tr>
+                        <td>Responsive</td>
+                        <td>Mobile-first design with Tailwind CSS, all dashboards on desktop/tablet/mobile</td>
+                        <td><span class="badge badge-red">Critical</span></td>
+                    </tr>
+                    <tr>
+                        <td>Dynamic Config</td>
+                        <td>Business team operates without developer dependency — all configs via admin UI</td>
+                        <td><span class="badge badge-green">High</span></td>
+                    </tr>
+                </table>
+
+                <h3>14.3 UI Design Principles</h3>
+                <div class="success-box">
+                    <strong>All Dashboards Must Be:</strong>
+                    <ul class="feature-list">
+                        <li>Fast loading (target < 2 seconds)</li>
+                        <li>Real-time data updates</li>
+                        <li>Minimal click based navigation</li>
+                        <li>Search optimized (global search bar)</li>
+                        <li>Mobile responsive</li>
+                        <li>Easy for non-technical users</li>
+                        <li>Large emergency indicators always visible</li>
+                        <li>Sticky sidebar navigation</li>
+                        <li>Smart filtering everywhere</li>
+                        <li>Auto-save form drafts</li>
+                        <li>Multi-language ready (Urdu Phase 2)</li>
+                    </ul>
+                </div>
+
+                <h3>14.4 Universal UX Features</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>Smart Search</h4>
+                        <ul class="feature-list">
+                            <li>Patient name search</li>
+                            <li>Referral ID search</li>
+                            <li>Hospital name search</li>
+                            <li>Doctor name search</li>
+                            <li>Lab test search</li>
+                            <li>Department search</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Quick Filters</h4>
+                        <ul class="feature-list">
+                            <li>Emergency / Pending / Completed</li>
+                            <li>Rejected / Today / This Week</li>
+                            <li>ICU Cases / Diagnostic Cases</li>
+                            <li>Date range picker</li>
+                            <li>City filter</li>
+                            <li>Hospital filter</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 15: DATABASE SCHEMA -->
+            <div class="section" id="sec15">
+                <h2>15. Database Schema Design</h2>
+
+                <h3>15.1 Core Collections (MongoDB)</h3>
+
+                <h4>Users Collection</h4>
+                <div class="code-block">
+{
+  "_id": ObjectId,
+  "email": "string (unique)",
+  "password": "string (hashed)",
+  "role": "enum: ['superadmin', 'admin', 'consultant', 'hospital_admin', 'lab_admin']",
+  "profile": {
+    "firstName": "string",
+    "lastName": "string",
+    "phone": "string",
+    "cnic": "string",
+    "city": "string",
+    "address": "string",
+    "avatar": "string (URL)"
+  },
+  "verificationStatus": "enum: ['pending', 'approved', 'rejected']",
+  "documents": [{
+    "type": "enum: ['pmdc', 'cnic_front', 'cnic_back', 'shcc', 'degree']",
+    "url": "string",
+    "verified": "boolean",
+    "verifiedAt": "date"
+  }],
+  "status": "enum: ['active', 'suspended', 'blacklisted']",
+  "permissions": ["string"],
+  "lastLogin": "date",
+  "createdAt": "date",
+  "updatedAt": "date"
+}
+                </div>
+
+                <h4>Hospitals Collection</h4>
+                <div class="code-block">
+{
+  "_id": ObjectId,
+  "name": "string",
+  "licenseNumber": "string (SHCC)",
+  "contact": {
+    "phone": "string",
+    "email": "string",
+    "emergencyPhone": "string"
+  },
+  "location": {
+    "city": "string",
+    "address": "string",
+    "coordinates": {
+      "lat": "number",
+      "lng": "number"
+    }
+  },
+  "departments": [{
+    "name": "string",
+    "wardTypes": ["string"],
+    "procedures": ["string"]
+  }],
+  "doctors": [{
+    "userId": "ObjectId (ref: Users)",
+    "specialties": ["string"],
+    "availability": "object (schedule)",
+    "acceptReferrals": "boolean",
+    "onCall": "boolean"
+  }],
+  "beds": {
+    "icu": { "total": "number", "occupied": "number" },
+    "nicu": { "total": "number", "occupied": "number" },
+    "picu": { "total": "number", "occupied": "number" },
+    "hdu": { "total": "number", "occupied": "number" },
+    "general": { "total": "number", "occupied": "number" },
+    "private": { "total": "number", "occupied": "number" },
+    "emergency": { "total": "number", "occupied": "number" }
+  },
+  "financial": {
+    "commissionModel": "enum: ['fixed', 'percentage']",
+    "commissionValue": "number",
+    "referralPricing": "object"
+  },
+  "status": "enum: ['active', 'locked', 'emergency_only']",
+  "slaCompliance": "number (percentage)",
+  "createdAt": "date",
+  "updatedAt": "date"
+}
+                </div>
+
+                <h4>Referrals Collection</h4>
+                <div class="code-block">
+{
+  "_id": ObjectId,
+  "referralId": "string (RF-XXXX format)",
+  "patient": {
+    "name": "string",
+    "age": "number",
+    "gender": "enum: ['male', 'female', 'other']",
+    "phone": "string",
+    "cnic": "string",
+    "guardianId": "string",
+    "serialId": "string (unique)",
+    "symptoms": ["string"],
+    "diagnosis": "string",
+    "emergencyLevel": "number (1-5)"
+  },
+  "consultantId": "ObjectId (ref: Users)",
+  "hospitalId": "ObjectId (ref: Hospitals)",
+  "suggestedHospitals": [{
+    "hospitalId": "ObjectId",
+    "score": "number",
+    "reason": "string"
+  }],
+  "priority": "enum: ['emergency', 'urgent', 'normal']",
+  "status": "enum: ['pending', 'accepted', 'rejected', 'in_progress', 'completed', 'escalated', 'frozen']",
+  "bedType": "string",
+  "financial": {
+    "referralType": "string",
+    "commissionMode": "string",
+    "expectedBilling": "number",
+    "doctorCommission": "number",
+    "platformFee": "number"
+  },
+  "timeline": [{
+    "action": "string",
+    "timestamp": "date",
+    "userId": "ObjectId",
+    "notes": "string"
+  }],
+  "sla": {
+    "startedAt": "date",
+    "expiresAt": "date",
+    "priority": "string",
+    "escalatedAt": "date"
+  },
+  "createdAt": "date",
+  "updatedAt": "date"
+}
+                </div>
+
+                <h4>Wallets Collection</h4>
+                <div class="code-block">
+{
+  "_id": ObjectId,
+  "userId": "ObjectId (ref: Users)",
+  "balance": "number (PKR)",
+  "pendingClearance": "number",
+  "totalWithdrawn": "number",
+  "commissionType": "enum: ['fixed', 'percentage']",
+  "commissionValue": "number",
+  "transactions": [{
+    "type": "enum: ['credit', 'debit', 'withdrawal_request', 'withdrawal_approved']",
+    "amount": "number",
+    "status": "enum: ['pending', 'approved', 'rejected']",
+    "referralId": "ObjectId",
+    "description": "string",
+    "createdAt": "date"
+  }],
+  "bankDetails": {
+    "bankName": "string",
+    "accountTitle": "string",
+    "iban": "string",
+    "accountNumber": "string"
+  },
+  "updatedAt": "date"
+}
+                </div>
+
+                <h4>Audit Logs Collection</h4>
+                <div class="code-block">
+{
+  "_id": ObjectId,
+  "timestamp": "date",
+  "userId": "ObjectId",
+  "userRole": "string",
+  "action": "string",
+  "category": "enum: ['user', 'referral', 'payment', 'scoring', 'bed', 'permission']",
+  "targetId": "ObjectId",
+  "targetType": "string",
+  "oldValue": "object",
+  "newValue": "object",
+  "reason": "string",
+  "ipAddress": "string",
+  "userAgent": "string",
+  "createdAt": "date"
+}
+                </div>
+            </div>
+
+            <!-- SECTION 16: API ENDPOINTS -->
+            <div class="section" id="sec16">
+                <h2>16. API Endpoints Specification</h2>
+
+                <h3>16.1 Authentication APIs</h3>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Description</th>
+                        <th>Auth</th>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/auth/login</td>
+                        <td>Login with email/password</td>
+                        <td>Public</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/auth/otp/send</td>
+                        <td>Send OTP to phone</td>
+                        <td>Public</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/auth/otp/verify</td>
+                        <td>Verify OTP code</td>
+                        <td>Public</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/auth/refresh</td>
+                        <td>Refresh JWT token</td>
+                        <td>Refresh Token</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/auth/logout</td>
+                        <td>Logout and invalidate token</td>
+                        <td>JWT</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/auth/password/reset</td>
+                        <td>Request password reset</td>
+                        <td>Public</td>
+                    </tr>
+                </table>
+
+                <h3>16.2 User Management APIs</h3>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Description</th>
+                        <th>Role</th>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/api/users</td>
+                        <td>List all users with filters</td>
+                        <td>Admin+</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/api/users/:id</td>
+                        <td>Get user profile details</td>
+                        <td>Admin+ / Self</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/users</td>
+                        <td>Create new user</td>
+                        <td>Admin+</td>
+                    </tr>
+                    <tr>
+                        <td>PATCH</td>
+                        <td>/api/users/:id/status</td>
+                        <td>Update user status</td>
+                        <td>Admin+</td>
+                    </tr>
+                    <tr>
+                        <td>PATCH</td>
+                        <td>/api/users/:id/verify</td>
+                        <td>Verify user documents</td>
+                        <td>Admin+</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/users/:id/reset-password</td>
+                        <td>Force password reset</td>
+                        <td>Super Admin</td>
+                    </tr>
+                </table>
+
+                <h3>16.3 Referral APIs</h3>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Description</th>
+                        <th>Role</th>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/api/referrals</td>
+                        <td>List all referrals with filters</td>
+                        <td>All</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/api/referrals/:id</td>
+                        <td>Get referral details</td>
+                        <td>All (Involved)</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/referrals</td>
+                        <td>Create new referral</td>
+                        <td>Consultant</td>
+                    </tr>
+                    <tr>
+                        <td>PATCH</td>
+                        <td>/api/referrals/:id/accept</td>
+                        <td>Accept referral (Hospital)</td>
+                        <td>Hospital</td>
+                    </tr>
+                    <tr>
+                        <td>PATCH</td>
+                        <td>/api/referrals/:id/reject</td>
+                        <td>Reject referral (Hospital)</td>
+                        <td>Hospital</td>
+                    </tr>
+                    <tr>
+                        <td>PATCH</td>
+                        <td>/api/referrals/:id/escalate</td>
+                        <td>Escalate referral</td>
+                        <td>Admin+ / Auto</td>
+                    </tr>
+                    <tr>
+                        <td>PATCH</td>
+                        <td>/api/referrals/:id/override</td>
+                        <td>Admin override actions</td>
+                        <td>Super Admin</td>
+                    </tr>
+                </table>
+
+                <h3>16.4 Hospital & Bed APIs</h3>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Description</th>
+                        <th>Role</th>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/api/hospitals</td>
+                        <td>List all hospitals</td>
+                        <td>All</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/api/hospitals/:id/beds</td>
+                        <td>Get bed status</td>
+                        <td>All</td>
+                    </tr>
+                    <tr>
+                        <td>PATCH</td>
+                        <td>/api/hospitals/:id/beds</td>
+                        <td>Update bed counts</td>
+                        <td>Hospital / Admin</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/api/hospitals/:id/doctors</td>
+                        <td>Get hospital doctors</td>
+                        <td>All</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/hospitals/:id/doctors</td>
+                        <td>Add doctor to hospital</td>
+                        <td>Hospital / Admin</td>
+                    </tr>
+                </table>
+
+                <h3>16.5 Wallet & Payment APIs</h3>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Description</th>
+                        <th>Role</th>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/api/wallets/:userId</td>
+                        <td>Get wallet details</td>
+                        <td>Self / Admin</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/api/wallets/withdrawal</td>
+                        <td>Request withdrawal</td>
+                        <td>Self</td>
+                    </tr>
+                    <tr>
+                        <td>PATCH</td>
+                        <td>/api/wallets/withdrawal/:id/approve</td>
+                        <td>Approve withdrawal</td>
+                        <td>Admin</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/api/wallets/transactions</td>
+                        <td>Get transaction history</td>
+                        <td>Self / Admin</td>
+                    </tr>
+                    <tr>
+                        <td>PATCH</td>
+                        <td>/api/wallets/commission-config</td>
+                        <td>Update commission structure</td>
+                        <td>Super Admin</td>
+                    </tr>
+                </table>
+
+                <h3>16.6 WebSocket Events</h3>
+                <div class="code-block">
+// Client -> Server
+socket.emit('join_room', { userId, role });
+socket.emit('bed_update', { hospitalId, bedType, count });
+socket.emit('referral_response', { referralId, action });
+
+// Server -> Client
+socket.on('new_referral', (data) => { /* Handle new referral */ });
+socket.on('referral_status_change', (data) => { /* Update status */ });
+socket.on('bed_status_change', (data) => { /* Update bed counts */ });
+socket.on('emergency_alert', (data) => { /* Critical alert */ });
+socket.on('wallet_update', (data) => { /* Balance change */ });
+socket.on('notification', (data) => { /* New notification */ });
+                </div>
+            </div>
+
+            <!-- SECTION 17: SECURITY REQUIREMENTS -->
+            <div class="section" id="sec17">
+                <h2>17. Security Requirements</h2>
+
+                <h3>17.1 Authentication & Authorization</h3>
+                <table>
+                    <tr>
+                        <th>Requirement</th>
+                        <th>Implementation</th>
+                        <th>Priority</th>
+                    </tr>
+                    <tr>
+                        <td>JWT Token Expiry</td>
+                        <td>Access token: 15 min, Refresh token: 7 days</td>
+                        <td><span class="badge badge-red">Critical</span></td>
+                    </tr>
+                    <tr>
+                        <td>Password Policy</td>
+                        <td>Min 8 chars, uppercase, lowercase, number, special char</td>
+                        <td><span class="badge badge-red">Critical</span></td>
+                    </tr>
+                    <tr>
+                        <td>OTP Verification</td>
+                        <td>SMS OTP for critical actions (withdrawal, password reset)</td>
+                        <td><span class="badge badge-red">Critical</span></td>
+                    </tr>
+                    <tr>
+                        <td>Role-Based Access</td>
+                        <td>Granular permissions per role, middleware enforcement</td>
+                        <td><span class="badge badge-red">Critical</span></td>
+                    </tr>
+                    <tr>
+                        <td>Session Management</td>
+                        <td>Max 3 concurrent sessions, force logout capability</td>
+                        <td><span class="badge badge-green">High</span></td>
+                    </tr>
+                </table>
+
+                <h3>17.2 Data Security</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>Encryption Requirements</h4>
+                        <ul class="feature-list">
+                            <li>End-to-end encryption for patient records</li>
+                            <li>AES-256 for data at rest</li>
+                            <li>TLS 1.3 for data in transit</li>
+                            <li>Encrypted database backups</li>
+                            <li>Secure key management (AWS KMS)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Data Protection</h4>
+                        <ul class="feature-list">
+                            <li>Patient data anonymization for analytics</li>
+                            <li>CNIC masking in logs (show last 4 only)</li>
+                            <li>Automatic logout after 30 min inactivity</li>
+                            <li>IP whitelisting for admin access</li>
+                            <li>Rate limiting on all APIs</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>17.3 Compliance Requirements</h3>
+                <table>
+                    <tr>
+                        <th>Standard</th>
+                        <th>Requirement</th>
+                        <th>Implementation</th>
+                    </tr>
+                    <tr>
+                        <td>Patient Data Privacy</td>
+                        <td>End-to-end encryption, no unauthorized access</td>
+                        <td>Encrypted fields, access logs</td>
+                    </tr>
+                    <tr>
+                        <td>PMDC Verification</td>
+                        <td>Validate all doctor licenses</td>
+                        <td>Integration with PMDC database</td>
+                    </tr>
+                    <tr>
+                        <td>SHCC Verification</td>
+                        <td>Validate all hospital licenses</td>
+                        <td>Document upload + manual verification</td>
+                    </tr>
+                    <tr>
+                        <td>Audit Trail</td>
+                        <td>Log all data access and modifications</td>
+                        <td>Immutable audit log collection</td>
+                    </tr>
+                    <tr>
+                        <td>Data Retention</td>
+                        <td>Configurable retention policies</td>
+                        <td>Auto-archive after retention period</td>
+                    </tr>
+                </table>
+
+                <div class="warning-box">
+                    <strong>From Portal Document:</strong> "The patient and recommendation records would be end-to-end encrypted between Doctor, IPD and Admin and the details shall not be breach." This is a LEGAL REQUIREMENT, not optional.
+                </div>
+            </div>
+
+            <!-- SECTION 18: MOBILE REQUIREMENTS -->
+            <div class="section" id="sec18">
+                <h2>18. Mobile & Responsive Requirements</h2>
+
+                <h3>18.1 Mobile-First Design Rules</h3>
+                <div class="highlight-box">
+                    <strong>CRITICAL:</strong> The Consultant Dashboard MUST be mobile-first because doctors may use it during OPD hours, rounds, emergencies, or while traveling. Hospital dashboard must work on desktop, tablet, and mobile for emergency teams.
+                </div>
+
+                <table>
+                    <tr>
+                        <th>Requirement</th>
+                        <th>Specification</th>
+                        <th>Applies To</th>
+                    </tr>
+                    <tr>
+                        <td>One-Thumb Usability</td>
+                        <td>All primary actions reachable with one thumb</td>
+                        <td>Consultant Dashboard</td>
+                    </tr>
+                    <tr>
+                        <td>Large Touch Targets</td>
+                        <td>Minimum 44px touch target size</td>
+                        <td>All Dashboards</td>
+                    </tr>
+                    <tr>
+                        <td>Sticky Bottom Navigation</td>
+                        <td>Primary actions always visible at bottom</td>
+                        <td>Consultant + Hospital</td>
+                    </tr>
+                    <tr>
+                        <td>Quick Emergency Button</td>
+                        <td>Floating emergency button always visible</td>
+                        <td>Consultant Dashboard</td>
+                    </tr>
+                    <tr>
+                        <td>Minimal Typing</td>
+                        <td>Dropdowns, toggles, auto-suggestions</td>
+                        <td>All Dashboards</td>
+                    </tr>
+                    <tr>
+                        <td>Auto-Save Drafts</td>
+                        <td>Form data saved every 30 seconds</td>
+                        <td>Referral Forms</td>
+                    </tr>
+                    <tr>
+                        <td>Voice Typing Support</td>
+                        <td>Phase 2: Voice-to-text for forms</td>
+                        <td>Consultant Dashboard</td>
+                    </tr>
+                    <tr>
+                        <td>Offline Support</td>
+                        <td>Basic functionality without internet</td>
+                        <td>Phase 2</td>
+                    </tr>
+                </table>
+
+                <h3>18.2 Responsive Breakpoints</h3>
+                <div class="code-block">
+/* Mobile First Approach */
+Mobile:     0px - 639px   (Single column, stacked layout)
+Tablet:     640px - 1023px (Two columns, sidebar collapsible)
+Desktop:    1024px+        (Full layout, sticky sidebar)
+
+/* Key Rules */
+- Sidebar becomes hamburger menu on mobile
+- KPI cards stack vertically on mobile
+- Tables become card lists on mobile
+- Forms use full-width inputs on mobile
+- Emergency indicators become full-width banners
+                </div>
+
+                <h3>18.3 PWA Requirements (Phase 1.5)</h3>
+                <ul class="feature-list">
+                    <li>Service worker for offline caching</li>
+                    <li>Add to home screen capability</li>
+                    <li>Push notifications (Firebase)</li>
+                    <li>Background sync for form submissions</li>
+                    <li>App-like icons and splash screen</li>
+                </ul>
+            </div>
+
+            <!-- SECTION 19: FUTURE ROADMAP -->
+            <div class="section" id="sec19">
+                <h2>19. Future Roadmap & Phase Planning</h2>
+
+                <h3>19.1 Phase 1 (Current - May 2026)</h3>
+                <div class="success-box">
+                    <strong>Core Platform:</strong>
+                    <ul class="feature-list">
+                        <li>Super Admin Control Center</li>
+                        <li>Consultant Dashboard (Web)</li>
+                        <li>Hospital Dashboard (Web)</li>
+                        <li>Basic Referral Engine</li>
+                        <li>Wallet & Payout System</li>
+                        <li>Notification Center (Email + Popup)</li>
+                        <li>Real-time Bed Management</li>
+                        <li>Basic Analytics & Reports</li>
+                    </ul>
+                </div>
+
+                <h3>19.2 Phase 2 (Q3 2026)</h3>
+                <div class="info-box">
+                    <strong>Mobile & AI:</strong>
+                    <ul class="feature-list">
+                        <li>Native Android Application</li>
+                        <li>Native iOS Application</li>
+                        <li>AI Referral Recommendation Engine</li>
+                        <li>AI Fraud Detection</li>
+                        <li>WhatsApp API Integration</li>
+                        <li>Urdu Language Support</li>
+                        <li>Multi-City Operations</li>
+                        <li>White-Label Hospital Themes</li>
+                    </ul>
+                </div>
+
+                <h3>19.3 Phase 3 (Q4 2026)</h3>
+                <div class="warning-box">
+                    <strong>Integration & Scale:</strong>
+                    <ul class="feature-list">
+                        <li>HMS (Hospital Management System) Integrations</li>
+                        <li>Real-time Socket Communication</li>
+                        <li>Geo-Based Emergency Routing</li>
+                        <li>Laboratory Dashboard Full Feature</li>
+                        <li>Ambulance Provider Integration</li>
+                        <li>Insurance Company Integration</li>
+                        <li>Advanced Analytics with ML</li>
+                        <li>API Marketplace for Third Parties</li>
+                    </ul>
+                </div>
+
+                <h3>19.4 Future Architecture Requirements</h3>
+                <table>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Phase</th>
+                        <th>Technical Requirement</th>
+                    </tr>
+                    <tr>
+                        <td>Native Mobile Apps</td>
+                        <td>Phase 2</td>
+                        <td>React Native or Flutter, shared API layer</td>
+                    </tr>
+                    <tr>
+                        <td>AI Referral Engine</td>
+                        <td>Phase 2</td>
+                        <td>Python microservice, TensorFlow/PyTorch</td>
+                    </tr>
+                    <tr>
+                        <td>Urdu Language</td>
+                        <td>Phase 2</td>
+                        <td>i18n framework, RTL support</td>
+                    </tr>
+                    <tr>
+                        <td>Multi-City</td>
+                        <td>Phase 2</td>
+                        <td>MongoDB sharding, regional servers</td>
+                    </tr>
+                    <tr>
+                        <td>HMS Integration</td>
+                        <td>Phase 3</td>
+                        <td>HL7 FHIR standard, API adapters</td>
+                    </tr>
+                    <tr>
+                        <td>Geo-Routing</td>
+                        <td>Phase 3</td>
+                        <td>Google Maps API, custom routing algorithm</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- SECTION 20: DEVELOPMENT PHASES -->
+            <div class="section" id="sec20">
+                <h2>20. Development Phases & Milestones</h2>
+
+                <h3>20.1 Sprint Breakdown (12-Week Initial Development)</h3>
+                <table>
+                    <tr>
+                        <th>Sprint</th>
+                        <th>Duration</th>
+                        <th>Focus</th>
+                        <th>Deliverables</th>
+                    </tr>
+                    <tr>
+                        <td>Sprint 1-2</td>
+                        <td>Weeks 1-4</td>
+                        <td>Foundation & Auth</td>
+                        <td>Project setup, DB schema, Auth system, Role management</td>
+                    </tr>
+                    <tr>
+                        <td>Sprint 3-4</td>
+                        <td>Weeks 5-8</td>
+                        <td>User & Hospital Mgmt</td>
+                        <td>User CRUD, Hospital CRUD, Bed management, Document upload</td>
+                    </tr>
+                    <tr>
+                        <td>Sprint 5-6</td>
+                        <td>Weeks 9-12</td>
+                        <td>Referral Engine</td>
+                        <td>Referral creation, Smart suggestions, SLA system, Escalation</td>
+                    </tr>
+                    <tr>
+                        <td>Sprint 7-8</td>
+                        <td>Weeks 13-16</td>
+                        <td>Financial System</td>
+                        <td>Wallet system, Commission engine, Payout approval, Bank integration</td>
+                    </tr>
+                    <tr>
+                        <td>Sprint 9-10</td>
+                        <td>Weeks 17-20</td>
+                        <td>Notifications & UI</td>
+                        <td>Email system, WhatsApp API, Real-time alerts, Theme engine</td>
+                    </tr>
+                    <tr>
+                        <td>Sprint 11-12</td>
+                        <td>Weeks 21-24</td>
+                        <td>Analytics & Polish</td>
+                        <td>Reports, Dashboards, Mobile responsive, Performance optimization</td>
+                    </tr>
+                </table>
+
+                <h3>20.2 Key Milestones</h3>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="number">Week 4</div>
+                        <div class="label">Alpha Release<br>Auth + Basic CRUD</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">Week 8</div>
+                        <div class="label">Beta Release<br>Referral Flow Working</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">Week 12</div>
+                        <div class="label">RC Release<br>Financial System Ready</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="number">Week 16</div>
+                        <div class="label">v1.0 Launch<br>Production Ready</div>
+                    </div>
+                </div>
+
+                <h3>20.3 Testing Requirements</h3>
+                <div class="two-column">
+                    <div>
+                        <h4>Unit Testing</h4>
+                        <ul class="feature-list">
+                            <li>API endpoint tests (Jest)</li>
+                            <li>Component tests (React Testing Library)</li>
+                            <li>Utility function tests</li>
+                            <li>Minimum 80% coverage</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Integration Testing</h4>
+                        <ul class="feature-list">
+                            <li>End-to-end referral flow</li>
+                            <li>Payment processing flow</li>
+                            <li>Real-time WebSocket tests</li>
+                            <li>Multi-role access tests</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>20.4 Deployment Strategy</h3>
+                <div class="code-block">
+Environment Setup:
+├── Development     (dev.carebridge.pk)
+├── Staging         (staging.carebridge.pk)  
+├── Production      (carebridge.pk)
+└── DR Site         (dr.carebridge.pk)
+
+CI/CD Pipeline:
+1. GitHub Actions / GitLab CI
+2. Automated testing on PR
+3. Docker containerization
+4. Kubernetes orchestration
+5. Blue-green deployment
+6. Automated rollback on failure
+                </div>
+
+                <div class="highlight-box">
+                    <strong>Final Developer Note:</strong> The Super Admin Control Center is the heart of CareBridge. The architecture must be built dynamically so the business team can operate without developer dependency, expand rapidly across Pakistan, configure workflows instantly, and handle emergency healthcare referrals efficiently. The UI should feel like a premium healthcare SaaS platform with enterprise-level operational control.
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <div style="text-align: center; padding: 40px; background: #1e3a5f; color: white; margin-top: 50px;">
+                <img src="images/carebridge_logo.jpeg" alt="CareBridge Logo" style="max-width: 120px; background: white; padding: 10px; border-radius: 10px; margin-bottom: 20px;">
+                <h2>CareBridge Health</h2>
+                <p>Building the Future of Healthcare Referrals in Pakistan</p>
+                <p style="margin-top: 20px; font-size: 0.9em; opacity: 0.8;">
+                    Document Version: 1.0 | Date: May 2026 | Prepared for Development Team<br>
+                    Confidential - Internal Use Only
+                </p>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

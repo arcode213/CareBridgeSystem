@@ -46,6 +46,7 @@ const run = async () => {
     await Consultant.create({
       userId: consultantUser._id,
       pmdcNumber: '12345-S',
+      cnic: '42101-1234567-9',
       specialty: 'General Physician',
       clinicName: 'Health First Clinic',
       isVerified: true

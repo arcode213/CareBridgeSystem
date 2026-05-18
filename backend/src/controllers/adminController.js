@@ -7,6 +7,7 @@ const Payout = require('../models/Payout');
 const DepartmentCatalog = require('../models/DepartmentCatalog');
 const ScoringConfig = require('../models/ScoringConfig');
 const PlatformSettings = require('../models/PlatformSettings');
+const AuditLog = require('../models/AuditLog');
 const { logAction } = require('../utils/logger');
 
 exports.listPendingUsers = async (req, res) => {
@@ -17,10 +18,10 @@ exports.listPendingUsers = async (req, res) => {
       users.map(async (u) => {
         const base = { ...u };
         if (u.role === 'consultant') {
-          base.profile = await Consultant.findOne({ userId: u._id }).select('pmdcNumber specialty clinicName clinicAddress').lean();
+          base.profile = await Consultant.findOne({ userId: u._id }).select('pmdcNumber specialty clinicName clinicAddress verificationDocuments').lean();
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
-            .select('hospitalName registrationNumber departments bedsInventory address')
+            .select('hospitalName registrationNumber departments bedsInventory address registrationDocuments')
             .lean();
         }
         return base;
@@ -48,11 +49,11 @@ exports.listAllUsers = async (req, res) => {
         const base = { ...u };
         if (u.role === 'consultant') {
           base.profile = await Consultant.findOne({ userId: u._id })
-            .select('pmdcNumber specialty clinicName clinicAddress totalEarnings monthlyEarnings promoCode isVerified preferredHospitals')
+            .select('pmdcNumber specialty clinicName clinicAddress totalEarnings monthlyEarnings walletBalance commissionPercentage promoCode isVerified preferredHospitals verificationDocuments')
             .lean();
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
-            .select('hospitalName registrationNumber departments bedsInventory address city area isActive')
+            .select('hospitalName registrationNumber departments bedsInventory address city area deductionPercentage isActive registrationDocuments')
             .lean();
         }
         return base;
@@ -260,12 +261,29 @@ exports.getPlatformSettings = async (req, res) => {
 
 exports.updatePlatformSettings = async (req, res) => {
   try {
-    const { payoutPaisaPerClosedCase } = req.body;
+    const {
+      defaultHospitalDeductionPercentage,
+      defaultConsultantCommissionPercentage,
+      walletThresholdPaisa,
+      walletInitialHoldPaisa,
+    } = req.body;
+
     let doc = await PlatformSettings.findOne().sort({ updatedAt: -1 });
     if (!doc) doc = new PlatformSettings();
-    if (payoutPaisaPerClosedCase != null) {
-      doc.payoutPaisaPerClosedCase = Math.max(0, Number(payoutPaisaPerClosedCase));
+
+    if (defaultHospitalDeductionPercentage != null) {
+      doc.defaultHospitalDeductionPercentage = Math.max(0, Math.min(100, Number(defaultHospitalDeductionPercentage)));
     }
+    if (defaultConsultantCommissionPercentage != null) {
+      doc.defaultConsultantCommissionPercentage = Math.max(0, Math.min(100, Number(defaultConsultantCommissionPercentage)));
+    }
+    if (walletThresholdPaisa != null) {
+      doc.walletThresholdPaisa = Math.max(0, Number(walletThresholdPaisa));
+    }
+    if (walletInitialHoldPaisa != null) {
+      doc.walletInitialHoldPaisa = Math.max(0, Number(walletInitialHoldPaisa));
+    }
+
     await doc.save();
 
     await logAction({
@@ -273,7 +291,12 @@ exports.updatePlatformSettings = async (req, res) => {
       action: 'PLATFORM_SETTINGS_UPDATE',
       entityId: doc._id,
       entityModel: 'PlatformSettings',
-      details: { payoutPaisaPerClosedCase }
+      details: {
+        defaultHospitalDeductionPercentage,
+        defaultConsultantCommissionPercentage,
+        walletThresholdPaisa,
+        walletInitialHoldPaisa,
+      }
     });
 
     res.json({ success: true, data: doc });
@@ -325,6 +348,312 @@ exports.markPayoutAsPaid = async (req, res) => {
     res.json({ success: true, message: 'Payout marked as paid' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Update failed' });
+  }
+};
+
+exports.listAllReferrals = async (req, res) => {
+  try {
+    const referrals = await Referral.find()
+      .populate('consultantId', 'name')
+      .populate('targetHospitalId', 'hospitalName')
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ success: true, data: referrals });
+  } catch (error) {
+    console.error('listAllReferrals error:', error);
+    res.status(500).json({ success: false, message: 'Failed to list referrals' });
+  }
+};
+
+exports.overrideReferral = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, hospitalId, priority } = req.body;
+    
+    const referral = await Referral.findById(id);
+    if (!referral) return res.status(404).json({ success: false, message: 'Referral not found' });
+    
+    const updates = {};
+    if (status) updates.status = status;
+    if (hospitalId) updates.targetHospitalId = hospitalId;
+    if (priority) updates.priority = priority;
+
+    Object.assign(referral, updates);
+    await referral.save();
+
+    await logAction({
+      req,
+      action: 'ADMIN_OVERRIDE_REFERRAL',
+      entityId: referral._id,
+      entityModel: 'Referral',
+      details: updates
+    });
+
+    res.json({ success: true, data: referral });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to override referral' });
+  }
+};
+
+exports.listAllBeds = async (req, res) => {
+  try {
+    const hospitals = await Hospital.find({ isActive: true })
+      .select('hospitalName city bedsInventory')
+      .lean();
+    res.json({ success: true, data: hospitals });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch beds' });
+  }
+};
+
+exports.listAuditLogs = async (req, res) => {
+  try {
+    const logs = await AuditLog.find()
+      .populate('actorId', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(500)
+      .lean();
+    
+    const mappedLogs = logs.map(log => ({
+      ...log,
+      adminId: log.actorId
+    }));
+
+    res.json({ success: true, data: mappedLogs });
+  } catch (error) {
+    console.error('listAuditLogs error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch audit logs' });
+  }
+};
+
+exports.getConsultantProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let user = await User.findById(id).select('-passwordHash').lean();
+    let consultant = null;
+    if (user) {
+      consultant = await Consultant.findOne({ userId: user._id }).lean();
+    } else {
+      consultant = await Consultant.findById(id).lean();
+      if (consultant) {
+        user = await User.findById(consultant.userId).select('-passwordHash').lean();
+      }
+    }
+
+    if (!user || !consultant) {
+      return res.status(404).json({ success: false, message: 'Consultant not found' });
+    }
+
+    // Referral Performance
+    const referrals = await Referral.find({ consultantId: consultant._id }).lean();
+    const totalReferrals = referrals.length;
+    const acceptedReferrals = referrals.filter(r => ['accepted', 'admitted', 'closed'].includes(r.status)).length;
+    const rejectedReferrals = referrals.filter(r => r.status === 'rejected').length;
+    const emergencyReferrals = referrals.filter(r => r.urgency === 'emergency').length;
+
+    // Average SLA Response Time
+    const resolved = referrals.filter(r => r.acceptedAt);
+    let averageSlaResponseTime = '—';
+    if (resolved.length > 0) {
+      const sumMs = resolved.reduce((acc, curr) => acc + (curr.acceptedAt.getTime() - curr.createdAt.getTime()), 0);
+      const avgMin = Math.round(sumMs / (60000 * resolved.length));
+      if (avgMin < 60) {
+        averageSlaResponseTime = `${avgMin} mins`;
+      } else {
+        averageSlaResponseTime = `${(avgMin / 60).toFixed(1)} hours`;
+      }
+    }
+    const successRate = totalReferrals > 0 ? Math.round((acceptedReferrals / totalReferrals) * 100) : 0;
+
+    // Wallet Section
+    const payouts = await Payout.find({ consultantId: consultant._id }).lean();
+    const pendingAmountPaisa = payouts.filter(p => p.status === 'pending').reduce((acc, curr) => acc + curr.amountPaisa, 0);
+    const withdrawnAmountPaisa = payouts.filter(p => p.status === 'paid').reduce((acc, curr) => acc + curr.amountPaisa, 0);
+    
+    const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
+    const commPct = consultant.commissionPercentage ?? settings?.defaultConsultantCommissionPercentage ?? 60;
+    const commissionVal = `${commPct}% of platform's referral cut (Dynamic split)`;
+
+    // Activity Logs
+    const logs = await AuditLog.find({ actorId: user._id })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    const loginHistory = logs
+      .filter(l => l.action === 'USER_LOGIN' || l.action?.toLowerCase().includes('login'))
+      .map(l => ({
+        time: l.createdAt,
+        ip: l.ipAddress || 'Unknown IP',
+        device: l.userAgent || 'Unknown Device'
+      }));
+
+    const referralActionsLog = logs
+      .filter(l => l.entityModel === 'Referral' || l.action?.toLowerCase().includes('referral'))
+      .map(l => ({
+        time: l.createdAt,
+        action: l.action,
+        details: l.details || {}
+      }));
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        profile: {
+          ...consultant,
+          performance: {
+            totalReferrals,
+            acceptedReferrals,
+            rejectedReferrals,
+            emergencyReferrals,
+            averageSlaResponseTime,
+            successRate
+          },
+          wallet: {
+            currentBalancePaisa: consultant.walletBalance || 0,
+            pendingAmountPaisa,
+            withdrawnAmountPaisa,
+            commissionStructure: commissionVal
+          },
+          loginHistory: loginHistory.slice(0, 5),
+          referralActionsLog: referralActionsLog.slice(0, 5)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('getConsultantProfile error:', error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve consultant profile details' });
+  }
+};
+
+exports.adminChangePassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    
+    const bcrypt = require('bcrypt');
+    user.passwordHash = await bcrypt.hash(password, 12);
+    await user.save();
+
+    await logAction({
+      req,
+      action: 'ADMIN_CHANGE_PASSWORD',
+      entityId: user._id,
+      entityModel: 'User',
+      details: { email: user.email }
+    });
+
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: 'Failed to change password' });
+  }
+};
+
+exports.adminDeleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (user.role === 'consultant') {
+      await Consultant.deleteOne({ userId: user._id });
+    } else if (user.role === 'hospital') {
+      await Hospital.deleteOne({ userId: user._id });
+    }
+    
+    await User.deleteOne({ _id: user._id });
+
+    await logAction({
+      req,
+      action: 'ADMIN_DELETE_USER',
+      entityId: user._id,
+      entityModel: 'User',
+      details: { email: user.email, role: user.role }
+    });
+
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: 'Failed to delete user' });
+  }
+};
+
+exports.adminUpdateConsultantCommission = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { commissionPercentage } = req.body;
+
+    if (commissionPercentage == null || isNaN(commissionPercentage) || commissionPercentage < 0 || commissionPercentage > 100) {
+      return res.status(400).json({ success: false, message: 'Valid commission percentage (0-100) is required' });
+    }
+
+    let consultant = await Consultant.findOne({ userId: id });
+    if (!consultant) {
+      consultant = await Consultant.findById(id);
+    }
+
+    if (!consultant) {
+      return res.status(404).json({ success: false, message: 'Consultant not found' });
+    }
+
+    consultant.commissionPercentage = Number(commissionPercentage);
+    await consultant.save();
+
+    await logAction({
+      req,
+      action: 'ADMIN_UPDATE_CONSULTANT_COMMISSION',
+      entityId: consultant._id,
+      entityModel: 'Consultant',
+      details: { commissionPercentage }
+    });
+
+    res.json({ success: true, message: 'Consultant commission percentage updated successfully', data: consultant });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: 'Failed to update commission percentage' });
+  }
+};
+
+exports.adminUpdateHospitalDeduction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { deductionPercentage } = req.body;
+
+    if (deductionPercentage == null || isNaN(deductionPercentage) || deductionPercentage < 0 || deductionPercentage > 100) {
+      return res.status(400).json({ success: false, message: 'Valid deduction percentage (0-100) is required' });
+    }
+
+    let hospital = await Hospital.findOne({ userId: id });
+    if (!hospital) {
+      hospital = await Hospital.findById(id);
+    }
+
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not found' });
+    }
+
+    hospital.deductionPercentage = Number(deductionPercentage);
+    await hospital.save();
+
+    await logAction({
+      req,
+      action: 'ADMIN_UPDATE_HOSPITAL_DEDUCTION',
+      entityId: hospital._id,
+      entityModel: 'Hospital',
+      details: { deductionPercentage }
+    });
+
+    res.json({ success: true, message: 'Hospital deduction percentage updated successfully', data: hospital });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: 'Failed to update deduction percentage' });
   }
 };
 

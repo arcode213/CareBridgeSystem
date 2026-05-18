@@ -63,17 +63,30 @@ const HospitalAdmissions = () => {
 
   const complete = async (id) => {
     try {
-      // If payment method is JazzCash, initiate gateway flow
+      // 1. Always save current form data first to ensure DB has the latest bill total
+      const services = [];
+      if (form.serviceDesc && form.serviceAmount) {
+        services.push({
+          description: form.serviceDesc,
+          amountPaisa: Math.round(Number(form.serviceAmount) * 100),
+        });
+      }
+      
+      await api.patch(`/hospitals/admissions/${id}`, {
+        services,
+        billTotalPaisa: Math.round(Number(form.billTotalPaisa) * 100),
+        paymentMethod: form.paymentMethod,
+        paymentReference: form.paymentReference || undefined,
+      });
+
+      // 2. Handle JazzCash specifically
       if (form.paymentMethod === 'jazzcash') {
         const res = await api.get(`/payments/initiate-jazzcash/${id}`);
         if (res.data.success) {
           const { url, params } = res.data.data;
-          
-          // Create a form and submit it to redirect to JazzCash
           const formEl = document.createElement('form');
           formEl.method = 'POST';
           formEl.action = url;
-          
           Object.entries(params).forEach(([key, value]) => {
             const input = document.createElement('input');
             input.type = 'hidden';
@@ -81,20 +94,21 @@ const HospitalAdmissions = () => {
             input.value = value;
             formEl.appendChild(input);
           });
-          
           document.body.appendChild(formEl);
           formEl.submit();
           return;
         }
       }
 
-      // Default cash/manual closure
+      // 3. Finalize for other methods
       await api.post(`/hospitals/admissions/${id}/complete`);
       toast.success('Case closed — consultant payout triggered.');
+      setExpanded(null);
       queryClient.invalidateQueries({ queryKey: ['admissions'] });
       queryClient.invalidateQueries({ queryKey: ['pipeline'] });
     } catch (e) {
-      toast.error(e.response?.data?.message || 'Complete failed — set bill & payment first');
+      console.error('Finalization failed:', e);
+      toast.error(e.response?.data?.message || 'Finalization failed. Ensure bill total and payment method are set.');
     }
   };
 

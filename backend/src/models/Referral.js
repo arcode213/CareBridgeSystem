@@ -17,9 +17,16 @@ const ReferralSchema = new mongoose.Schema(
       set: encrypt, 
       get: decrypt 
     }, 
+    guardianName: { type: String },
+    guardianCnic: { 
+      type: String, 
+      set: encrypt, 
+      get: decrypt 
+    },
     // Clinical Info
     urgency: { type: String, enum: ['emergency', 'urgent', 'routine'], required: true },
     symptomsText: { type: String },
+    summaryNotes: { type: String }, // Consultant's clinical summary
     symptomTags: [{ type: String }],
     department: { type: String },
     /** Department head routing (FR-23) — set when hospital accepts. */
@@ -27,10 +34,29 @@ const ReferralSchema = new mongoose.Schema(
     diagnosisText: { type: String },
     notes: { type: String },
     attachments: [{ type: String }], // Cloudinary URLs
+    
+    /** 
+     * Chronological clinical logs added during treatment (Nursing/Consultant tickets)
+     * as per Care bridge portal.docx
+     */
+    clinicalNotes: [
+      {
+        type: { type: String, enum: ['nursing', 'consultant'], required: true },
+        content: { type: String, required: true },
+        author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        authorName: { type: String }, // cached for quick display
+        createdAt: { type: Date, default: Date.now }
+      }
+    ],
+
     budgetMin: { type: Number }, // in paisa
     budgetMax: { type: Number }, // in paisa
+    /** Predefined brackets (Q6) */
+    budgetBracket: { type: String, enum: ['5k-10k', '10k-50k', '50k-1lac', '1lac-3lac', '3lac+'] },
     // Hospital & Status
     targetHospitalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hospital' },
+    /** Refer to a specific doctor (Q4) */
+    targetDoctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'HospitalDoctor' },
     /** Top hospitals from scoring at submission time (escalation order). */
     rankedHospitalIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Hospital' }],
     /** Index into rankedHospitalIds for the hospital currently responsible (SLA). */

@@ -30,7 +30,7 @@ exports.initiateJazzCashPayment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Bill total not set' });
     }
 
-    const jazzCashData = createJazzCashRequest(admission, amountPaisa);
+    const jazzCashData = createJazzCashRequest(admission, amountPaisa, hospital.paymentGatewayCredentials);
 
     res.json({
       success: true,
@@ -42,42 +42,51 @@ exports.initiateJazzCashPayment = async (req, res) => {
   }
 };
 
+const billingService = require('../services/billingService');
+
 exports.jazzCashCallback = async (req, res) => {
   try {
     const payload = req.body;
     console.log('[PAYMENT] JazzCash Callback Received:', payload);
 
-    if (!verifyJazzCashHash(payload)) {
-      console.error('[PAYMENT] Hash Verification Failed');
+    const admissionId = payload.pp_BillReference;
+    const admission = await Admission.findById(admissionId).populate('hospitalId');
+    
+    if (!admission) {
+      console.error('[PAYMENT] Admission not found for callback:', admissionId);
+      return res.status(404).send('Admission not found');
+    }
+
+    const hospital = admission.hospitalId;
+    const salt = hospital?.paymentGatewayCredentials?.integritySalt;
+
+    if (!verifyJazzCashHash(payload, salt)) {
+      console.error('[PAYMENT] Hash Verification Failed for Hospital:', hospital?.hospitalName);
       return res.status(400).send('Invalid Hash');
     }
 
     const responseCode = payload.pp_ResponseCode;
-    const admissionId = payload.pp_BillReference;
     const txnRef = payload.pp_TxnRefNo;
-
-    const admission = await Admission.findById(admissionId);
-    if (!admission) {
-      return res.status(404).send('Admission not found');
-    }
 
     if (responseCode === '000') {
       // Success
-      admission.status = 'billed'; // Or wait for manual closure if preferred, but usually billing marks it
-      admission.paymentMethod = 'jazzcash';
-      admission.paymentReference = txnRef;
-      admission.completedAt = new Date();
-      await admission.save();
+      const io = req.app.get('io');
+      await billingService.finalizeAdmission(
+        admission._id,
+        'jazzcash',
+        txnRef,
+        io
+      );
 
       await logAction({
-        actorId: admission.hospitalId, // System actor or hospital
+        actorId: admission.hospitalId,
         action: 'PAYMENT_SUCCESS',
         entityId: admission._id,
         entityModel: 'Admission',
         details: { gateway: 'jazzcash', txnRef, amount: payload.pp_Amount }
       });
 
-      console.log(`[PAYMENT] Admission ${admissionId} marked as PAID via JazzCash`);
+      console.log(`[PAYMENT] Admission ${admissionId} finalized via JazzCash callback`);
     } else {
       // Failed
       console.warn(`[PAYMENT] Transaction Failed: ${payload.pp_ResponseMessage}`);

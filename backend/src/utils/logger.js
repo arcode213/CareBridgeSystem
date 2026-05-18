@@ -3,7 +3,7 @@ const AuditLog = require('../models/AuditLog');
 const logAction = async ({ req, actorId, action, entityId, entityModel, details }) => {
   try {
     await AuditLog.create({
-      actorId: actorId || req?.user?._id,
+      actorId: actorId || req?.user?.id || req?.user?._id,
       action,
       entityId,
       entityModel,

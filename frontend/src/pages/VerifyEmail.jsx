@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2, Activity } from 'lucide-react';
 import api from '../utils/api';
@@ -8,9 +8,12 @@ const VerifyEmail = () => {
   const [status, setStatus] = useState('verifying'); // 'verifying', 'success', 'error'
   const [message, setMessage] = useState('');
   const token = searchParams.get('token');
+  const called = useRef(false);
 
   useEffect(() => {
     const verify = async () => {
+      if (called.current) return;
+      called.current = true;
       if (!token) {
         setStatus('error');
         setMessage('No verification token found.');

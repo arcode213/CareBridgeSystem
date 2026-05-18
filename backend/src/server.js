@@ -41,12 +41,19 @@ const referralRoutes = require('./routes/referralRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 
 app.use('/v1/auth', authRoutes);
 app.use('/v1/referrals', referralRoutes);
 app.use('/v1/hospitals', hospitalRoutes);
 app.use('/v1/admin', adminRoutes);
 app.use('/v1/payments', paymentRoutes);
+app.use('/v1/upload', uploadRoutes);
+app.use('/v1/profile', profileRoutes);
+
+// Static uploads
+app.use('/uploads', express.static('uploads'));
 
 // Root Endpoint
 app.get('/', (req, res) => {
@@ -81,7 +88,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {});
+  socket.on('disconnect', () => { });
 });
 
 const PORT = process.env.PORT || 5000;

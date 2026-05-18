@@ -1,4 +1,5 @@
 const Referral = require('../models/Referral');
+const Hospital = require('../models/Hospital');
 const { slaDeadlineFromUrgency } = require('../utils/sla');
 const { updateHospitalStats } = require('../services/statsService');
 
@@ -46,20 +47,48 @@ async function processReferralEscalations(io) {
           message: 'Referral escalated to next hospital (SLA)',
         });
       }
+    } else if (ref.urgency === 'emergency') {
+      /** Q7: In Emergency -> Auto escalate instantly to the nearest facility from consultant address. */
+      const currentHospital = await Hospital.findById(prevHospitalId);
+      if (currentHospital && currentHospital.location) {
+        const nearest = await Hospital.findOne({
+          _id: { $nin: ranked }, // Not one we already tried
+          isActive: true,
+          location: {
+            $near: {
+              $geometry: currentHospital.location,
+              $maxDistance: 20000 // 20km
+            }
+          }
+        });
+
+        if (nearest) {
+          ref.targetHospitalId = nearest._id;
+          ref.slaDeadline = slaDeadlineFromUrgency('emergency');
+          await ref.save();
+
+          if (io) {
+            io.to(`hospital:${nearest._id.toString()}`).emit('NEW_REFERRAL', {
+              referralId: ref._id.toString(),
+              hospitalId: nearest._id.toString(),
+            });
+            io.to(`consultant:${ref.consultantId.toString()}`).emit('REFERRAL_ESCALATED', {
+              referralId: ref._id.toString(),
+              message: 'EMERGENCY: Escalated to nearest alternative facility.',
+            });
+          }
+          continue;
+        }
+      }
+      
+      // If no nearest found, fall through to rejection
+      ref.status = 'rejected';
+      ref.rejectionReason = 'SLA expired — no remaining hospital in queue or nearby';
+      await ref.save();
     } else {
       ref.status = 'rejected';
       ref.rejectionReason = 'SLA expired — no remaining hospital in queue';
       await ref.save();
-
-      // Update stats for the final hospital that failed
-      await updateHospitalStats(prevHospitalId);
-
-      if (io) {
-        io.to(`consultant:${ref.consultantId.toString()}`).emit('STATUS_UPDATE', {
-          referralId: ref._id.toString(),
-          status: 'rejected',
-        });
-      }
     }
   }
 }

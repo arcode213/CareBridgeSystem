@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, Eye, X, CheckCircle, XCircle, Mail, Phone, Building2, UserCheck, Stethoscope } from 'lucide-react';
+import { ShieldCheck, Eye, X, CheckCircle, XCircle, Mail, Phone, Building2, UserCheck, Stethoscope, FileText } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import DetailModal from '../../components/DetailModal';
@@ -164,6 +164,26 @@ const AdminApprovals = () => {
                   <Field label="Clinic Name" value={selected.profile.clinicName} />
                   <Field label="Clinic Address" value={selected.profile.clinicAddress} />
                 </div>
+                {/* Consultant Verification Documents (Q1) */}
+                <div className="border-t border-slate-50 pt-4">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Verification Documents</p>
+                  <div className="space-y-2">
+                    {(selected.profile.verificationDocuments || []).length === 0 ? (
+                      <p className="text-xs text-red-500 italic">No documents uploaded</p>
+                    ) : (
+                      selected.profile.verificationDocuments.map((doc, idx) => (
+                        <a key={idx} href={doc.url} target="_blank" rel="noreferrer"
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-300 transition-all group">
+                          <div className="flex items-center gap-3">
+                            <FileText size={16} className="text-blue-600" />
+                            <span className="text-sm font-semibold text-slate-700">{doc.name}</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-blue-600 uppercase opacity-0 group-hover:opacity-100 transition-opacity">View Certificate</span>
+                        </a>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -183,6 +203,26 @@ const AdminApprovals = () => {
                     {(selected.profile.departments || []).map(d => (
                       <span key={d} className="px-3 py-1 bg-teal-50 text-teal-700 text-xs font-semibold rounded-full">{d}</span>
                     ))}
+                  </div>
+                </div>
+                {/* Registration Documents (Q3) */}
+                <div className="border-t border-slate-50 pt-4">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Verification Documents</p>
+                  <div className="space-y-2">
+                    {(selected.profile.registrationDocuments || []).length === 0 ? (
+                      <p className="text-xs text-red-500 italic">No documents uploaded</p>
+                    ) : (
+                      selected.profile.registrationDocuments.map((doc, idx) => (
+                        <a key={idx} href={doc.url} target="_blank" rel="noreferrer"
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-300 transition-all group">
+                          <div className="flex items-center gap-3">
+                            <FileText size={16} className="text-blue-600" />
+                            <span className="text-sm font-semibold text-slate-700">{doc.name}</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-blue-600 uppercase opacity-0 group-hover:opacity-100 transition-opacity">View Document</span>
+                        </a>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>

@@ -8,7 +8,7 @@ async function test() {
 
   const mockUser = {
     name: 'Test User',
-    email: 't63034227@gmail.com' // Replace with your email to receive a real test
+    email: '2143rehman@gmail.com' // Replace with your email to receive a real test
   };
   const mockToken = 'test-token-123';
 

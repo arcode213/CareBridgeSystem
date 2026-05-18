@@ -1,7 +1,11 @@
 const mongoose = require('mongoose');
 
 const BedInventorySchema = new mongoose.Schema({
-  ward: { type: String, enum: ['General', 'Private', 'ICU', 'NICU', 'PICU'], required: true },
+  ward: {
+    type: String,
+    enum: ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burns', 'Maternity', 'Psychiatric', 'Cardiac'],
+    required: true
+  },
   totalBeds: { type: Number, default: 0 },
   occupiedBeds: { type: Number, default: 0 },
   availableBeds: { type: Number, default: 0 },
@@ -20,6 +24,19 @@ const HospitalSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
     hospitalName: { type: String, required: true },
     registrationNumber: { type: String },
+    /** Supporting documents for registration (Q3) */
+    registrationDocuments: [
+      {
+        name: { type: String, required: true }, // e.g. "SHCC License", "Rate List"
+        url: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+      }
+    ],
+    /** Custom branding for white-labeling (Q28) */
+    branding: {
+      primaryColor: { type: String, default: '#2980b9' },
+      logoUrl: { type: String },
+    },
     city: { type: String, default: 'Karachi' },
     area: { type: String },
     address: { type: String },
@@ -34,6 +51,13 @@ const HospitalSchema = new mongoose.Schema(
     acceptanceRate: { type: Number, default: 80 }, // percentage
     rating: { type: Number, default: 4.0, min: 0, max: 5 },
     isActive: { type: Boolean, default: false },
+    deductionPercentage: { type: Number, default: 20 }, // platform deduction percentage (e.g. 20%)
+    /** Individual JazzCash Merchant Credentials (SRS §12.3) */
+    paymentGatewayCredentials: {
+      merchantId: { type: String, trim: true },
+      password: { type: String, trim: true },
+      integritySalt: { type: String, trim: true },
+    },
   },
   { timestamps: true }
 );

@@ -1,6 +1,73 @@
 const Hospital = require('../models/Hospital');
 const Referral = require('../models/Referral');
 const Admission = require('../models/Admission');
+const HospitalDoctor = require('../models/HospitalDoctor');
+
+exports.listDoctors = async (req, res) => {
+  try {
+    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const doctors = await HospitalDoctor.find({ hospitalId: hospital._id });
+    res.json({ success: true, data: doctors });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching doctors' });
+  }
+};
+
+exports.addDoctor = async (req, res) => {
+  try {
+    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const { name, specialty, pmdcNumber, consultationFee, phone, email } = req.body;
+    
+    const doctor = await HospitalDoctor.create({
+      name,
+      specialty,
+      pmdcNumber,
+      hospitalId: hospital._id,
+      consultationFee: consultationFee * 100, // Convert to paisa
+      phone,
+      email,
+      isAvailable: true
+    });
+    
+    res.status(201).json({ success: true, data: doctor });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error adding doctor' });
+  }
+};
+
+exports.updateDoctor = async (req, res) => {
+  try {
+    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const { id } = req.params;
+    const updates = { ...req.body };
+    if (updates.consultationFee) updates.consultationFee *= 100;
+
+    const doctor = await HospitalDoctor.findOneAndUpdate(
+      { _id: id, hospitalId: hospital._id },
+      updates,
+      { new: true }
+    );
+    
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+    res.json({ success: true, data: doctor });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error updating doctor' });
+  }
+};
+
+exports.deleteDoctor = async (req, res) => {
+  try {
+    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const { id } = req.params;
+    
+    const doctor = await HospitalDoctor.findOneAndDelete({ _id: id, hospitalId: hospital._id });
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+    
+    res.json({ success: true, message: 'Doctor removed' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error deleting doctor' });
+  }
+};
 
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -169,5 +236,55 @@ exports.updateBeds = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error updating bed inventory' });
+  }
+};
+
+exports.updateDepartments = async (req, res) => {
+  try {
+    const { departments } = req.body;
+    if (!departments || !Array.isArray(departments)) {
+      return res.status(400).json({ success: false, message: 'Invalid departments array' });
+    }
+
+    const hospital = await Hospital.findOne({ userId: req.user.id });
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital profile not found' });
+    }
+
+    hospital.departments = departments;
+    await hospital.save();
+
+    res.json({ success: true, message: 'Departments updated', data: hospital.departments });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error updating departments' });
+  }
+};
+
+exports.getFinancialLedger = async (req, res) => {
+  try {
+    const hospital = await Hospital.findOne({ userId: req.user.id });
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital profile not found' });
+    }
+
+    // Query payouts matching this hospital's admissions
+    const admissions = await Admission.find({ hospitalId: hospital._id }).select('_id');
+    const admissionIds = admissions.map(a => a._id);
+
+    const Payout = require('../models/Payout');
+    const payouts = await Payout.find({ admissionId: { $in: admissionIds } }, {
+      amountPaisa: 0,
+      commissionPercentage: 0,
+      adminSharePaisa: 0,
+    })
+      .populate('referralId', 'referralCode patientName urgency department')
+      .populate({ path: 'consultantId', populate: { path: 'userId', select: 'name email' } })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({ success: true, data: payouts });
+  } catch (error) {
+    console.error('getFinancialLedger Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve financial ledger' });
   }
 };

@@ -1,0 +1,60 @@
+Login page
+
+Profile category ----------- Doctor, Institute, Admin
+1- Profile sign up ----- Doctor 
+Doctor profile setup (first pw would be system generated, doctor can setup the profile and new passwords later)
+Portal ID can be created by doctor and clinics identity. One doctor can create multiple ids but all the ids would have a different username and pw.
+
+ID & PW login …………… Patient record update & unique serial id for every patient (Patient guardian id and cnic would be added for tracking) + Patient intake form + Patient summary notes , After filling patient’s details a drop down of multiple Hospitals category and multiple listed hospitals will display.
+
+
+
+IPD- Hospitals will be selected by Doctors on following details: 
+Hospital doctor availability , availability of treatment, Doctor will add beds and nursing options within portal, 
+
+Bed & Treatment allocation:
+
+
+updates will be shared real-time….. Once the doctor selects an institute and the treatment the service will be dedicatedly reserved on the Doctors portal and IPD portal immediately…. After reservation once the hospital receives the patient the patient record and updates would be shared with the doctor and hospital
+
+Notification Update: 
+
+
+
+
+
+Precaution: The patient and recommendation records would be end to end encrypted between Doctor, IPD and Admin and the details shall not be breach.
+
+2- Hospital (IPD) 
+(first pw would be system generated, IDP can setup new passwords later)
+
+ID & PW login
+The hospital dedicated representative will create Hospital and personal profile, once the doctor recommend the patient would be directed to IPD and the doctors record would be updated in it, (Patient record, Patient guardian id and cnic, Patient summary notes  + Patient intake form would be directed to hospital portal)  
+
+These  records would be updated time to time by IPD portal (Hospital services + availability of treatment + availability of beds and nursing + Hospital can add their number of beds and doctors quantity themselves) , availability of department and updates would be updated in real time and shared between hospital and doctor.   
+
+
+
+Precaution: Once the patient treatment starts hospital will timely update the patient record, Patient summary notes would also be added by hospital as a Nursing notes, doctor can also add Patient summary notes (Consulting notes) and follow up during an ongoing treatment in multiple tickets and show within IPD portal records.    
+
+3- Admin: 
+Admin portal can monitor and authorize the Doctor and IPD during profile creation, Activities would be stored in Admin database, Records will be stored and updated in admin panel.
+Admin can add and deduct the accounts (IPD & Doctor) in the portal, 
+Admin cannot interfere in the treatment activity. 
+
+Admin would track the referral record: 
+Every doctors referral
+Every clinic referral
+IPD treatments and discharge record
+commission record is only drive and display only in admin
+Doctor and IPD commission structure can be adjusted through admin
+Doctor referral and commission calculator would be generated in Admin
+Commission formula and percentage can be adjusted in ranges by admin for every patient, every IPD, etc
+
+
+
+
+commission would be recorded by the admin portal
+Commission record will share the doctor’s total earned commission and platform fees commission earned from Hospital 
+Hospital will pay doctor through their bank account and our commission will be received and recorded in the admin portal
+Platform Bank account API will be connected in the Admin portal

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileCheck } from 'lucide-react';
+import api from '../utils/api';
 
 const ConsultantRegister = () => {
   const [formData, setFormData] = useState({
@@ -16,8 +17,39 @@ const ConsultantRegister = () => {
     clinicAddress: '',
     role: 'consultant'
   });
+  const [verificationDocuments, setVerificationDocuments] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  const handleFileUpload = async (e, docName) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        setIsUploading(true);
+        const uploadData = new FormData();
+        uploadData.append('file', file);
+        
+        const res = await api.post('/upload', uploadData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        if (res.data.success) {
+          const fileUrl = res.data.url;
+          setVerificationDocuments(prev => [
+            ...prev.filter(d => d.name !== docName),
+            { name: docName, url: fileUrl }
+          ]);
+          toast.success(`${docName} uploaded successfully`);
+        }
+      } catch (err) {
+        console.error('Upload failed:', err);
+        toast.error(`Failed to upload ${docName}`);
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -25,7 +57,10 @@ const ConsultantRegister = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const result = await register(formData);
+    if (verificationDocuments.length === 0) {
+      return toast.error('Please upload your PMDC Certificate for verification');
+    }
+    const result = await register({ ...formData, verificationDocuments });
     if (result.success) {
       toast.success(result.message || 'Registration successful! Please check your email for verification.', { duration: 6000 });
       setTimeout(() => navigate('/login'), 3000);
@@ -109,6 +144,49 @@ const ConsultantRegister = () => {
             <input name="password" type="password" required value={formData.password} onChange={handleChange}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
               placeholder="••••••••" />
+          </div>
+
+          <div className="pt-4 border-t border-slate-100">
+            <label className="block text-sm font-bold text-slate-800 mb-3 uppercase tracking-wider">Verification Documents</label>
+            <div className="bg-blue-50 rounded-2xl p-5 border border-blue-100">
+              <p className="text-xs text-blue-600 font-medium mb-4">
+                Please upload a clear copy of your PMDC Registration Certificate. This is required for account activation.
+              </p>
+              
+              <div className="relative group">
+                <input 
+                  type="file" 
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => handleFileUpload(e, 'PMDC Certificate')}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  disabled={isUploading}
+                />
+                <div className={`flex items-center justify-between p-4 bg-white rounded-xl border-2 border-dashed ${verificationDocuments.find(d => d.name === 'PMDC Certificate') ? 'border-emerald-500 bg-emerald-50' : 'border-blue-200 group-hover:border-blue-400'} transition-all`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${verificationDocuments.find(d => d.name === 'PMDC Certificate') ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                      <ArrowLeft className={`w-5 h-5 transform rotate-90`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">
+                        {verificationDocuments.find(d => d.name === 'PMDC Certificate') ? 'Certificate Uploaded' : 'Upload PMDC Certificate'}
+                      </p>
+                      <p className="text-xs text-slate-500">PDF, JPG, PNG (Max 5MB)</p>
+                    </div>
+                  </div>
+                  {verificationDocuments.find(d => d.name === 'PMDC Certificate') && (
+                    <div className="flex items-center gap-2 text-emerald-600">
+                      <span className="text-xs font-bold uppercase">Ready</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {isUploading && (
+                <div className="mt-3 flex items-center justify-center gap-2 text-blue-600">
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs font-bold uppercase tracking-wider">Uploading...</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

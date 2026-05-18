@@ -3,9 +3,13 @@ import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
+import api from '../utils/api';
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showResend, setShowResend] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const { login, isLoading, user } = useAuth();
   const navigate = useNavigate();
 
@@ -32,9 +36,31 @@ const Login = () => {
     } else {
       if (result.needsVerification) {
         toast.error('Please verify your email address. Check your inbox!', { duration: 6000, icon: '✉️' });
+        setShowResend(true);
       } else {
         toast.error(result.message || 'Login failed');
       }
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) {
+      toast.error('Please enter your email address first');
+      return;
+    }
+    setIsResending(true);
+    try {
+      const res = await api.post('/auth/resend-verification', { email });
+      if (res.data.success) {
+        toast.success(res.data.message);
+        setShowResend(false);
+      } else {
+        toast.error(res.data.message);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to resend verification email');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -81,9 +107,9 @@ const Login = () => {
             </label>
           </div>
           <div className="text-sm">
-            <a href="#" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors">
+            <Link to="/forgot-password" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors">
               Forgot your password?
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -96,6 +122,19 @@ const Login = () => {
             {isLoading ? 'Signing in...' : 'Sign in'}
           </button>
         </div>
+        
+        {showResend && (
+          <div className="text-center mt-4">
+            <button
+              type="button"
+              disabled={isResending}
+              onClick={handleResend}
+              className="text-sm font-bold text-blue-600 hover:text-blue-500 transition-colors"
+            >
+              {isResending ? 'Sending...' : 'Resend verification email?'}
+            </button>
+          </div>
+        )}
         
         <div className="text-center text-sm mt-6">
           <span className="text-slate-600">Don't have an account? </span>

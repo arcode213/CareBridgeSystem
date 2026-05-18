@@ -52,7 +52,12 @@ async function ensurePlatformData() {
 
   const psCount = await PlatformSettings.countDocuments();
   if (psCount === 0) {
-    await PlatformSettings.create({ payoutPaisaPerClosedCase: 100000 });
+    await PlatformSettings.create({
+      defaultHospitalDeductionPercentage: 20,
+      defaultConsultantCommissionPercentage: 60,
+      walletThresholdPaisa: 1000000,
+      walletInitialHoldPaisa: 950000,
+    });
     console.log('Seeded PlatformSettings');
   }
 

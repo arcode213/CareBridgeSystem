@@ -4,9 +4,9 @@ const Hospital = require('../models/Hospital');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendVerificationEmail } = require('../utils/emailService');
+const { sendVerificationEmail, sendResetPasswordEmail, sendEmail } = require('../utils/emailService');
 
-const ALLOWED_WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU'];
+const ALLOWED_WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burns', 'Maternity', 'Psychiatric', 'Cardiac'];
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -105,7 +105,7 @@ exports.register = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     const user = await User.create({
       name: name.trim(),
@@ -137,9 +137,11 @@ exports.register = async (req, res) => {
       await Consultant.create({
         userId: user._id,
         pmdcNumber: pmdc,
+        cnic: req.body.cnic?.trim() || '',
         specialty: (req.body.specialty || 'General').trim(),
         clinicName: req.body.clinicName?.trim(),
         clinicAddress: req.body.clinicAddress?.trim(),
+        verificationDocuments: req.body.verificationDocuments || [],
       });
     } else if (role === 'hospital') {
       const regNum = String(req.body.registrationNumber || '').trim();
@@ -163,6 +165,7 @@ exports.register = async (req, res) => {
         location: parsed.location,
         bedsInventory: parsed.bedsInventory,
         ratePackages: Array.isArray(req.body.ratePackages) ? req.body.ratePackages : [],
+        registrationDocuments: req.body.registrationDocuments || [],
         isActive: false,
       });
     }
@@ -193,10 +196,10 @@ exports.login = async (req, res) => {
     }
 
     if (!user.isEmailVerified) {
-      return res.status(403).json({ 
-        success: false, 
+      return res.status(403).json({
+        success: false,
         message: 'Please verify your email address before logging in.',
-        needsVerification: true 
+        needsVerification: true
       });
     }
 
@@ -209,6 +212,17 @@ exports.login = async (req, res) => {
 
     const accessToken = generateToken(user);
     const refreshToken = generateRefreshToken(user);
+
+    // Send login notification email (async)
+    try {
+      sendEmail({
+        to: user.email,
+        subject: 'CareBridge: New Login Detected',
+        text: `Hello ${user.name},\n\nWe detected a new login to your CareBridge Health account at ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}.\n\nIf this was you, no action is needed. If you did not log in, please secure your account immediately by resetting your password.`,
+      });
+    } catch (mailErr) {
+      console.error('Login notification email failed:', mailErr.message);
+    }
 
     res.status(200).json({
       success: true,
@@ -239,8 +253,9 @@ exports.verifyEmail = async (req, res) => {
 
     const user = await User.findOne({
       emailVerificationToken: token,
-      emailVerificationExpires: { $gt: Date.now() },
+      emailVerificationExpires: { $gt: new Date() },
     });
+    console.log('User found:', user ? user.email : 'None');
 
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid or expired verification token' });
@@ -258,6 +273,42 @@ exports.verifyEmail = async (req, res) => {
   } catch (error) {
     console.error('Email verification error:', error);
     res.status(500).json({ success: false, message: 'Server error during email verification' });
+  }
+};
+
+exports.resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({ success: false, message: 'Email is already verified' });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    user.emailVerificationToken = verificationToken;
+    user.emailVerificationExpires = verificationExpires;
+    await user.save();
+
+    sendVerificationEmail(user, verificationToken);
+
+    res.status(200).json({
+      success: true,
+      message: 'Verification email resent successfully. Please check your inbox.',
+    });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({ success: false, message: 'Server error during resending verification' });
   }
 };
 
@@ -288,5 +339,78 @@ exports.refresh = async (req, res) => {
   } catch (error) {
     console.error('Refresh error:', error);
     res.status(500).json({ success: false, message: 'Server error during refresh' });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return res.status(200).json({ success: true, message: 'If that email exists in our system, we have sent a reset link to it.' });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = resetExpires;
+    await user.save();
+
+    await sendResetPasswordEmail(user, resetToken);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset link sent successfully. Please check your email.',
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, message: 'Server error during forgot password process' });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: 'Token and new password are required' });
+    }
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired password reset token' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    user.passwordHash = passwordHash;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Your CareBridge Password Has Changed',
+        text: `Hello ${user.name},\n\nThis is a confirmation that the password for your CareBridge Health account has been successfully updated.\n\nIf you did not make this change, please contact platform support immediately.`,
+      });
+    } catch (mailErr) {
+      console.error('Password changed notification email failed:', mailErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully. You can now log in with your new password.',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, message: 'Server error during password reset process' });
   }
 };

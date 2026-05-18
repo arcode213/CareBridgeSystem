@@ -3,8 +3,9 @@ import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ArrowLeft } from 'lucide-react';
+import api from '../utils/api';
 
-const WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU'];
+const WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burns', 'Maternity', 'Psychiatric', 'Cardiac'];
 
 const DEPT_OPTIONS = [
   'Internal Medicine',
@@ -14,13 +15,18 @@ const DEPT_OPTIONS = [
   'Gastroenterology',
   'General Surgery',
   'Pediatrics',
+  'Psychiatry',
+  'Gynae/Obs',
+  'Radiology',
+  'Anesthesiology',
+  'Pathology',
 ];
 
 const defaultBeds = () =>
   WARDS.map((ward) => ({
     ward,
-    totalBeds: ward === 'General' ? 20 : ward === 'ICU' ? 6 : 12,
-    availableBeds: ward === 'General' ? 10 : ward === 'ICU' ? 2 : 6,
+    totalBeds: ward === 'General' ? 20 : ward === 'ICU' ? 6 : 0,
+    availableBeds: ward === 'General' ? 10 : ward === 'ICU' ? 2 : 0,
   }));
 
 const HospitalRegister = () => {
@@ -38,8 +44,35 @@ const HospitalRegister = () => {
   });
   const [departments, setDepartments] = useState(['Internal Medicine']);
   const [bedsInventory, setBedsInventory] = useState(defaultBeds);
+  const [registrationDocuments, setRegistrationDocuments] = useState([]);
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  const handleFileUpload = async (e, docName) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const res = await api.post('/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        if (res.data.success) {
+          const fileUrl = res.data.url;
+          setRegistrationDocuments(prev => [
+            ...prev.filter(d => d.name !== docName),
+            { name: docName, url: fileUrl }
+          ]);
+          toast.success(`${docName} uploaded successfully`);
+        }
+      } catch (err) {
+        console.error('Upload failed:', err);
+        toast.error(`Failed to upload ${docName}`);
+      }
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -75,6 +108,7 @@ const HospitalRegister = () => {
       ...formData,
       departments,
       bedsInventory: bedsPayload,
+      registrationDocuments,
       location: {
         lat: parseFloat(formData.lat),
         lng: parseFloat(formData.lng),
@@ -214,7 +248,28 @@ const HospitalRegister = () => {
           </div>
         </div>
 
-        {/* Section 3: Account Credentials */}
+        {/* Section 3: Supporting Documents (Q3) */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-1">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Supporting Documents</h3>
+            <div className="flex-1 h-px bg-slate-100"></div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50">
+              <label className="block text-sm font-semibold text-slate-700 mb-1">SHCC Professional License</label>
+              <input type="file" onChange={(e) => handleFileUpload(e, 'SHCC License')} 
+                className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            </div>
+            <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50">
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Billing Rate List (Softcopy)</label>
+              <input type="file" onChange={(e) => handleFileUpload(e, 'Rate List')}
+                className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">Mandatory for verification (TAT: 24-48 hours).</p>
+        </div>
+
+        {/* Section 4: Account Credentials */}
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-1">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Account Credentials</h3>

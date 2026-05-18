@@ -2,7 +2,14 @@ const mongoose = require('mongoose');
 
 const PlatformSettingsSchema = new mongoose.Schema(
   {
-    payoutPaisaPerClosedCase: { type: Number, default: 100000 },
+    defaultHospitalDeductionPercentage: { type: Number, default: 20 },
+    defaultConsultantCommissionPercentage: { type: Number, default: 60 },
+    /** Minimum accumulated amount for release (Q14/Q16) - default 10,000 PKR */
+    walletThresholdPaisa: { type: Number, default: 1000000 },
+    /** Initial hold amount for first-time release - default 9,500 PKR */
+    walletInitialHoldPaisa: { type: Number, default: 950000 },
+    /** Withdrawal request TAT in days - default 3 */
+    payoutTATDays: { type: Number, default: 3 },
   },
   { timestamps: true }
 );

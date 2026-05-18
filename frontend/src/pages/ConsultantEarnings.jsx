@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Wallet, TrendingUp, Eye, FileText } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
@@ -31,134 +30,181 @@ const ConsultantEarnings = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh] text-slate-500">
+      <div className="flex items-center justify-center min-h-[40vh] text-slate-500 dark:text-slate-400">
         <Wallet className="w-8 h-8 animate-pulse text-blue-500" />
       </div>
     );
   }
   if (!data) {
-    return <div className="text-center text-red-600 py-12">Could not load earnings.</div>;
+    return <div className="text-center text-red-600 dark:text-red-400 py-12">Could not load earnings.</div>;
   }
 
   const payouts = data.payouts || [];
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="flex items-start gap-3">
-        <div className="p-2 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg">
-          <Wallet className="w-6 h-6" />
+    <div className="space-y-6 sm:space-y-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-4 justify-between">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg">
+            <Wallet className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-50 transition-colors">Earnings</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 transition-colors">Accrued payouts when hospitals close billed cases (§12.2).</p>
+          </div>
         </div>
-        <div className="flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Earnings</h1>
-          <p className="text-slate-500 text-sm mt-1">Accrued payouts when hospitals close billed cases (§12.2).</p>
-        </div>
-        <button
-          onClick={async () => {
-            if (data) {
-              try {
-                await generateEarningsPDF(data.consultant || {}, data.referrals || [], data.payouts || []);
-                toast.success('Statement downloaded');
-              } catch (e) {
-                console.error(e);
-                toast.error('Failed to generate PDF');
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              if (data) {
+                try {
+                  const headers = ['Date', 'Referral', 'Patient', 'Status', 'Amount (PKR)'];
+                  const rows = (data.payouts || []).map(p => [
+                    new Date(p.createdAt).toLocaleDateString(),
+                    p.referralId?.referralCode || 'N/A',
+                    p.referralId?.patientName || 'N/A',
+                    p.status,
+                    (p.amountPaisa / 100).toFixed(2)
+                  ]);
+                  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+                  const blob = new Blob([csvContent], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `Earnings_Statement_${new Date().toISOString().split('T')[0]}.csv`;
+                  a.click();
+                  toast.success('CSV Statement downloaded');
+                } catch (e) {
+                  console.error(e);
+                  toast.error('Failed to generate CSV');
+                }
               }
-            }
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 font-semibold text-sm hover:bg-slate-50 shadow-sm transition-all"
-        >
-          <FileText size={16} className="text-blue-600" />
-          Download Statement
-        </button>
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-850 shadow-sm transition-all"
+          >
+            <FileText size={16} className="text-green-600 dark:text-green-400" />
+            CSV
+          </button>
+          <button
+            onClick={async () => {
+              if (data) {
+                try {
+                  await generateEarningsPDF(data.consultant || {}, data.referrals || [], data.payouts || []);
+                  toast.success('PDF Statement downloaded');
+                } catch (e) {
+                  console.error(e);
+                  toast.error('Failed to generate PDF');
+                }
+              }
+            }}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-850 shadow-sm transition-all"
+          >
+            <FileText size={16} className="text-blue-600 dark:text-blue-400" />
+            PDF
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
-          <div className="relative z-10 flex flex-col h-full justify-between">
-            <div>
-              <p className="text-blue-100 text-sm font-medium">Total accrued (lifetime)</p>
-              <p className="text-2xl sm:text-4xl font-bold mt-2 tabular-nums tracking-tight">{formatPkr(data.totalEarningsPaisa)}</p>
-            </div>
-            
-            <div className="mt-6 pt-4 border-t border-white/20 flex flex-wrap items-center justify-between gap-4 text-sm">
-              <div>
-                <span className="text-blue-100 block text-xs">This month (running)</span>
-                <span className="font-bold tabular-nums text-lg">{formatPkr(data.monthlyEarningsPaisa)}</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Wallet Balance (Q14) */}
+        <div className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-950 p-6 text-white shadow-lg relative overflow-hidden transition-colors border border-slate-800 dark:border-slate-800">
+          <div className="relative z-10">
+            <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest">Available in Wallet</p>
+            <p className="text-3xl font-black mt-2 tabular-nums">{formatPkr(data.consultant?.walletBalance || 0)}</p>
+            <div className="mt-4 flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-slate-700 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-500 transition-all duration-1000" 
+                  style={{ width: `${Math.min(100, ((data.consultant?.walletBalance || 0) / 1000000) * 100)}%` }} 
+                />
               </div>
-              <button 
-                onClick={() => setShowWithdraw(true)}
-                className="px-5 py-2.5 bg-white text-indigo-700 font-bold rounded-xl text-sm shadow-md hover:bg-blue-50 transition-colors active:scale-95"
-              >
-                Withdraw Funds
-              </button>
+              <span className="text-[10px] font-bold text-slate-400">
+                {Math.round(Math.min(100, ((data.consultant?.walletBalance || 0) / 1000000) * 100))}%
+              </span>
             </div>
+            <p className="text-[10px] text-slate-500 mt-2 italic">Threshold: 10,000 PKR release / 9,500 PKR hold (§12.4)</p>
           </div>
-          {/* Decorative background shapes */}
-          <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-white opacity-10 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="absolute -top-12 -left-12 w-32 h-32 bg-blue-400 opacity-20 rounded-full blur-2xl pointer-events-none"></div>
         </div>
 
-        <div className="rounded-2xl bg-white border border-slate-100 p-6 shadow-sm flex items-center gap-5 hover:shadow-md transition-shadow">
-          <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner">
+        <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm relative overflow-hidden transition-colors">
+          <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest">Lifetime Earnings</p>
+          <p className="text-3xl font-black mt-2 text-slate-900 dark:text-slate-50 tabular-nums transition-colors">{formatPkr(data.totalEarningsPaisa)}</p>
+          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between transition-colors">
+            <div>
+              <span className="text-slate-400 dark:text-slate-500 block text-[10px] font-bold uppercase">This Month</span>
+              <span className="font-bold tabular-nums text-slate-700 dark:text-slate-300 transition-colors">{formatPkr(data.monthlyEarningsPaisa)}</span>
+            </div>
+            <button 
+              onClick={() => setShowWithdraw(true)}
+              className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white font-bold rounded-lg text-xs shadow-md hover:bg-blue-700 dark:hover:bg-blue-600 transition-all active:scale-95"
+            >
+              Manual Withdraw
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm flex items-center gap-5 transition-colors">
+          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 shadow-inner">
             <TrendingUp className="w-8 h-8" />
           </div>
           <div>
-            <p className="text-sm text-slate-500 font-medium uppercase tracking-wider">Active Outcomes</p>
-            <p className="text-3xl font-bold text-slate-900 mt-1">{data.referralCount}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Active Referrals</p>
+            <p className="text-3xl font-black text-slate-900 dark:text-slate-50 mt-1 transition-colors">{data.referralCount}</p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-5 sm:px-8 py-5 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-900">Payout history</h2>
-          <p className="text-xs text-slate-500 mt-1">Per-case accruals from completed admissions</p>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+        <div className="px-5 sm:px-8 py-5 border-b border-slate-100 dark:border-slate-800 transition-colors">
+          <h2 className="text-lg font-black text-slate-900 dark:text-slate-50">Payout history</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Per-case accruals from completed admissions</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm min-w-[480px]">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+            <thead className="bg-slate-50 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider transition-colors border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="px-5 sm:px-8 py-3 font-bold">Date</th>
-                <th className="px-5 sm:px-8 py-3 font-bold">Referral</th>
-                <th className="px-5 sm:px-8 py-3 font-bold">Patient</th>
-                <th className="px-5 sm:px-8 py-3 font-bold">Status</th>
-                <th className="px-5 sm:px-8 py-3 font-bold text-right">Amount</th>
-                <th className="px-5 sm:px-8 py-3"></th>
+                <th className="px-5 sm:px-8 py-3.5">Date</th>
+                <th className="px-5 sm:px-8 py-3.5">Referral</th>
+                <th className="px-5 sm:px-8 py-3.5">Patient</th>
+                <th className="px-5 sm:px-8 py-3.5">Status</th>
+                <th className="px-5 sm:px-8 py-3.5 text-right">Amount</th>
+                <th className="px-5 sm:px-8 py-3.5"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
               {payouts.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-8 py-10 text-center text-slate-500">
+                  <td colSpan={6} className="px-8 py-10 text-center text-slate-500 dark:text-slate-400">
                     No payouts yet — completed cases will appear here.
                   </td>
                 </tr>
               ) : (
                 payouts.map((p) => (
                   <tr key={p._id}
-                    className="hover:bg-blue-50/30 transition-colors cursor-pointer"
+                    className="hover:bg-blue-50/30 dark:hover:bg-slate-850/50 transition-colors cursor-pointer"
                     onClick={() => setSelected(p)}
                   >
-                    <td className="px-5 sm:px-8 py-4 text-slate-600 whitespace-nowrap text-sm">
+                    <td className="px-5 sm:px-8 py-4 text-slate-600 dark:text-slate-300 whitespace-nowrap text-sm">
                       {new Date(p.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-5 sm:px-8 py-4 font-mono text-xs font-medium text-blue-600">
+                    <td className="px-5 sm:px-8 py-4 font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
                       {p.referralId?.referralCode || '—'}
                     </td>
-                    <td className="px-5 sm:px-8 py-4 text-sm text-slate-600">
+                    <td className="px-5 sm:px-8 py-4 text-sm font-semibold text-slate-600 dark:text-slate-200">
                       {p.referralId?.patientName || '—'}
                     </td>
                     <td className="px-5 sm:px-8 py-4">
-                      <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold">
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 text-xs font-bold transition-colors">
                         {p.status}
                       </span>
                     </td>
-                    <td className="px-5 sm:px-8 py-4 text-right font-bold tabular-nums text-emerald-700">
+                    <td className="px-5 sm:px-8 py-4 text-right font-extrabold tabular-nums text-emerald-700 dark:text-emerald-400">
                       {formatPkr(p.amountPaisa)}
                     </td>
-                    <td className="px-3 py-4">
+                    <td className="px-3 py-4" onClick={e => e.stopPropagation()}>
                       <button
-                        onClick={(e) => { e.stopPropagation(); setSelected(p); }}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors"
+                        onClick={() => setSelected(p)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-blue-600 transition-colors"
                       >
                         <Eye size={15} />
                       </button>
@@ -180,31 +226,64 @@ const ConsultantEarnings = () => {
       >
         {selected && (
           <div className="space-y-6">
-            <div className="bg-emerald-50 rounded-xl p-5 text-center">
-              <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">Amount Earned</p>
-              <p className="text-4xl font-black text-emerald-700 tabular-nums">{formatPkr(selected.amountPaisa)}</p>
-              <span className="mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+            <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-5 text-center transition-colors">
+              <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">Amount Earned</p>
+              <p className="text-4xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums">{formatPkr(selected.amountPaisa)}</p>
+              <span className="mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-400 transition-colors">
                 {selected.status}
               </span>
             </div>
 
             {selected.referralId && (
               <div>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Linked Referral</p>
-                <div className="bg-slate-50 p-4 rounded-xl grid grid-cols-2 gap-4">
-                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Referral Code</p><p className="font-mono text-sm font-medium text-blue-600">{selected.referralId.referralCode}</p></div>
-                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Patient</p><p className="text-sm font-medium text-slate-800">{selected.referralId.patientName || '—'}</p></div>
-                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Status</p><p className="text-sm font-medium capitalize text-slate-800">{selected.referralId.status || '—'}</p></div>
-                  <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Submitted</p><p className="text-sm font-medium text-slate-800">{selected.referralId.createdAt ? new Date(selected.referralId.createdAt).toLocaleDateString('en-PK') : '—'}</p></div>
+                <p className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">Linked Referral</p>
+                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-xl grid grid-cols-2 gap-4 transition-colors">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Referral Code</p>
+                    <p className="font-mono text-sm font-bold text-blue-600 dark:text-blue-400">{selected.referralId.referralCode}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Patient</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{selected.referralId.patientName || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Status</p>
+                    <p className="text-sm font-medium capitalize text-slate-800 dark:text-slate-100">{selected.referralId.status || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Submitted</p>
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{selected.referralId.createdAt ? new Date(selected.referralId.createdAt).toLocaleDateString('en-PK') : '—'}</p>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="border-t border-slate-100 pt-5">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Payout Timeline</p>
+            {selected.totalBillPaisa != null && (
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-5 transition-colors">
+                <p className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">Your Commission Share Breakdown</p>
+                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-xl space-y-3 transition-colors">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Total Billed to Patient</span>
+                    <span className="font-extrabold text-slate-800 dark:text-slate-100">{formatPkr(selected.totalBillPaisa)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Your Commission Rate (Set by Admin)</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{selected.commissionPercentage || 60}%</span>
+                  </div>
+                  <div className="border-t border-dashed border-slate-200 dark:border-slate-800 my-2" />
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Your Earned Cut</span>
+                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{formatPkr(selected.amountPaisa)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-5 transition-colors">
+              <p className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">Payout Timeline</p>
               <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Accrued On</p><p className="text-sm font-medium text-slate-800">{new Date(selected.createdAt).toLocaleString('en-PK')}</p></div>
-                {selected.paidAt && <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Paid At</p><p className="text-sm font-medium text-slate-800">{new Date(selected.paidAt).toLocaleString('en-PK')}</p></div>}
+                <div><p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Accrued On</p><p className="text-sm font-medium text-slate-800 dark:text-slate-100">{new Date(selected.createdAt).toLocaleString('en-PK')}</p></div>
+                {selected.paidAt && <div><p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Paid At</p><p className="text-sm font-medium text-slate-800 dark:text-slate-100">{new Date(selected.paidAt).toLocaleString('en-PK')}</p></div>}
               </div>
             </div>
           </div>

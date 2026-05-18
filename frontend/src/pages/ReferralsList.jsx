@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import api from '../utils/api';
 import { SOCKET_URL } from '../config';
 import DetailModal from '../components/DetailModal';
+import ClinicalNotesLog from '../components/ClinicalNotesLog';
 import { FileText, User, Clock, Activity } from 'lucide-react';
 
 const statusConfig = {
@@ -43,7 +44,10 @@ const ReferralsList = () => {
     }
   }, []);
 
-  useEffect(() => { fetchReferrals(); }, [fetchReferrals]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchReferrals();
+  }, [fetchReferrals]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -53,10 +57,21 @@ const ReferralsList = () => {
     const refresh = () => fetchReferrals();
     socket.on('STATUS_UPDATE', refresh);
     socket.on('REFERRAL_ESCALATED', refresh);
+    socket.on('NEW_CLINICAL_NOTE', (data) => {
+      // If the selected referral is the one that got a note, we might want to refresh or toast
+      if (selected?._id === data.referralId) {
+        // Option to refresh the specific referral detail if needed
+      }
+      fetchReferrals();
+    });
     return () => socket.disconnect();
-  }, [fetchReferrals]);
+  }, [fetchReferrals, selected]);
 
-  const filteredReferrals = filter === 'all' ? referrals : referrals.filter(r => r.status === filter);
+  const filteredReferrals = filter === 'all' 
+    ? referrals 
+    : filter === 'emergency' 
+      ? referrals.filter(r => r.urgency === 'emergency') 
+      : referrals.filter(r => r.status === filter);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -66,10 +81,10 @@ const ReferralsList = () => {
           <p className="text-gray-500 text-sm mt-0.5">Click any row to view full referral details.</p>
         </div>
         <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
-          {['all', 'pending', 'accepted', 'rejected', 'admitted'].map((f) => (
+          {['all', 'emergency', 'pending', 'accepted', 'rejected', 'admitted'].map((f) => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
-                filter === f ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
+                filter === f ? (f === 'emergency' ? 'bg-red-600 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm') : 'text-gray-500 hover:bg-gray-50'
               }`}
             >{f}</button>
           ))}
@@ -110,6 +125,9 @@ const ReferralsList = () => {
                       <td className="px-5 py-4 text-sm text-gray-700">{r.department || '—'}</td>
                       <td className="px-5 py-4">
                         <div className="text-sm font-medium text-gray-900">{r.targetHospitalId?.hospitalName || 'N/A'}</div>
+                        {r.targetDoctorId && (
+                          <div className="text-xs text-blue-600 font-semibold mt-0.5">Dr. {r.targetDoctorId.name.replace(/^Dr\.\s*/i, '')}</div>
+                        )}
                         <div className="text-[10px] text-gray-400 uppercase">{r.area}</div>
                       </td>
                       <td className="px-5 py-4">
@@ -173,8 +191,10 @@ const ReferralsList = () => {
                   <Field label="Age"            value={selected.age ? `${selected.age} years` : null} />
                   <Field label="Gender"         value={selected.gender} />
                   <Field label="Phone"          value={selected.phone} />
+                  <Field label="Patient CNIC"   value={selected.cnic} />
+                  <Field label="Guardian"       value={selected.guardianName} />
+                  <Field label="Guardian CNIC"  value={selected.guardianCnic} />
                   <Field label="Area / Locality" value={selected.area} />
-                  {selected.cnic && <Field label="CNIC" value={selected.cnic} />}
                 </div>
               </div>
 
@@ -190,23 +210,68 @@ const ReferralsList = () => {
                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Symptoms</p>
                     <p className="text-sm text-slate-700">{selected.symptomsText || '—'}</p>
                   </div>
+                  {selected.summaryNotes && (
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Clinical Summary (Consultant)</p>
+                      <p className="text-sm text-slate-700 italic border-l-4 border-blue-200 pl-3 py-1 bg-blue-50/30 rounded-r-lg">{selected.summaryNotes}</p>
+                    </div>
+                  )}
                   {selected.notes && (
                     <div>
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Clinical Notes</p>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Internal Notes</p>
                       <p className="text-sm text-slate-700">{selected.notes}</p>
+                    </div>
+                  )}
+                  {selected.attachments && selected.attachments.length > 0 && (
+                    <div className="pt-3 border-t border-slate-100">
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Uploaded Medical Reports & Attachments</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {selected.attachments.map((url, idx) => {
+                          const name = url.split('/').pop() || `Attachment_${idx + 1}`;
+                          return (
+                            <a 
+                              key={idx} 
+                              href={url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:text-blue-600 transition-all font-semibold text-xs text-slate-700 truncate"
+                            >
+                              📄 {name.slice(-30)}
+                            </a>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Hospital */}
-              {selected.targetHospitalId && (
+              {/* Clinical Notes Log (Interactive) */}
+              <div className="border-t border-slate-100 pt-5">
+                <ClinicalNotesLog 
+                  referralId={selected._id} 
+                  initialNotes={selected.clinicalNotes} 
+                  onNoteAdded={() => fetchReferrals()} 
+                />
+              </div>
+
+              {/* Hospital & Doctor */}
+              {(selected.targetHospitalId || selected.targetDoctorId) && (
                 <div className="border-t border-slate-100 pt-5">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Target Hospital</p>
-                  <div className="bg-teal-50 p-4 rounded-xl">
-                    <p className="font-bold text-slate-900">{selected.targetHospitalId.hospitalName}</p>
-                    {selected.targetHospitalId.address && (
-                      <p className="text-sm text-slate-600 mt-1">{selected.targetHospitalId.address}</p>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Facility & Provider</p>
+                  <div className="bg-teal-50 p-4 rounded-xl space-y-3">
+                    {selected.targetHospitalId && (
+                      <div>
+                        <p className="text-[10px] text-teal-600 font-bold uppercase">Hospital</p>
+                        <p className="font-bold text-slate-900">{selected.targetHospitalId.hospitalName}</p>
+                      </div>
+                    )}
+                    {selected.targetDoctorId && (
+                      <div className="pt-2 border-t border-teal-100/50">
+                        <p className="text-[10px] text-teal-600 font-bold uppercase">Targeted Doctor</p>
+                        <p className="font-bold text-slate-900">{selected.targetDoctorId.name}</p>
+                        <p className="text-xs text-slate-600">{selected.targetDoctorId.specialty}</p>
+                      </div>
                     )}
                   </div>
                 </div>

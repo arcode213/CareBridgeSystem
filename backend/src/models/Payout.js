@@ -6,7 +6,12 @@ const PayoutSchema = new mongoose.Schema(
     referralId: { type: mongoose.Schema.Types.ObjectId, ref: 'Referral', required: true },
     admissionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Admission' },
     amountPaisa: { type: Number, required: true, min: 0 },
-    status: { type: String, enum: ['accrued', 'paid'], default: 'accrued' },
+    totalBillPaisa: { type: Number, default: 0 },
+    deductionPercentage: { type: Number, default: 0 },
+    platformCutPaisa: { type: Number, default: 0 },
+    commissionPercentage: { type: Number, default: 0 },
+    adminSharePaisa: { type: Number, default: 0 },
+    status: { type: String, enum: ['accrued', 'paid', 'pending_withdrawal'], default: 'accrued' },
     note: { type: String, trim: true },
   },
   { timestamps: true }

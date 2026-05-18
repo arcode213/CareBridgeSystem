@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Eye, Search, CheckCircle, XCircle, Stethoscope } from 'lucide-react';
+import { Users, Eye, Search, CheckCircle, XCircle, Stethoscope, FileText, Wallet, Clock, TrendingUp, MapPin, Building, Activity, Shield } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import DetailModal from '../../components/DetailModal';
@@ -26,6 +26,38 @@ const AdminConsultants = () => {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [actionId, setActionId] = useState(null);
+  
+  const [profileData, setProfileData] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [activeTab, setActiveTab] = useState('performance'); // performance or logs
+  const [customComm, setCustomComm] = useState(60);
+
+  useEffect(() => {
+    if (profileData?.profile?.commissionPercentage != null) {
+      setCustomComm(profileData.profile.commissionPercentage);
+    }
+  }, [profileData]);
+
+  useEffect(() => {
+    if (!selected) {
+      setProfileData(null);
+      return;
+    }
+    const fetchProfile = async () => {
+      try {
+        setLoadingProfile(true);
+        const res = await api.get(`/admin/consultants/${selected._id}/profile`);
+        if (res.data.success) {
+          setProfileData(res.data.data);
+        }
+      } catch (err) {
+        toast.error('Failed to load full consultant profile details');
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+    fetchProfile();
+  }, [selected]);
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +84,45 @@ const AdminConsultants = () => {
       toast.error(e.response?.data?.message || 'Action failed');
     } finally {
       setActionId(null);
+    }
+  };
+
+  const handleDelete = async (userId) => {
+    if (window.confirm('Are you absolutely sure you want to permanently delete this user? This cannot be undone.')) {
+      setActionId(userId);
+      try {
+        const res = await api.delete(`/admin/users/${userId}`);
+        if (res.data.success) {
+          toast.success('User deleted successfully');
+          setSelected(null);
+          await load();
+        }
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to delete user');
+      } finally {
+        setActionId(null);
+      }
+    }
+  };
+
+  const handleChangePassword = async (userId) => {
+    const newPass = window.prompt('Enter new password for this user (minimum 6 characters):');
+    if (newPass) {
+      if (newPass.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return;
+      }
+      setActionId(userId);
+      try {
+        const res = await api.post(`/admin/users/${userId}/change-password`, { password: newPass });
+        if (res.data.success) {
+          toast.success('Password updated successfully');
+        }
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to update password');
+      } finally {
+        setActionId(null);
+      }
     }
   };
 
@@ -94,13 +165,14 @@ const AdminConsultants = () => {
               <th className="px-5 py-3.5 font-semibold">Consultant</th>
               <th className="px-5 py-3.5 font-semibold">PMDC / Specialty</th>
               <th className="px-5 py-3.5 font-semibold">Phone</th>
+              <th className="px-5 py-3.5 font-semibold">Wallet Balance</th>
               <th className="px-5 py-3.5 font-semibold">Status</th>
               <th className="px-5 py-3.5 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="px-5 py-12 text-center text-slate-500">No consultants found.</td></tr>
+              <tr><td colSpan={6} className="px-5 py-12 text-center text-slate-500">No consultants found.</td></tr>
             ) : filtered.map(c => (
               <tr key={c._id}
                 className="hover:bg-blue-50/30 transition-colors cursor-pointer"
@@ -122,6 +194,9 @@ const AdminConsultants = () => {
                   <p className="text-xs text-slate-500 mt-0.5">{c.profile?.specialty || '—'}</p>
                 </td>
                 <td className="px-5 py-4 text-slate-600 text-xs">{c.phone || '—'}</td>
+                <td className="px-5 py-4 font-semibold text-slate-800 text-xs">
+                  PKR {((c.profile?.walletBalance || 0) / 100).toLocaleString()}
+                </td>
                 <td className="px-5 py-4">
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-lg capitalize ${statusBadge(c.status)}`}>
                     {c.status}
@@ -161,54 +236,284 @@ const AdminConsultants = () => {
       >
         {selected && (
           <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-blue-100 text-blue-700 font-black text-2xl flex items-center justify-center">
-                {selected.name?.charAt(0)}
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">{selected.name}</h3>
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg capitalize ${statusBadge(selected.status)}`}>
-                  {selected.status}
-                </span>
+            {/* Header info */}
+            <div className="flex flex-col gap-4 border-b border-slate-100 pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-100 text-blue-700 font-black text-xl flex items-center justify-center shrink-0">
+                    {selected.name?.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">{selected.name}</h3>
+                    <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md capitalize ${statusBadge(selected.status)}`}>
+                      {selected.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleStatus(selected._id, selected.status)}
+                    disabled={actionId === selected._id}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                      selected.status === 'active'
+                        ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {actionId === selected._id ? '…' : selected.status === 'active' ? 'Suspend' : 'Activate'}
+                  </button>
+                  <button
+                    onClick={() => handleChangePassword(selected._id)}
+                    className="px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
+                  >
+                    🔑 Password
+                  </button>
+                  <button
+                    onClick={() => handleDelete(selected._id)}
+                    className="px-3 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold transition-all"
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl">
-              <Field label="Email" value={selected.email} />
-              <Field label="Phone" value={selected.phone} />
-              <Field label="Joined" value={new Date(selected.createdAt).toLocaleDateString('en-PK', { dateStyle: 'medium' })} />
-            </div>
-
-            {selected.profile && (
-              <div className="space-y-4 border-t border-slate-100 pt-5">
-                <div className="flex items-center gap-2 text-blue-700 font-bold text-sm mb-2">
-                  <Stethoscope size={16} /> Professional Details
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="PMDC Number" value={selected.profile.pmdcNumber} />
-                  <Field label="Specialty" value={selected.profile.specialty} />
-                  <Field label="Clinic Name" value={selected.profile.clinicName} />
-                  <Field label="Clinic Address" value={selected.profile.clinicAddress} />
-                  <Field label="Total Earnings" value={selected.profile.totalEarnings != null ? `PKR ${(selected.profile.totalEarnings / 100).toLocaleString()}` : '—'} />
-                  <Field label="Promo Code" value={selected.profile.promoCode} />
-                  <Field label="Verified" value={selected.profile.isVerified ? 'Yes ✓' : 'Pending'} />
-                </div>
+            {loadingProfile ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                Analyzing profile aggregates & logs...
               </div>
+            ) : profileData ? (
+              <div className="space-y-6">
+                {/* 1. Basic Information Section */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                    <Stethoscope size={14} className="text-blue-500" /> Basic & Clinic Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl">
+                    <Field label="Full Name" value={profileData.user.name} />
+                    <Field label="PMDC Number" value={profileData.profile.pmdcNumber} />
+                    <Field label="Specialization" value={profileData.profile.specialty} />
+                    <Field label="City" value={profileData.profile.city || 'Karachi'} />
+                    <Field label="Contact Phone" value={profileData.user.phone} />
+                    <Field label="Contact Email" value={profileData.user.email} />
+                    <Field label="Clinic Location(s)" value={profileData.profile.clinicAddress || profileData.profile.clinicName || 'Not Provided'} />
+                    <Field label="Joined Network" value={new Date(profileData.user.createdAt).toLocaleDateString('en-PK', { dateStyle: 'medium' })} />
+                  </div>
+                </div>
+
+                {/* 2. Documents Section */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                    <Shield size={14} className="text-emerald-500" /> Uploaded Verification Documents
+                  </h4>
+                  {(profileData.profile.verificationDocuments || []).length === 0 ? (
+                    <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-lg">No documents uploaded during registration.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {profileData.profile.verificationDocuments.map((doc, idx) => (
+                        <a
+                          key={idx}
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all"
+                        >
+                          <div className="min-w-0 mr-2">
+                            <p className="text-xs font-bold text-slate-800 truncate">{doc.name || 'Certificate'}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Uploaded {new Date(doc.uploadedAt).toLocaleDateString()}</p>
+                          </div>
+                          <span className="text-[10px] font-bold text-blue-600 shrink-0">View File →</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Performance & Logs Tab Selector */}
+                <div className="flex border-b border-slate-200">
+                  <button
+                    onClick={() => setActiveTab('performance')}
+                    className={`flex-1 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'performance' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                  >
+                    <TrendingUp size={14} /> Performance & Wallet
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('logs')}
+                    className={`flex-1 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${activeTab === 'logs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                  >
+                    <Activity size={14} /> Activity Logs
+                  </button>
+                </div>
+
+                {activeTab === 'performance' ? (
+                  <div className="space-y-6">
+                    {/* 3. Referral Performance Section */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider">Referral Performance Metrics</h4>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">Lifetime Referrals</p>
+                          <p className="text-xl font-extrabold text-slate-900 mt-1">{profileData.profile.performance.totalReferrals}</p>
+                        </div>
+                        <div className="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-100/50">
+                          <p className="text-[10px] font-bold text-emerald-600 uppercase">Accepted Cases</p>
+                          <p className="text-xl font-extrabold text-emerald-700 mt-1">{profileData.profile.performance.acceptedReferrals}</p>
+                        </div>
+                        <div className="bg-red-50/50 p-3.5 rounded-xl border border-red-100/50">
+                          <p className="text-[10px] font-bold text-red-600 uppercase">Rejected Cases</p>
+                          <p className="text-xl font-extrabold text-red-700 mt-1">{profileData.profile.performance.rejectedReferrals}</p>
+                        </div>
+                        <div className="bg-orange-50/50 p-3.5 rounded-xl border border-orange-100/50">
+                          <p className="text-[10px] font-bold text-orange-600 uppercase">Emergency Cases</p>
+                          <p className="text-xl font-extrabold text-orange-700 mt-1">{profileData.profile.performance.emergencyReferrals}</p>
+                        </div>
+                        <div className="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100/50">
+                          <p className="text-[10px] font-bold text-blue-600 uppercase">Average SLA</p>
+                          <p className="text-xl font-extrabold text-blue-700 mt-1">{profileData.profile.performance.averageSlaResponseTime}</p>
+                        </div>
+                        <div className="bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100/50">
+                          <p className="text-[10px] font-bold text-indigo-600 uppercase">Success Rate</p>
+                          <p className="text-xl font-extrabold text-indigo-700 mt-1">{profileData.profile.performance.successRate}%</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Wallet Section */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                        <Wallet size={14} className="text-indigo-500" /> Financial Wallet Center
+                      </h4>
+                      <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 shadow-lg space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Current Available Balance</p>
+                            <p className="text-2xl font-black mt-1">PKR {((profileData.profile.wallet.currentBalancePaisa || 0) / 100).toLocaleString()}</p>
+                          </div>
+                          <span className="text-[10px] bg-slate-700/60 border border-slate-600 px-3 py-1 rounded-full font-bold uppercase tracking-wider text-slate-300">
+                            PKR WALLET
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-700/50 text-xs">
+                          <div>
+                            <p className="text-slate-400 font-medium">Pending Clearance</p>
+                            <p className="text-sm font-bold text-amber-400 mt-0.5">PKR {((profileData.profile.wallet.pendingAmountPaisa || 0) / 100).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-400 font-medium">Historical Withdrawn</p>
+                            <p className="text-sm font-bold text-slate-200 mt-0.5">PKR {((profileData.profile.wallet.withdrawnAmountPaisa || 0) / 100).toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="pt-2 text-[10px] text-slate-400 bg-slate-950/30 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
+                          <span className="font-semibold uppercase tracking-wider">Commission Model</span>
+                          <span className="font-bold text-indigo-400 uppercase">{profileData.profile.wallet.commissionStructure}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Commission Split Configuration Card */}
+                    <div className="space-y-3 pt-4 border-t border-slate-100">
+                      <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                        <Shield size={14} className="text-indigo-500" /> Commission Split Configuration
+                      </h4>
+                      <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">Custom Commission Share (%)</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Define this physician's split percentage from the overall platform referral cut.</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder="60"
+                            value={customComm}
+                            onChange={(e) => setCustomComm(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                            className="w-20 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                          <button
+                            onClick={async () => {
+                              try {
+                                setActionId(selected._id);
+                                await api.post(`/admin/consultants/${selected._id}/commission`, { commissionPercentage: customComm });
+                                toast.success(`Commission split updated to ${customComm}%`);
+                                // Refresh full consultant info
+                                const res = await api.get(`/admin/consultants/${selected._id}/profile`);
+                                if (res.data.success) {
+                                  setProfileData(res.data.data);
+                                }
+                                await load();
+                              } catch (err) {
+                                toast.error('Failed to update commission split');
+                              } finally {
+                                setActionId(null);
+                              }
+                            }}
+                            disabled={actionId === selected._id}
+                            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm disabled:opacity-50"
+                          >
+                            Update
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* 5. Activity Logs */}
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5 mb-2">
+                          <Clock size={14} className="text-amber-500" /> Recent Logins & Device History
+                        </h4>
+                        {(profileData.profile.loginHistory || []).length === 0 ? (
+                          <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-lg">No login logs recorded.</p>
+                        ) : (
+                          <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                            {profileData.profile.loginHistory.map((log, idx) => (
+                              <div key={idx} className="flex justify-between items-center p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs">
+                                <div>
+                                  <p className="font-semibold text-slate-800">{log.ip}</p>
+                                  <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px]" title={log.device}>{log.device}</p>
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-500 shrink-0">{new Date(log.time).toLocaleString('en-PK')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5 mb-2">
+                          <Activity size={14} className="text-blue-500" /> Referral Action Events
+                        </h4>
+                        {(profileData.profile.referralActionsLog || []).length === 0 ? (
+                          <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded-lg">No referral events recorded.</p>
+                        ) : (
+                          <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                            {profileData.profile.referralActionsLog.map((log, idx) => (
+                              <div key={idx} className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs space-y-1">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-blue-600 uppercase tracking-wider text-[10px]">{log.action}</span>
+                                  <span className="text-[10px] font-bold text-slate-400">{new Date(log.time).toLocaleString('en-PK')}</span>
+                                </div>
+                                {log.details && Object.keys(log.details).length > 0 && (
+                                  <p className="text-[10px] text-slate-500 font-mono bg-white p-1.5 rounded border border-slate-200/50 break-all">
+                                    {JSON.stringify(log.details)}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-red-500 text-sm">Failed to compile details.</div>
             )}
-
-            <div className="pt-4 border-t border-slate-100">
-              <button
-                onClick={() => toggleStatus(selected._id, selected.status)}
-                disabled={actionId === selected._id}
-                className={`w-full py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 ${
-                  selected.status === 'active'
-                    ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                }`}
-              >
-                {actionId === selected._id ? 'Updating…' : selected.status === 'active' ? 'Suspend Account' : 'Activate Account'}
-              </button>
-            </div>
           </div>
         )}
       </DetailModal>

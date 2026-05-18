@@ -11,6 +11,18 @@ const { getScoringWeights } = require('../services/scoringWeightsService');
 const suggestionCache = require('../utils/suggestionCache');
 const { logAction } = require('../utils/logger');
 const { updateHospitalStats } = require('../services/statsService');
+const HospitalDoctor = require('../models/HospitalDoctor');
+const { sendEmail } = require('../utils/emailService');
+
+exports.getHospitalDoctors = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doctors = await HospitalDoctor.find({ hospitalId: id, isAvailable: true }).select('name specialty consultationFee');
+    res.json({ success: true, data: doctors });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching doctors' });
+  }
+};
 
 /** Only hospitals tied to an active hospital user (registration + admin approval). */
 async function filterHospitalsEligibleForReferrals(hospitals) {
@@ -76,7 +88,7 @@ exports.getSuggestions = async (req, res) => {
       .map((h) => scoreHospital(h, referralData, consultant, weights))
       .filter((s) => s !== null)
       .sort((a, b) => b.totalScore - a.totalScore)
-      .slice(0, 5);
+      .slice(0, 10);
 
     const payload = {
       success: true,
@@ -144,8 +156,8 @@ exports.createReferral = async (req, res) => {
       seenIds.add(s);
       return true;
     });
-    if (ranked.length > 5) {
-      return res.status(400).json({ success: false, message: 'At most 5 ranked hospitals allowed' });
+    if (ranked.length > 10) {
+      return res.status(400).json({ success: false, message: 'At most 10 ranked hospitals allowed' });
     }
     const targetOid = new mongoose.Types.ObjectId(targetHospitalId);
     if (ranked.length === 0) {
@@ -181,8 +193,11 @@ exports.createReferral = async (req, res) => {
       phone: req.body.phone,
       area: req.body.area,
       cnic: req.body.cnic,
+      guardianName: req.body.guardianName,
+      guardianCnic: req.body.guardianCnic,
       urgency,
       symptomsText: req.body.symptoms ?? req.body.symptomsText,
+      summaryNotes: req.body.summaryNotes,
       symptomTags: req.body.symptomTags,
       department: req.body.department,
       diagnosisText: req.body.diagnosisText,
@@ -190,7 +205,9 @@ exports.createReferral = async (req, res) => {
       attachments: req.body.attachments,
       budgetMin: req.body.budgetMin != null ? Number(req.body.budgetMin) : undefined,
       budgetMax: req.body.budgetMax != null ? Number(req.body.budgetMax) : undefined,
+      budgetBracket: req.body.budgetBracket,
       targetHospitalId,
+      targetDoctorId: (req.body.targetDoctorId && mongoose.Types.ObjectId.isValid(req.body.targetDoctorId)) ? req.body.targetDoctorId : undefined,
       scoringData: req.body.scoringData,
       promoCode,
       slaDeadline: slaDeadlineFromUrgency(urgency),
@@ -206,6 +223,28 @@ exports.createReferral = async (req, res) => {
       entityModel: 'Referral',
       details: { targetHospitalId, urgency }
     });
+
+    // 1. Send confirmation email to Consultant (async)
+    try {
+      sendEmail({
+        to: req.user.email,
+        subject: `CareBridge: Referral Submitted - ${referral.referralCode}`,
+        text: `Hello Dr. ${req.user.name},\n\nYour referral for patient ${referral.patientName} has been successfully submitted to ${targetHospital.hospitalName} with ${urgency} urgency.\n\nReferral Code: ${referral.referralCode}\n\nYou will be notified as soon as the hospital reviews and updates the status.`,
+      });
+    } catch (err) {
+      console.error('Consultant referral email notification failed:', err.message);
+    }
+
+    // 2. Send alert email to Target Hospital (async)
+    try {
+      sendEmail({
+        to: targetOwner.email,
+        subject: `CareBridge: New Referral Received - ${referral.referralCode}`,
+        text: `Hello ${targetHospital.hospitalName},\n\nA new referral has been routed to your facility with ${urgency} urgency.\n\nPatient Name: ${referral.patientName}\nReferral Code: ${referral.referralCode}\n\nPlease log in to your dashboard to review this case and update its status within the SLA deadline.`,
+      });
+    } catch (err) {
+      console.error('Hospital new referral email notification failed:', err.message);
+    }
 
     const io = req.app.get('io');
     if (io) {
@@ -238,6 +277,7 @@ exports.getMyReferrals = async (req, res) => {
     }
     const referrals = await Referral.find({ consultantId: consultant._id })
       .populate('targetHospitalId', 'hospitalName')
+      .populate('targetDoctorId', 'name specialty')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -260,6 +300,7 @@ exports.getHospitalInbox = async (req, res) => {
       targetHospitalId: hospital._id,
       status: 'pending',
     })
+      .populate('targetDoctorId', 'name specialty')
       .populate({
         path: 'consultantId',
         select: 'userId pmdcNumber specialty',
@@ -281,6 +322,7 @@ exports.getReferralDetails = async (req, res) => {
   try {
     const referral = await Referral.findById(req.params.id)
       .populate('targetHospitalId', 'hospitalName location')
+      .populate('targetDoctorId', 'name specialty pmdcNumber')
       .populate({
         path: 'consultantId',
         select: 'userId pmdcNumber',
@@ -333,6 +375,9 @@ exports.updateReferralStatus = async (req, res) => {
     const referral = await Referral.findOne({
       _id: req.params.id,
       targetHospitalId: hospital._id,
+    }).populate({
+      path: 'consultantId',
+      populate: { path: 'userId' }
     });
 
     if (!referral) {
@@ -361,9 +406,36 @@ exports.updateReferralStatus = async (req, res) => {
     }
     if (status === 'closed') {
       referral.closedAt = now;
+      // Trigger payout logic (Q14)
+      const { creditConsultantWallet } = require('../services/paymentService');
+      await creditConsultantWallet(referral.consultantId, referral._id, 100000);
     }
 
     await referral.save();
+
+    // Send email notifications (async)
+    const consultantUser = referral.consultantId?.userId;
+    if (consultantUser) {
+      try {
+        sendEmail({
+          to: consultantUser.email,
+          subject: `CareBridge: Referral Status Updated to ${status.toUpperCase()} - ${referral.referralCode}`,
+          text: `Hello Dr. ${consultantUser.name},\n\nThe status of your referral for patient ${referral.patientName} (${referral.referralCode}) has been updated by ${hospital.hospitalName}.\n\nNew Status: ${status.toUpperCase()}\n${status === 'rejected' ? `Rejection Reason: ${referral.rejectionReason}\n` : ''}\nPlease log in to your dashboard for details.`,
+        });
+      } catch (err) {
+        console.error('Consultant status email notification failed:', err.message);
+      }
+    }
+
+    try {
+      sendEmail({
+        to: req.user.email,
+        subject: `CareBridge: Status Confirmed for Referral ${referral.referralCode}`,
+        text: `Hello ${hospital.hospitalName},\n\nYou have successfully updated the status of referral ${referral.referralCode} to ${status.toUpperCase()}.\n\nPatient Name: ${referral.patientName}\n\nThank you for ensuring timely clinical routing.`,
+      });
+    } catch (err) {
+      console.error('Hospital status email notification failed:', err.message);
+    }
 
     // Recalculate hospital performance metrics (Factor 5: SLA History)
     if (['accepted', 'rejected'].includes(status)) {
@@ -413,10 +485,14 @@ exports.getConsultantEarnings = async (req, res) => {
       status: { $in: ['accepted', 'admitted', 'closed'] },
     }).sort({ createdAt: -1 });
 
-    const payouts = await Payout.find({ consultantId: consultant._id })
+    const payouts = await Payout.find({ consultantId: consultant._id }, {
+      deductionPercentage: 0,
+      platformCutPaisa: 0,
+      adminSharePaisa: 0,
+    })
       .sort({ createdAt: -1 })
       .limit(50)
-      .populate('referralId', 'referralCode')
+      .populate('referralId', 'referralCode patientName urgency department')
       .lean();
 
     res.json({
@@ -480,5 +556,90 @@ exports.createWithdrawalRequest = async (req, res) => {
   } catch (error) {
     console.error('Withdrawal error:', error);
     res.status(500).json({ success: false, message: 'Failed to process withdrawal' });
+  }
+};
+exports.addClinicalNote = async (req, res) => {
+  try {
+    const { content, type } = req.body;
+    if (!content || !type) {
+      return res.status(400).json({ success: false, message: 'Content and type are required' });
+    }
+
+    const referral = await Referral.findById(req.params.id)
+      .populate({ path: 'consultantId', populate: { path: 'userId' } })
+      .populate({ path: 'targetHospitalId', populate: { path: 'userId' } });
+    if (!referral) {
+      return res.status(404).json({ success: false, message: 'Referral not found' });
+    }
+
+    // Authorization check: Only assigned hospital or the referring consultant can add notes
+    const consultant = await Consultant.findOne({ userId: req.user.id });
+    const hospital = await Hospital.findOne({ userId: req.user.id });
+
+    const isConsultant = consultant && referral.consultantId.toString() === consultant._id.toString();
+    const isHospital = hospital && referral.targetHospitalId.toString() === hospital._id.toString();
+
+    if (!isConsultant && !isHospital) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to add notes to this referral' });
+    }
+
+    referral.clinicalNotes.push({
+      type,
+      content,
+      author: req.user.id,
+      authorName: req.user.name,
+      createdAt: new Date()
+    });
+
+    await referral.save();
+
+    // Send email notifications to the other party (async)
+    if (isHospital) {
+      const consultantUser = referral.consultantId?.userId;
+      if (consultantUser) {
+        try {
+          sendEmail({
+            to: consultantUser.email,
+            subject: `CareBridge: New Clinical Note for Patient ${referral.patientName}`,
+            text: `Hello Dr. ${consultantUser.name},\n\n${req.user.name} added a new clinical note to the referral for patient ${referral.patientName} (${referral.referralCode}).\n\nContent:\n"${content}"\n\nPlease log in to review this note and reply.`,
+          });
+        } catch (err) {
+          console.error('Clinical note email notification failed:', err.message);
+        }
+      }
+    } else if (isConsultant) {
+      const hospitalUser = referral.targetHospitalId?.userId;
+      if (hospitalUser) {
+        try {
+          sendEmail({
+            to: hospitalUser.email,
+            subject: `CareBridge: New Clinical Note for Patient ${referral.patientName}`,
+            text: `Hello ${referral.targetHospitalId?.hospitalName || 'Clinical Staff'},\n\nDr. ${req.user.name} added a new clinical note to the referral for patient ${referral.patientName} (${referral.referralCode}).\n\nContent:\n"${content}"\n\nPlease log in to review this note and update the patient's care status.`,
+          });
+        } catch (err) {
+          console.error('Clinical note email notification failed:', err.message);
+        }
+      }
+    }
+
+    // Notify other party via socket
+    const io = req.app.get('io');
+    if (io) {
+      const room = isHospital ? `consultant:${referral.consultantId.toString()}` : `hospital:${referral.targetHospitalId.toString()}`;
+      io.to(room).emit('NEW_CLINICAL_NOTE', {
+        referralId: referral._id,
+        type,
+        authorName: req.user.name
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Note added successfully',
+      data: referral.clinicalNotes[referral.clinicalNotes.length - 1]
+    });
+  } catch (error) {
+    console.error('Add clinical note error:', error);
+    res.status(500).json({ success: false, message: 'Error adding clinical note' });
   }
 };
