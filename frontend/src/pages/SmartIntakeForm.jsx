@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../utils/api';
 
 const BUDGET_BRACKETS = [
@@ -41,7 +42,7 @@ const SmartIntakeForm = () => {
   const [detectedDept, setDetectedDept] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingHospitalId, setSubmittingHospitalId] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const navigate = useNavigate();
 
@@ -110,6 +111,23 @@ const SmartIntakeForm = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleStep1Next = () => {
+    const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
+    if (!cnicRegex.test(formData.cnic)) {
+      return toast.error('Patient CNIC must be in the format XXXXX-XXXXXXX-X');
+    }
+    if (!cnicRegex.test(formData.guardianCnic)) {
+      return toast.error('Guardian CNIC must be in the format XXXXX-XXXXXXX-X');
+    }
+    const phoneClean = formData.phone.replace(/[\s\-()]/g, '');
+    const phoneRegex = /^((\+92)|(0092)|0)?3\d{9}$/;
+    if (!phoneRegex.test(phoneClean)) {
+      return toast.error('Phone number must be a valid Pakistani mobile number (e.g. 03001234567)');
+    }
+    setFormData(prev => ({ ...prev, phone: phoneClean }));
+    setStep(2);
+  };
+
   const fetchDoctors = async (hospitalId) => {
     if (doctors[hospitalId]) return;
     try {
@@ -149,7 +167,7 @@ const SmartIntakeForm = () => {
   };
 
   const submitReferral = async (hospital) => {
-    setIsSubmitting(true);
+    setSubmittingHospitalId(hospital.hospitalId);
     try {
       const rankedHospitalIds = suggestions.map((s) => s.hospitalId).filter(Boolean);
       // Map budget brackets to numbers (in paisa)
@@ -176,15 +194,15 @@ const SmartIntakeForm = () => {
       const res = await api.post('/referrals', payload);
       
       if (res.data.success) {
-        alert('Referral Submitted Successfully! Referral Code: ' + res.data.data.referralCode);
+        toast.success('Referral Submitted Successfully! Referral Code: ' + res.data.data.referralCode, { duration: 6000 });
         navigate('/referrals');
       }
     } catch (err) {
       console.error('Referral submission failed:', err);
       const msg = err.response?.data?.message || 'Failed to submit referral. Please try again.';
-      alert(msg);
+      toast.error(msg);
     } finally {
-      setIsSubmitting(false);
+      setSubmittingHospitalId(null);
     }
   };
 
@@ -275,7 +293,7 @@ const SmartIntakeForm = () => {
             </div>
             <div className="flex justify-end pt-4">
               <button 
-                onClick={() => setStep(2)}
+                onClick={handleStep1Next}
                 disabled={!formData.patientName || !formData.age || !formData.phone || !formData.cnic || !formData.guardianName || !formData.guardianCnic}
                 className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
               >
@@ -504,10 +522,10 @@ const SmartIntakeForm = () => {
                       <div className="flex items-center gap-3">
                         <button 
                           onClick={() => submitReferral(hospital)}
-                          disabled={isSubmitting}
+                          disabled={submittingHospitalId !== null}
                           className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
                         >
-                          {isSubmitting ? 'Submitting...' : 'Confirm Referral'}
+                          {submittingHospitalId === hospital.hospitalId ? 'Submitting...' : 'Confirm Referral'}
                         </button>
                       </div>
                     </div>

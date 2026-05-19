@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import api from '../utils/api';
 
 const WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burns', 'Maternity', 'Psychiatric', 'Cardiac'];
@@ -42,6 +42,7 @@ const HospitalRegister = () => {
     lat: '24.8607',
     lng: '67.0099',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [departments, setDepartments] = useState(['Internal Medicine']);
   const [bedsInventory, setBedsInventory] = useState(defaultBeds);
   const [registrationDocuments, setRegistrationDocuments] = useState([]);
@@ -99,6 +100,21 @@ const HospitalRegister = () => {
       toast.error('Please select at least one department.');
       return;
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      return toast.error('Please enter a valid email address');
+    }
+    const phoneClean = formData.phone.replace(/[\s\-()]/g, '');
+    const phoneRegex = /^((\+92)|(0092)|0)?3\d{9}$/;
+    // Wait, hospital phone number can also be landline (e.g. 021-3456789).
+    // Let's support both mobile and landline for hospital: /^((\+92)|(0092)|0)?(3\d{9}|\d{2,3}\d{7,8})$/
+    const hospitalPhoneRegex = /^((\+92)|(0092)|0)?(3\d{9}|(21|42|51|91|81|61|22|71)\d{7})$/;
+    if (!hospitalPhoneRegex.test(phoneClean)) {
+      return toast.error('Please enter a valid Pakistani phone/landline number');
+    }
+    if (formData.password.length < 8) {
+      return toast.error('Password must be at least 8 characters long');
+    }
     const bedsPayload = bedsInventory.map((row) => ({
       ward: row.ward,
       totalBeds: Number(row.totalBeds),
@@ -106,6 +122,7 @@ const HospitalRegister = () => {
     }));
     const payload = {
       ...formData,
+      phone: phoneClean,
       departments,
       bedsInventory: bedsPayload,
       registrationDocuments,
@@ -290,8 +307,17 @@ const HospitalRegister = () => {
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
-              <input name="password" type="password" required value={formData.password}
-                onChange={handleChange} className={inputClass} placeholder="••••••••" />
+              <div className="relative">
+                <input name="password" type={showPassword ? "text" : "password"} required value={formData.password}
+                  onChange={handleChange} className={`${inputClass} pr-10`} placeholder="••••••••" />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
           </div>
         </div>

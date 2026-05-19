@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Bed, AlertCircle, RefreshCw, Search } from 'lucide-react';
 import api from '../../utils/api';
+import Loader from '../../components/Loader';
 
 const AdminBeds = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,11 +17,7 @@ const AdminBeds = () => {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    );
+    return <Loader message="Loading beds status..." />;
   }
 
   if (error) {

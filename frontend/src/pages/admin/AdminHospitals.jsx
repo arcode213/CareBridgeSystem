@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Building2, Eye, Search, BedDouble, Stethoscope } from 'lucide-react';
 import api from '../../utils/api';
+import Loader from '../../components/Loader';
 import toast from 'react-hot-toast';
 import DetailModal from '../../components/DetailModal';
 
@@ -108,7 +109,7 @@ const AdminHospitals = () => {
     h.profile?.address?.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <div className="flex items-center justify-center min-h-[40vh] text-slate-500">Loading hospitals…</div>;
+  if (loading) return <Loader message="Loading hospitals..." />;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">

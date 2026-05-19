@@ -3,6 +3,7 @@ import { ShieldCheck, Eye, X, CheckCircle, XCircle, Mail, Phone, Building2, User
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import DetailModal from '../../components/DetailModal';
+import Loader from '../../components/Loader';
 
 const Field = ({ label, value }) => (
   <div>
@@ -68,7 +69,7 @@ const AdminApprovals = () => {
     return colors[role] || 'bg-slate-100 text-slate-600';
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-[40vh] text-slate-500">Loading approvals…</div>;
+  if (loading) return <Loader message="Loading approvals..." />;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

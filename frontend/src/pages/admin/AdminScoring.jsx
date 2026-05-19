@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Sliders } from 'lucide-react';
 import api from '../../utils/api';
+import Loader from '../../components/Loader';
 
 const FIELDS = [
   { key: 'specialtyMatch', label: 'Specialty match' },
@@ -53,7 +54,7 @@ const AdminScoring = () => {
   };
 
   if (!cfg) {
-    return <div className="text-center py-16 text-slate-500">Loading…</div>;
+    return <Loader message="Loading scoring weights..." />;
   }
 
   return (

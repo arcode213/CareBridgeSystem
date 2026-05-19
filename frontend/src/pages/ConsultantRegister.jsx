@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, FileCheck } from 'lucide-react';
+import { ArrowLeft, FileCheck, Eye, EyeOff } from 'lucide-react';
 import api from '../utils/api';
 
 const ConsultantRegister = () => {
@@ -17,6 +17,7 @@ const ConsultantRegister = () => {
     clinicAddress: '',
     role: 'consultant'
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [verificationDocuments, setVerificationDocuments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const { register, isLoading } = useAuth();
@@ -60,7 +61,19 @@ const ConsultantRegister = () => {
     if (verificationDocuments.length === 0) {
       return toast.error('Please upload your PMDC Certificate for verification');
     }
-    const result = await register({ ...formData, verificationDocuments });
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      return toast.error('Please enter a valid email address');
+    }
+    const phoneClean = formData.phone.replace(/[\s\-()]/g, '');
+    const phoneRegex = /^((\+92)|(0092)|0)?3\d{9}$/;
+    if (!phoneRegex.test(phoneClean)) {
+      return toast.error('Please enter a valid Pakistani phone number (e.g. 03001234567)');
+    }
+    if (formData.password.length < 8) {
+      return toast.error('Password must be at least 8 characters long');
+    }
+    const result = await register({ ...formData, phone: phoneClean, verificationDocuments });
     if (result.success) {
       toast.success(result.message || 'Registration successful! Please check your email for verification.', { duration: 6000 });
       setTimeout(() => navigate('/login'), 3000);
@@ -141,9 +154,18 @@ const ConsultantRegister = () => {
 
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
-            <input name="password" type="password" required value={formData.password} onChange={handleChange}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
-              placeholder="••••••••" />
+            <div className="relative">
+              <input name="password" type={showPassword ? "text" : "password"} required value={formData.password} onChange={handleChange}
+                className="w-full px-4 py-3 pr-10 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
+                placeholder="••••••••" />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <div className="pt-4 border-t border-slate-100">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Navigate, Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../features/auth/AuthContext';
 import { Sun, Moon } from 'lucide-react';
@@ -15,6 +15,7 @@ const linkClass = ({ isActive }) =>
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
@@ -65,7 +66,7 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row transition-colors">
+    <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row transition-colors">
       {/* Mobile top nav */}
       <header className="md:hidden sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 flex items-center justify-between dark:bg-slate-900 dark:border-slate-800 transition-colors">
         <span className="font-bold text-blue-600 dark:text-blue-400">CareBridge</span>
@@ -94,7 +95,7 @@ const DashboardLayout = () => {
           <>
             <NavLink to="/dashboard" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Home</NavLink>
             <NavLink to="/referrals/new" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>New</NavLink>
-            <NavLink to="/referrals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>List</NavLink>
+            <NavLink to="/referrals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${(isActive || location.pathname === '/referrals/new') ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>List</NavLink>
             <NavLink to="/earnings" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Earn</NavLink>
             <NavLink to="/profile" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Profile</NavLink>
           </>
@@ -111,6 +112,7 @@ const DashboardLayout = () => {
                 </span>
               )}
             </NavLink>
+            <NavLink to="/hospital/referrals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Referrals</NavLink>
             <NavLink to="/hospital/admissions" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Admit</NavLink>
             <NavLink to="/hospital/ledger" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Ledger</NavLink>
             <NavLink to="/hospital/beds" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Beds</NavLink>
@@ -143,7 +145,7 @@ const DashboardLayout = () => {
       </nav>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 shrink-0 bg-white border-r border-slate-200 flex-col dark:bg-slate-900 dark:border-slate-800 transition-colors">
+      <aside className="hidden md:flex w-64 shrink-0 bg-white border-r border-slate-200 flex-col dark:bg-slate-900 dark:border-slate-800 transition-colors h-screen sticky top-0">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 transition-colors">
           <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-xl tracking-tight">
             <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm font-black">CB</div>
@@ -157,10 +159,10 @@ const DashboardLayout = () => {
               <NavLink to="/dashboard" className={linkClass}>
                 <span>Dashboard</span>
               </NavLink>
-              <NavLink to="/referrals/new" className={linkClass}>
+              <NavLink to="/referrals/new" end className={linkClass}>
                 <span>New referral</span>
               </NavLink>
-              <NavLink to="/referrals" className={linkClass}>
+              <NavLink to="/referrals" end className={linkClass}>
                 <span>My referrals</span>
               </NavLink>
               <NavLink to="/earnings" className={linkClass}>
@@ -187,6 +189,9 @@ const DashboardLayout = () => {
                     {inboxCount}
                   </span>
                 )}
+              </NavLink>
+              <NavLink to="/hospital/referrals" className={linkClass}>
+                <span>All Referrals</span>
               </NavLink>
               <NavLink to="/hospital/admissions" className={linkClass}>
                 <span>Admissions & billing</span>
@@ -293,8 +298,8 @@ const DashboardLayout = () => {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0">
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 min-w-0 h-screen overflow-y-auto">
+        <div className="p-4 sm:p-6 lg:p-8">
           <Outlet />
         </div>
       </main>

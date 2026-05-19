@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LayoutDashboard, Inbox, BedDouble, ClipboardList, TrendingUp } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../utils/api';
+import Loader from '../components/Loader';
 import { formatPkr } from '../utils/formatPkr';
 
 const HospitalDashboard = () => {
@@ -26,13 +27,7 @@ const HospitalDashboard = () => {
     load();
   }, [load]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh] text-slate-500">
-        <LayoutDashboard className="w-8 h-8 animate-pulse text-blue-500" />
-      </div>
-    );
-  }
+  if (loading) return <Loader message="Loading dashboard..." />;
   if (!stats) {
     return <div className="text-center text-red-600 py-12">Could not load dashboard.</div>;
   }

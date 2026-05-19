@@ -97,6 +97,19 @@ exports.register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Name, email, phone, and password are required' });
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email format' });
+    }
+    const phoneClean = phone.replace(/[\s\-()]/g, '');
+    const phoneRegex = /^((\+92)|(0092)|0)?(3\d{9}|(21|42|51|91|81|61|22|71)\d{7})$/;
+    if (!phoneRegex.test(phoneClean)) {
+      return res.status(400).json({ success: false, message: 'Invalid phone number format' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long' });
+    }
+
     const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
     if (existingUser) {
       return res.status(400).json({ success: false, message: 'Email already exists' });
@@ -110,7 +123,7 @@ exports.register = async (req, res) => {
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      phone: phone.trim(),
+      phone: phoneClean,
       passwordHash,
       role,
       status: 'pending',

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ClipboardList, AlertCircle, RefreshCw, Search } from 'lucide-react';
 import api from '../../utils/api';
+import Loader from '../../components/Loader';
 
 const AdminAudit = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,11 +17,7 @@ const AdminAudit = () => {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    );
+    return <Loader message="Loading audit logs..." />;
   }
 
   if (error) {

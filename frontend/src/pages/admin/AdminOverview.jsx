@@ -7,6 +7,7 @@ import {
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { formatPkr } from '../../utils/formatPkr';
+import Loader from '../../components/Loader';
 
 const AdminOverview = () => {
   const [data, setData] = useState(null);
@@ -74,12 +75,7 @@ const AdminOverview = () => {
   }
 
   if (loading && !data) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-500">
-        <RefreshCw className="w-10 h-10 animate-spin text-blue-600 mb-4" />
-        <p className="text-sm font-semibold animate-pulse">Syncing real-time system metrics...</p>
-      </div>
-    );
+    return <Loader message="Syncing real-time system metrics..." />;
   }
 
   // Aggregate Bed Inventory across all hospitals

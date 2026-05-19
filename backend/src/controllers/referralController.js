@@ -116,6 +116,27 @@ async function ensureConsultantPromoCode(consultant) {
 
 exports.createReferral = async (req, res) => {
   try {
+    const { patientName, cnic, guardianName, guardianCnic, phone } = req.body;
+    if (!patientName) {
+      return res.status(400).json({ success: false, message: 'Patient Name is required' });
+    }
+    const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
+    if (!cnic || !cnicRegex.test(cnic)) {
+      return res.status(400).json({ success: false, message: 'Patient CNIC must be in the format XXXXX-XXXXXXX-X' });
+    }
+    if (!guardianName) {
+      return res.status(400).json({ success: false, message: 'Guardian Name is required' });
+    }
+    if (!guardianCnic || !cnicRegex.test(guardianCnic)) {
+      return res.status(400).json({ success: false, message: 'Guardian CNIC must be in the format XXXXX-XXXXXXX-X' });
+    }
+    const phoneClean = phone ? phone.replace(/[\s\-()]/g, '') : '';
+    const phoneRegex = /^((\+92)|(0092)|0)?3\d{9}$/;
+    if (!phoneRegex.test(phoneClean)) {
+      return res.status(400).json({ success: false, message: 'Phone number must be a valid Pakistani mobile number' });
+    }
+    req.body.phone = phoneClean; // use sanitized phone number
+
     const consultant = await Consultant.findOne({ userId: req.user.id });
     if (!consultant) {
       return res.status(404).json({ success: false, message: 'Consultant profile not found' });
@@ -315,6 +336,34 @@ exports.getHospitalInbox = async (req, res) => {
   } catch (error) {
     console.error('Hospital inbox error:', error);
     res.status(500).json({ success: false, message: 'Error fetching hospital inbox' });
+  }
+};
+
+exports.getHospitalReferrals = async (req, res) => {
+  try {
+    const hospital = await Hospital.findOne({ userId: req.user.id });
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital profile not found' });
+    }
+
+    const referrals = await Referral.find({
+      targetHospitalId: hospital._id,
+    })
+      .populate('targetDoctorId', 'name specialty')
+      .populate({
+        path: 'consultantId',
+        select: 'userId pmdcNumber specialty',
+        populate: { path: 'userId', select: 'name email phone' },
+      })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: referrals,
+    });
+  } catch (error) {
+    console.error('Hospital referrals error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching hospital referrals' });
   }
 };
 
@@ -576,8 +625,8 @@ exports.addClinicalNote = async (req, res) => {
     const consultant = await Consultant.findOne({ userId: req.user.id });
     const hospital = await Hospital.findOne({ userId: req.user.id });
 
-    const isConsultant = consultant && referral.consultantId.toString() === consultant._id.toString();
-    const isHospital = hospital && referral.targetHospitalId.toString() === hospital._id.toString();
+    const isConsultant = consultant && referral.consultantId && referral.consultantId._id.toString() === consultant._id.toString();
+    const isHospital = hospital && referral.targetHospitalId && referral.targetHospitalId._id.toString() === hospital._id.toString();
 
     if (!isConsultant && !isHospital) {
       return res.status(403).json({ success: false, message: 'Unauthorized to add notes to this referral' });
@@ -625,7 +674,7 @@ exports.addClinicalNote = async (req, res) => {
     // Notify other party via socket
     const io = req.app.get('io');
     if (io) {
-      const room = isHospital ? `consultant:${referral.consultantId.toString()}` : `hospital:${referral.targetHospitalId.toString()}`;
+      const room = isHospital ? `consultant:${referral.consultantId._id.toString()}` : `hospital:${referral.targetHospitalId._id.toString()}`;
       io.to(room).emit('NEW_CLINICAL_NOTE', {
         referralId: referral._id,
         type,

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2, Activity } from 'lucide-react';
 import api from '../utils/api';
+import Loader from '../components/Loader';
 
 const VerifyEmail = () => {
   const [searchParams] = useSearchParams();
@@ -49,13 +50,7 @@ const VerifyEmail = () => {
 
       <div className="bg-white rounded-3xl shadow-xl shadow-slate-200 border border-slate-100 p-10 max-w-md w-full text-center">
         {status === 'verifying' && (
-          <div className="space-y-6">
-            <div className="flex justify-center">
-              <Loader2 className="w-16 h-16 text-blue-600 animate-spin" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900">Verifying your email...</h2>
-            <p className="text-slate-500">Please wait while we confirm your email address.</p>
-          </div>
+          <Loader message="Verifying your email..." />
         )}
 
         {status === 'success' && (

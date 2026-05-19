@@ -5,6 +5,7 @@ import { SOCKET_URL } from '../config';
 import DetailModal from '../components/DetailModal';
 import { AlertTriangle, Clock, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Loader from '../components/Loader';
 
 const HospitalEmergencyCenter = () => {
   const [emergencies, setEmergencies] = useState([]);
@@ -63,13 +64,7 @@ const HospitalEmergencyCenter = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <RefreshCw className="w-8 h-8 animate-spin text-red-500" />
-      </div>
-    );
-  }
+  if (loading) return <Loader message="Fetching critical emergency cases..." />;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">

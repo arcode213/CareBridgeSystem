@@ -19,6 +19,7 @@ import SmartIntakeForm from './pages/SmartIntakeForm';
 import ReferralsList from './pages/ReferralsList';
 import HospitalDashboard from './pages/HospitalDashboard';
 import ReferralInbox from './pages/ReferralInbox';
+import HospitalReferrals from './pages/HospitalReferrals';
 import BedManagement from './pages/BedManagement';
 import HospitalAdmissions from './pages/HospitalAdmissions';
 import DoctorManagement from './pages/DoctorManagement';
@@ -123,6 +124,7 @@ function App() {
 
             <Route path="/hospital/dashboard" element={<RoleGuard roles={['hospital']}><HospitalDashboard /></RoleGuard>} />
             <Route path="/hospital/inbox" element={<RoleGuard roles={['hospital']}><ReferralInbox /></RoleGuard>} />
+            <Route path="/hospital/referrals" element={<RoleGuard roles={['hospital']}><HospitalReferrals /></RoleGuard>} />
             <Route path="/hospital/admissions" element={<RoleGuard roles={['hospital']}><HospitalAdmissions /></RoleGuard>} />
             <Route path="/hospital/beds" element={<RoleGuard roles={['hospital']}><BedManagement /></RoleGuard>} />
             <Route path="/hospital/doctors" element={<RoleGuard roles={['hospital']}><DoctorManagement /></RoleGuard>} />

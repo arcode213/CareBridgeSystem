@@ -4,6 +4,7 @@ import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
 import DetailModal from '../components/DetailModal';
+import Loader from '../components/Loader';
 
 const HospitalLedger = () => {
   const [payouts, setPayouts] = useState([]);
@@ -13,7 +14,7 @@ const HospitalLedger = () => {
 
   const fetchLedger = useCallback(async () => {
     try {
-      setLoading(false);
+      setLoading(true);
       const res = await api.get('/hospitals/financial-ledger');
       if (res.data.success) {
         setPayouts(res.data.data || []);
@@ -68,13 +69,7 @@ const HospitalLedger = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh] text-slate-500 dark:text-slate-400">
-        <Landmark className="w-8 h-8 animate-pulse text-teal-600 dark:text-teal-400" />
-      </div>
-    );
-  }
+  if (loading) return <Loader message="Loading ledger..." />;
 
   return (
     <div className="space-y-6 sm:space-y-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Activity, AlertCircle, RefreshCw, Search, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../utils/api';
+import Loader from '../../components/Loader';
 
 const AdminReferrals = () => {
   const queryClient = useQueryClient();
@@ -32,11 +33,7 @@ const AdminReferrals = () => {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    );
+    return <Loader message="Loading referrals..." />;
   }
 
   if (error) {

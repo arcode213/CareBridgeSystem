@@ -5,6 +5,7 @@ import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
 import { useAdmissions, useHospitalPipeline } from '../hooks/useReferrals';
 import { useQueryClient } from '@tanstack/react-query';
+import Loader from '../components/Loader';
 
 const PAYMENT_OPTIONS = [
   { value: 'cash', label: 'Cash' },
@@ -113,11 +114,7 @@ const HospitalAdmissions = () => {
   };
 
   if (pipelineLoading || admissionsLoading) {
-    return (
-      <div className="flex justify-center py-20 text-slate-500">
-        <ClipboardList className="w-8 h-8 animate-pulse text-blue-500" />
-      </div>
-    );
+    return <Loader message="Loading admissions..." />;
   }
 
   const needsAdmission = pipeline.filter((r) => r.status === 'accepted' && !r.admission);

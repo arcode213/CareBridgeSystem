@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { Plus, User, Stethoscope, Phone, Mail, Trash2, Edit2, CheckCircle, XCircle } from 'lucide-react';
+import Loader from '../components/Loader';
 
 const DoctorManagement = () => {
   const [doctors, setDoctors] = useState([]);
@@ -70,6 +71,8 @@ const DoctorManagement = () => {
     }
   };
 
+  if (loading) return <Loader message="Fetching doctors list..." />;
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-8">
@@ -90,11 +93,7 @@ const DoctorManagement = () => {
         </button>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      ) : doctors.length === 0 ? (
+      {doctors.length === 0 ? (
         <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-20 text-center">
           <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
             <User size={40} />

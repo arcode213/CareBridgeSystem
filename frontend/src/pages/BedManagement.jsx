@@ -4,6 +4,7 @@ import api from '../utils/api';
 import { useBeds } from '../hooks/useReferrals';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import Loader from '../components/Loader';
 
 const BedManagement = () => {
   const queryClient = useQueryClient();
@@ -26,11 +27,7 @@ const BedManagement = () => {
     }
   };
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center min-h-[40vh]">
-      <Bed className="w-10 h-10 animate-pulse text-blue-500" />
-    </div>
-  );
+  if (isLoading) return <Loader message="Fetching bed inventory..." />;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">

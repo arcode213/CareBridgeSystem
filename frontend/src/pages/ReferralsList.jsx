@@ -5,6 +5,7 @@ import { SOCKET_URL } from '../config';
 import DetailModal from '../components/DetailModal';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
 import { FileText, User, Clock, Activity } from 'lucide-react';
+import Loader from '../components/Loader';
 
 const statusConfig = {
   pending:  { cls: 'bg-amber-50 text-amber-600',    label: 'Pending' },
@@ -73,6 +74,8 @@ const ReferralsList = () => {
       ? referrals.filter(r => r.urgency === 'emergency') 
       : referrals.filter(r => r.status === filter);
 
+  if (loading) return <Loader message="Fetching referral history..." />;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -92,10 +95,8 @@ const ReferralsList = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-gray-500 italic">Fetching your referral history...</div>
-        ) : filteredReferrals.length > 0 ? (
-          <div className="overflow-x-auto">
+        {filteredReferrals.length > 0 ? (
+          <div className="overflow-x-auto font-sans">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-gray-50 text-gray-500 text-[10px] uppercase font-bold tracking-wider">

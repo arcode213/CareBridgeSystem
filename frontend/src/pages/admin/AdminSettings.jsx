@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Settings, Calculator, Percent, Shield, Wallet, Landmark, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import Loader from '../../components/Loader';
 
 const AdminSettings = () => {
   // Financial Engine Settings State
@@ -63,12 +64,7 @@ const AdminSettings = () => {
   const adminShare = platformCut - consultantShare;
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 text-slate-500">
-        <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-        <p className="text-sm font-semibold">Loading platform financial configuration...</p>
-      </div>
-    );
+    return <Loader message="Loading platform financial configuration..." />;
   }
 
   return (

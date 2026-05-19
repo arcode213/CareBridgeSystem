@@ -4,6 +4,7 @@ import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { useInbox } from '../hooks/useReferrals';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
+import Loader from '../components/Loader';
 
 function formatSlaCountdown(deadline, now) {
   if (!deadline) return '—';
@@ -73,11 +74,7 @@ const ReferralInbox = () => {
     } catch (err) { toast.error(err.response?.data?.message || 'Reject failed'); }
   };
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center min-h-[40vh] text-slate-500">
-      <Inbox className="w-8 h-8 animate-pulse text-blue-500" />
-    </div>
-  );
+  if (isLoading) return <Loader message="Fetching pending inbox..." />;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

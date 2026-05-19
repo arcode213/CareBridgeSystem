@@ -3,6 +3,7 @@ import { Users, Eye, Search, CheckCircle, XCircle, Stethoscope, FileText, Wallet
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import DetailModal from '../../components/DetailModal';
+import Loader from '../../components/Loader';
 
 const statusBadge = (status) => {
   const map = {
@@ -133,7 +134,7 @@ const AdminConsultants = () => {
     c.profile?.specialty?.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <div className="flex items-center justify-center min-h-[40vh] text-slate-500">Loading consultants…</div>;
+  if (loading) return <Loader message="Loading consultants..." />;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -279,10 +280,7 @@ const AdminConsultants = () => {
             </div>
 
             {loadingProfile ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm">
-                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                Analyzing profile aggregates & logs...
-              </div>
+              <Loader message="Analyzing profile aggregates & logs..." />
             ) : profileData ? (
               <div className="space-y-6">
                 {/* 1. Basic Information Section */}

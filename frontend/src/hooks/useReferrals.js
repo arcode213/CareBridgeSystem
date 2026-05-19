@@ -50,3 +50,13 @@ export const useBeds = () => {
     },
   });
 };
+
+export const useHospitalReferrals = () => {
+  return useQuery({
+    queryKey: ['hospital-referrals'],
+    queryFn: async () => {
+      const res = await api.get('/referrals/hospital-all');
+      return res.data.data;
+    },
+  });
+};

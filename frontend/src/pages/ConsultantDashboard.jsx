@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
+import Loader from '../components/Loader';
 
 const ConsultantDashboard = () => {
   const navigate = useNavigate();
@@ -51,6 +52,8 @@ const ConsultantDashboard = () => {
     fetchDashboardData();
   }, []);
 
+  if (loading) return <Loader message="Loading dashboard stats..." />;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
@@ -91,9 +94,7 @@ const ConsultantDashboard = () => {
           <Link to="/referrals" className="text-blue-600 text-sm font-semibold hover:underline">View All →</Link>
         </div>
         
-        {loading ? (
-          <div className="p-12 text-center text-gray-500">Loading referrals...</div>
-        ) : referrals.length > 0 ? (
+        {referrals.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>

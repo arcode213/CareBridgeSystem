@@ -5,6 +5,7 @@ const {
   createReferral,
   getMyReferrals,
   getHospitalInbox,
+  getHospitalReferrals,
   updateReferralStatus,
   getReferralDetails,
   getConsultantEarnings,
@@ -23,6 +24,7 @@ router.get('/earnings', authorize(['consultant']), getConsultantEarnings);
 router.post('/withdraw', authorize(['consultant']), require('../controllers/referralController').createWithdrawalRequest);
 
 router.get('/inbox', authorize(['hospital']), getHospitalInbox);
+router.get('/hospital-all', authorize(['hospital']), getHospitalReferrals);
 
 router.patch('/:id/accept', authorize(['hospital']), (req, res, next) => {
   req.body = { ...req.body, status: 'accepted' };

@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Send, User, Clock, ShieldCheck } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../features/auth/AuthContext';
 
 const ClinicalNotesLog = ({ referralId, initialNotes = [], onNoteAdded }) => {
+  const { user } = useAuth();
   const [notes, setNotes] = useState(initialNotes);
   const [content, setContent] = useState('');
-  const [type, setType] = useState('nursing'); // Default for hospital, consultant will change it
+  const [type, setType] = useState(user?.role === 'consultant' ? 'consultant' : 'nursing');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -37,20 +39,22 @@ const ClinicalNotesLog = ({ referralId, initialNotes = [], onNoteAdded }) => {
           <ShieldCheck size={16} className="text-blue-600" />
           Clinical Timeline & Notes
         </h3>
-        <div className="flex bg-slate-100 p-1 rounded-lg">
-          <button 
-            onClick={() => setType('nursing')}
-            className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${type === 'nursing' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
-          >
-            Nursing
-          </button>
-          <button 
-            onClick={() => setType('consultant')}
-            className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${type === 'consultant' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
-          >
-            Consultant
-          </button>
-        </div>
+        {user?.role !== 'consultant' && (
+          <div className="flex bg-slate-100 p-1 rounded-lg">
+            <button 
+              onClick={() => setType('nursing')}
+              className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${type === 'nursing' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
+            >
+              Nursing
+            </button>
+            <button 
+              onClick={() => setType('consultant')}
+              className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${type === 'consultant' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
+            >
+              Consultant
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Notes List */}
