@@ -8,7 +8,7 @@
  */
 
 const User = require('../models/User');
-const { sendEmail } = require('../utils/emailService');
+const { sendNotificationEmail } = require('../utils/emailService');
 const { sendWhatsApp } = require('../utils/whatsappService');
 
 const notifyAllAdmins = async (type, message, extraData = {}) => {
@@ -157,12 +157,7 @@ exports.sendAlert = async ({ userId, role, type, message, data = {} }) => {
   // 2. Email (secondary / audit trail)
   if (data.email) {
     try {
-      await sendEmail({
-        to: data.email,
-        subject: `CareBridge: ${type.replace(/_/g, ' ')}`,
-        text: message,
-      });
-      results.email = { success: true };
+      results.email = await sendNotificationEmail(type, role, data, message);
     } catch (err) {
       console.error('[NOTIFICATION] Email error:', err.message);
       results.email = { success: false, error: err.message };

@@ -7,6 +7,15 @@ const {
   resetPasswordEmailHtml,
   verificationEmailText,
   resetPasswordEmailText,
+  buildNotificationEmail,
+  buildNotificationEmailText,
+  notificationEmailSubject,
+  buildActionEmail,
+  buildActionEmailText,
+  referralSubmittedConsultantEmail,
+  referralReceivedHospitalEmail,
+  referralStatusUpdateEmail,
+  clinicalNoteEmail,
 } = require('./emailTemplates');
 
 /**
@@ -146,11 +155,38 @@ const sendResetPasswordEmail = async (user, token) => {
   });
 };
 
+/** Formatted email for notificationService alert types */
+const sendNotificationEmail = async (type, role, data, message) => {
+  if (!data?.email) return { success: false, error: 'Missing email' };
+  return sendEmail({
+    to: data.email,
+    subject: `${notificationEmailSubject(type, data)} — CareBridge Health`,
+    html: buildNotificationEmail(type, data, message, role),
+    text: buildNotificationEmailText(type, data, message, role),
+  });
+};
+
+/** Generic formatted action email */
+const sendActionEmail = async ({ to, subject, ...templateArgs }) => {
+  return sendEmail({
+    to,
+    subject,
+    html: buildActionEmail(templateArgs),
+    text: buildActionEmailText({ title: templateArgs.title, ...templateArgs }),
+  });
+};
+
 module.exports = {
   sendEmail,
   sendVerificationEmail,
   sendResetPasswordEmail,
+  sendNotificationEmail,
+  sendActionEmail,
   useResend,
   useLegacySmtp,
   isResendConfigured,
+  referralSubmittedConsultantEmail,
+  referralReceivedHospitalEmail,
+  referralStatusUpdateEmail,
+  clinicalNoteEmail,
 };

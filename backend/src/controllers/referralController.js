@@ -12,7 +12,13 @@ const suggestionCache = require('../utils/suggestionCache');
 const { logAction } = require('../utils/logger');
 const { updateHospitalStats } = require('../services/statsService');
 const HospitalDoctor = require('../models/HospitalDoctor');
-const { sendEmail } = require('../utils/emailService');
+const {
+  sendEmail,
+  referralSubmittedConsultantEmail,
+  referralReceivedHospitalEmail,
+  referralStatusUpdateEmail,
+  clinicalNoteEmail,
+} = require('../utils/emailService');
 const notificationService = require('../services/notificationService');
 const {
   applyPreferenceForHospital,
@@ -286,8 +292,15 @@ exports.createReferral = async (req, res) => {
     try {
       sendEmail({
         to: req.user.email,
-        subject: `CareBridge: Referral Submitted - ${referral.referralCode}`,
-        text: `Hello Dr. ${req.user.name},\n\nYour referral for patient ${referral.patientName} has been successfully submitted to ${targetHospital.hospitalName} with ${urgency} urgency.\n\nReferral Code: ${referral.referralCode}\n\nYou will be notified as soon as the hospital reviews and updates the status.`,
+        subject: `Referral submitted — ${referral.referralCode} — CareBridge Health`,
+        html: referralSubmittedConsultantEmail({
+          consultantName: req.user.name,
+          patientName: referral.patientName,
+          hospitalName: targetHospital.hospitalName,
+          referralCode: referral.referralCode,
+          urgency: urgency,
+        }),
+        text: `Referral ${referral.referralCode} submitted to ${targetHospital.hospitalName}.`,
       });
     } catch (err) {
       console.error('Consultant referral email notification failed:', err.message);
@@ -297,8 +310,14 @@ exports.createReferral = async (req, res) => {
     try {
       sendEmail({
         to: targetOwner.email,
-        subject: `CareBridge: New Referral Received - ${referral.referralCode}`,
-        text: `Hello ${targetHospital.hospitalName},\n\nA new referral has been routed to your facility with ${urgency} urgency.\n\nPatient Name: ${referral.patientName}\nReferral Code: ${referral.referralCode}\n\nPlease log in to your dashboard to review this case and update its status within the SLA deadline.`,
+        subject: `New referral received — ${referral.referralCode} — CareBridge Health`,
+        html: referralReceivedHospitalEmail({
+          hospitalName: targetHospital.hospitalName,
+          patientName: referral.patientName,
+          referralCode: referral.referralCode,
+          urgency,
+        }),
+        text: `New referral ${referral.referralCode} for ${referral.patientName}.`,
       });
     } catch (err) {
       console.error('Hospital new referral email notification failed:', err.message);
@@ -535,8 +554,17 @@ exports.updateReferralStatus = async (req, res) => {
       try {
         sendEmail({
           to: consultantUser.email,
-          subject: `CareBridge: Referral Status Updated to ${status.toUpperCase()} - ${referral.referralCode}`,
-          text: `Hello Dr. ${consultantUser.name},\n\nThe status of your referral for patient ${referral.patientName} (${referral.referralCode}) has been updated by ${hospital.hospitalName}.\n\nNew Status: ${status.toUpperCase()}\n${status === 'rejected' ? `Rejection Reason: ${referral.rejectionReason}\n` : ''}\nPlease log in to your dashboard for details.`,
+          subject: `Referral ${status} — ${referral.referralCode} — CareBridge Health`,
+          html: referralStatusUpdateEmail({
+            recipientName: consultantUser.name,
+            patientName: referral.patientName,
+            referralCode: referral.referralCode,
+            hospitalName: hospital.hospitalName,
+            status,
+            rejectionReason: referral.rejectionReason,
+            recipientRole: 'consultant',
+          }),
+          text: `Referral ${referral.referralCode} status: ${status}`,
         });
       } catch (err) {
         console.error('Consultant status email notification failed:', err.message);
@@ -546,8 +574,16 @@ exports.updateReferralStatus = async (req, res) => {
     try {
       sendEmail({
         to: req.user.email,
-        subject: `CareBridge: Status Confirmed for Referral ${referral.referralCode}`,
-        text: `Hello ${hospital.hospitalName},\n\nYou have successfully updated the status of referral ${referral.referralCode} to ${status.toUpperCase()}.\n\nPatient Name: ${referral.patientName}\n\nThank you for ensuring timely clinical routing.`,
+        subject: `Status confirmed — ${referral.referralCode} — CareBridge Health`,
+        html: referralStatusUpdateEmail({
+          recipientName: hospital.hospitalName,
+          patientName: referral.patientName,
+          referralCode: referral.referralCode,
+          hospitalName: hospital.hospitalName,
+          status,
+          recipientRole: 'hospital',
+        }),
+        text: `Referral ${referral.referralCode} updated to ${status}.`,
       });
     } catch (err) {
       console.error('Hospital status email notification failed:', err.message);
@@ -802,8 +838,16 @@ exports.addClinicalNote = async (req, res) => {
         try {
           sendEmail({
             to: consultantUser.email,
-            subject: `CareBridge: New Clinical Note for Patient ${referral.patientName}`,
-            text: `Hello Dr. ${consultantUser.name},\n\n${req.user.name} added a new clinical note to the referral for patient ${referral.patientName} (${referral.referralCode}).\n\nContent:\n"${content}"\n\nPlease log in to review this note and reply.`,
+            subject: `New clinical note — ${referral.referralCode} — CareBridge Health`,
+            html: clinicalNoteEmail({
+              recipientName: consultantUser.name,
+              authorName: req.user.name,
+              patientName: referral.patientName,
+              referralCode: referral.referralCode,
+              content,
+              recipientRole: 'consultant',
+            }),
+            text: `New clinical note on referral ${referral.referralCode}.`,
           });
         } catch (err) {
           console.error('Clinical note email notification failed:', err.message);
@@ -815,8 +859,16 @@ exports.addClinicalNote = async (req, res) => {
         try {
           sendEmail({
             to: hospitalUser.email,
-            subject: `CareBridge: New Clinical Note for Patient ${referral.patientName}`,
-            text: `Hello ${referral.targetHospitalId?.hospitalName || 'Clinical Staff'},\n\nDr. ${req.user.name} added a new clinical note to the referral for patient ${referral.patientName} (${referral.referralCode}).\n\nContent:\n"${content}"\n\nPlease log in to review this note and update the patient's care status.`,
+            subject: `New clinical note — ${referral.referralCode} — CareBridge Health`,
+            html: clinicalNoteEmail({
+              recipientName: referral.targetHospitalId?.hospitalName || 'Clinical Staff',
+              authorName: req.user.name,
+              patientName: referral.patientName,
+              referralCode: referral.referralCode,
+              content,
+              recipientRole: 'hospital',
+            }),
+            text: `New clinical note on referral ${referral.referralCode}.`,
           });
         } catch (err) {
           console.error('Clinical note email notification failed:', err.message);
