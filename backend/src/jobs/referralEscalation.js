@@ -2,6 +2,7 @@ const Referral = require('../models/Referral');
 const Hospital = require('../models/Hospital');
 const { slaDeadlineFromUrgency } = require('../utils/sla');
 const { updateHospitalStats } = require('../services/statsService');
+const { applyPreferenceForHospital } = require('../utils/referralPreferences');
 
 /**
  * Move pending referrals past SLA to the next hospital in rankedHospitalIds, or reject if none left.
@@ -28,6 +29,7 @@ async function processReferralEscalations(io) {
       idx += 1;
       ref.currentRankIndex = idx;
       ref.targetHospitalId = ranked[idx];
+      applyPreferenceForHospital(ref, ranked[idx]);
       ref.slaDeadline = slaDeadlineFromUrgency(ref.urgency);
       await ref.save();
       

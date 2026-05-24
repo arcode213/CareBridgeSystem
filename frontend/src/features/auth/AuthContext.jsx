@@ -72,7 +72,13 @@ export const AuthProvider = ({ children }) => {
         setUser(data.data.user);
         return { success: true, user: data.data.user };
       }
-      return { success: false, message: data.message, needsVerification: data.needsVerification };
+      return {
+        success: false,
+        message: data.message,
+        needsPhoneVerification: data.needsPhoneVerification,
+        needsEmailVerification: data.needsEmailVerification,
+        phone: data.phone,
+      };
     } catch {
       return { success: false, message: 'Server error' };
     } finally {
@@ -92,6 +98,7 @@ export const AuthProvider = ({ children }) => {
       return {
         success: data.success,
         message: data.message || data.error || 'Registration failed',
+        phone: data.data?.phone,
       };
     } catch {
       return { success: false, message: 'Server error' };

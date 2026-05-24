@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { User, CreditCard, ShieldCheck, Save, Loader2, KeyRound, Eye, EyeOff, Link, Building2 } from 'lucide-react';
+import { User, CreditCard, ShieldCheck, Save, Loader2, KeyRound, Eye, EyeOff, Building2, Palette, X } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../features/auth/AuthContext';
 import Loader from '../components/Loader';
+import ProfileDocumentUpload from '../components/ProfileDocumentUpload';
 
 const ProfileSettings = () => {
   const { user: authUser } = useAuth();
@@ -26,6 +27,52 @@ const ProfileSettings = () => {
     confirmPassword: ''
   });
 
+  const [newDeptInput, setNewDeptInput] = useState('');
+  const [logoUploading, setLogoUploading] = useState(false);
+
+  const handleAddDepartment = async () => {
+    const trimmed = newDeptInput.trim();
+    if (!trimmed) return;
+    const currentDepts = data.profile.departments || [];
+    if (currentDepts.includes(trimmed)) {
+      toast.error('Department already listed');
+      return;
+    }
+    const updatedDepts = [...currentDepts, trimmed];
+    
+    try {
+      const res = await api.patch('/hospitals/departments', { departments: updatedDepts });
+      if (res.data.success) {
+        setData(prev => ({
+          ...prev,
+          profile: { ...prev.profile, departments: res.data.data }
+        }));
+        setNewDeptInput('');
+        toast.success('Department added successfully');
+      }
+    } catch (err) {
+      toast.error('Failed to add department');
+    }
+  };
+
+  const handleRemoveDepartment = async (dept) => {
+    const currentDepts = data.profile.departments || [];
+    const updatedDepts = currentDepts.filter(d => d !== dept);
+    
+    try {
+      const res = await api.patch('/hospitals/departments', { departments: updatedDepts });
+      if (res.data.success) {
+        setData(prev => ({
+          ...prev,
+          profile: { ...prev.profile, departments: res.data.data }
+        }));
+        toast.success('Department removed successfully');
+      }
+    } catch (err) {
+      toast.error('Failed to remove department');
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -34,12 +81,49 @@ const ProfileSettings = () => {
     try {
       const res = await api.get('/profile/me');
       if (res.data.success) {
-        setData(res.data.data);
+        const payload = res.data.data;
+        if (payload.profile && authUser?.role === 'hospital' && !payload.profile.branding) {
+          payload.profile.branding = { primaryColor: '#2980b9', logoUrl: '' };
+        }
+        setData(payload);
       }
     } catch (err) {
       toast.error('Failed to load profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const up = await api.post('/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (up.data.success) {
+        setData((prev) => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            branding: { ...prev.profile.branding, logoUrl: up.data.url },
+          },
+        }));
+        toast.success('Logo uploaded — save profile to apply');
+      }
+    } catch {
+      toast.error('Logo upload failed');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const refreshDocuments = (docs) => {
+    if (authUser.role === 'consultant') {
+      setData((prev) => ({ ...prev, profile: { ...prev.profile, verificationDocuments: docs } }));
+    } else {
+      setData((prev) => ({ ...prev, profile: { ...prev.profile, registrationDocuments: docs } }));
     }
   };
 
@@ -54,6 +138,9 @@ const ProfileSettings = () => {
       };
       const res = await api.put('/profile/me', payload);
       setData(res.data.data);
+      if (authUser.role === 'hospital') {
+        window.dispatchEvent(new Event('hospital-branding-changed'));
+      }
       toast.success('Profile saved successfully');
     } catch (err) {
       toast.error('Failed to save profile');
@@ -261,6 +348,18 @@ const ProfileSettings = () => {
                         />
                       </div>
                       <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase">Clinic Name</label>
+                        <input 
+                          type="text"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
+                          value={data.profile.clinicName || ''}
+                          onChange={(e) => setData({
+                            ...data,
+                            profile: { ...data.profile, clinicName: e.target.value }
+                          })}
+                        />
+                      </div>
+                      <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-400 uppercase">City</label>
                         <input 
                           type="text"
@@ -375,33 +474,22 @@ const ProfileSettings = () => {
                   </div>
                 </div>
 
-                {/* Consultant Verification Documents Viewer (READ-ONLY) */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
                     <ShieldCheck size={16} className="text-rose-600" />
-                    Official Verification Documents (Read-only)
+                    Verification Documents
                   </div>
-                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                    <p className="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      🔒 Uploaded official regulatory documents are strictly read-only after submission. To update your documents, please file an official support ticket.
-                    </p>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {(data.profile.verificationDocuments || []).map((doc, idx) => (
-                        <a 
-                          key={idx}
-                          href={doc.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-600 hover:bg-blue-50/20 transition-all text-xs font-semibold text-slate-700"
-                        >
-                          <span className="truncate">{doc.name || 'Credential Attachment'}</span>
-                          <Eye size={14} className="text-slate-400 hover:text-blue-600 shrink-0 ml-2" />
-                        </a>
-                      ))}
-                      {(data.profile.verificationDocuments || []).length === 0 && (
-                        <p className="text-xs text-slate-400 italic">No verification documents uploaded.</p>
-                      )}
-                    </div>
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                    <ProfileDocumentUpload
+                      docName="PMDC Certificate"
+                      documents={data.profile.verificationDocuments}
+                      onUpdated={refreshDocuments}
+                    />
+                    <ProfileDocumentUpload
+                      docName="CNIC"
+                      documents={data.profile.verificationDocuments}
+                      onUpdated={refreshDocuments}
+                    />
                   </div>
                 </div>
               </>
@@ -443,6 +531,19 @@ const ProfileSettings = () => {
                         />
                       </div>
                       <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase">Representative CNIC</label>
+                        <input
+                          type="text"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-mono font-medium"
+                          value={data.profile.representativeCnic || ''}
+                          onChange={(e) => setData({
+                            ...data,
+                            profile: { ...data.profile, representativeCnic: e.target.value },
+                          })}
+                          placeholder="42101-XXXXXXX-X"
+                        />
+                      </div>
+                      <div className="space-y-1">
                         <label className="text-xs font-bold text-slate-400 uppercase">City</label>
                         <input 
                           type="text"
@@ -452,6 +553,68 @@ const ProfileSettings = () => {
                             ...data,
                             profile: { ...data.profile, city: e.target.value }
                           })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase">Area / Locality</label>
+                        <input 
+                          type="text"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
+                          value={data.profile.area || ''}
+                          onChange={(e) => setData({
+                            ...data,
+                            profile: { ...data.profile, area: e.target.value }
+                          })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase">Avg Response Time (minutes)</label>
+                        <input 
+                          type="number"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
+                          value={data.profile.avgResponseTime || ''}
+                          onChange={(e) => setData({
+                            ...data,
+                            profile: { ...data.profile, avgResponseTime: parseInt(e.target.value, 10) || 0 }
+                          })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase">Latitude</label>
+                        <input 
+                          type="number" step="any"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
+                          value={data.profile.location?.coordinates?.[1] ?? ''}
+                          onChange={(e) => {
+                            const newCoords = [...(data.profile.location?.coordinates || [67.0099, 24.8607])];
+                            newCoords[1] = parseFloat(e.target.value) || 0;
+                            setData({
+                              ...data,
+                              profile: {
+                                ...data.profile,
+                                location: { ...data.profile.location, type: 'Point', coordinates: newCoords }
+                              }
+                            });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase">Longitude</label>
+                        <input 
+                          type="number" step="any"
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
+                          value={data.profile.location?.coordinates?.[0] ?? ''}
+                          onChange={(e) => {
+                            const newCoords = [...(data.profile.location?.coordinates || [67.0099, 24.8607])];
+                            newCoords[0] = parseFloat(e.target.value) || 0;
+                            setData({
+                              ...data,
+                              profile: {
+                                ...data.profile,
+                                location: { ...data.profile.location, type: 'Point', coordinates: newCoords }
+                              }
+                            });
+                          }}
                         />
                       </div>
                       <div className="space-y-1 sm:col-span-2">
@@ -542,33 +705,143 @@ const ProfileSettings = () => {
                   </div>
                 </div>
 
-                {/* Hospital Registration Documents Viewer (READ-ONLY) */}
+                {/* Department Management Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                    <Building2 size={16} className="text-blue-600" />
+                    Department Management
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <p className="text-xs text-slate-500 leading-relaxed bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
+                      Add or remove department specialties offered by your facility.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(data.profile.departments || []).map((dept) => (
+                        <span key={dept} className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl border border-blue-100">
+                          {dept}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDepartment(dept)}
+                            className="p-0.5 hover:bg-blue-100 rounded-full transition-colors text-blue-500 hover:text-blue-700"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                      {(data.profile.departments || []).length === 0 && (
+                        <p className="text-xs text-slate-400 italic">No departments listed.</p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Add new department (e.g. Cardiology)"
+                        className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={newDeptInput}
+                        onChange={(e) => setNewDeptInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddDepartment();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddDepartment}
+                        className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-colors"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                    <Palette size={16} className="text-violet-600" />
+                    White-Label Branding
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
+                    <p className="text-xs text-slate-500">
+                      Customize your hospital portal sidebar and accent color. Platform login pages keep global CareBridge branding.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase">Hospital logo</label>
+                        <div className="flex items-center gap-4">
+                          {data.profile.branding?.logoUrl ? (
+                            <img src={data.profile.branding.logoUrl} alt="Logo" className="w-16 h-16 rounded-xl object-cover border" />
+                          ) : (
+                            <div className="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 text-xs">No logo</div>
+                          )}
+                          <label className="cursor-pointer">
+                            <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={logoUploading} />
+                            <span className="px-4 py-2 bg-violet-600 text-white text-xs font-bold rounded-xl">
+                              {logoUploading ? 'Uploading…' : 'Upload logo'}
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                      <div className="space-y-2 flex-1 min-w-[200px]">
+                        <label className="text-xs font-bold text-slate-400 uppercase">Primary accent color</label>
+                        <div className="flex gap-3 items-center">
+                          <input
+                            type="color"
+                            value={data.profile.branding?.primaryColor || '#2980b9'}
+                            onChange={(e) =>
+                              setData({
+                                ...data,
+                                profile: {
+                                  ...data.profile,
+                                  branding: { ...data.profile.branding, primaryColor: e.target.value },
+                                },
+                              })
+                            }
+                            className="w-12 h-12 rounded-lg border-0 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono"
+                            value={data.profile.branding?.primaryColor || '#2980b9'}
+                            onChange={(e) =>
+                              setData({
+                                ...data,
+                                profile: {
+                                  ...data.profile,
+                                  branding: { ...data.profile.branding, primaryColor: e.target.value },
+                                },
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
                     <ShieldCheck size={16} className="text-rose-600" />
-                    Official Registration Documents (Read-only)
+                    Registration Documents
                   </div>
-                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                    <p className="text-xs text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      🔒 Uploaded official regulatory documents are strictly read-only after submission. To update your documents, please file an official support ticket.
-                    </p>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {(data.profile.registrationDocuments || []).map((doc, idx) => (
-                        <a 
-                          key={idx}
-                          href={doc.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-600 hover:bg-blue-50/20 transition-all text-xs font-semibold text-slate-700"
-                        >
-                          <span className="truncate">{doc.name || 'Registration Attachment'}</span>
-                          <Eye size={14} className="text-slate-400 hover:text-blue-600 shrink-0 ml-2" />
-                        </a>
-                      ))}
-                      {(data.profile.registrationDocuments || []).length === 0 && (
-                        <p className="text-xs text-slate-400 italic">No registration documents uploaded.</p>
-                      )}
-                    </div>
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                    <ProfileDocumentUpload
+                      docName="SHCC License"
+                      documents={data.profile.registrationDocuments}
+                      onUpdated={refreshDocuments}
+                    />
+                    <ProfileDocumentUpload
+                      docName="CNIC"
+                      documents={data.profile.registrationDocuments}
+                      onUpdated={refreshDocuments}
+                    />
+                    <ProfileDocumentUpload
+                      docName="Rate List"
+                      documents={data.profile.registrationDocuments}
+                      onUpdated={refreshDocuments}
+                    />
                   </div>
                 </div>
               </>

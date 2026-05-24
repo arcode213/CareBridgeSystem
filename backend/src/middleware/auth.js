@@ -18,7 +18,13 @@ const protect = (req, res, next) => {
 
 const authorize = (roles = []) => {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(403).json({ success: false, message: 'Forbidden access' });
+    }
+    if (req.user.role === 'admin') {
+      return next();
+    }
+    if (!roles.includes(req.user.role)) {
       return res.status(403).json({ success: false, message: 'Forbidden access' });
     }
     next();

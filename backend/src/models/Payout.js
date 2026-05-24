@@ -13,6 +13,11 @@ const PayoutSchema = new mongoose.Schema(
     adminSharePaisa: { type: Number, default: 0 },
     status: { type: String, enum: ['accrued', 'paid', 'pending_withdrawal'], default: 'accrued' },
     note: { type: String, trim: true },
+    weeklySettlementId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'WeeklySettlement',
+      default: null
+    },
   },
   { timestamps: true }
 );

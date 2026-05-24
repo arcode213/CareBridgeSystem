@@ -13,11 +13,26 @@ const { logAction } = require('../utils/logger');
 const { updateHospitalStats } = require('../services/statsService');
 const HospitalDoctor = require('../models/HospitalDoctor');
 const { sendEmail } = require('../utils/emailService');
+const notificationService = require('../services/notificationService');
+const {
+  applyPreferenceForHospital,
+  normalizeRankedHospitalPreferences,
+} = require('../utils/referralPreferences');
 
 exports.getHospitalDoctors = async (req, res) => {
   try {
     const { id } = req.params;
-    const doctors = await HospitalDoctor.find({ hospitalId: id, isAvailable: true }).select('name specialty consultationFee');
+
+    if (req.user.role === 'hospital') {
+      const ownHospital = await Hospital.findOne({ userId: req.user.id });
+      if (!ownHospital || ownHospital._id.toString() !== id) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view doctors for this hospital' });
+      }
+    }
+
+    const doctors = await HospitalDoctor.find({ hospitalId: id, isAvailable: { $ne: false } })
+      .select('name specialty consultationFee isAvailable')
+      .sort({ name: 1 });
     res.json({ success: true, data: doctors });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching doctors' });
@@ -204,9 +219,31 @@ exports.createReferral = async (req, res) => {
       });
     }
 
+    const fallbackDepartment = String(req.body.department || '').trim();
+    const { preferences: rankedHospitalPreferences, error: prefError } =
+      await normalizeRankedHospitalPreferences(
+        req.body.rankedHospitalPreferences,
+        rankedEligible,
+        fallbackDepartment
+      );
+    if (prefError) {
+      return res.status(400).json({ success: false, message: prefError });
+    }
+
+    const targetPref = rankedHospitalPreferences.find((p) =>
+      p.hospitalId.equals(targetOid)
+    );
+    if (!targetPref) {
+      return res.status(400).json({
+        success: false,
+        message: 'Department must be selected for the chosen hospital',
+      });
+    }
+
     const referral = new Referral({
       consultantId: consultant._id,
       rankedHospitalIds: ranked,
+      rankedHospitalPreferences,
       currentRankIndex: rankIdx,
       patientName: req.body.patientName,
       age: Number(req.body.age),
@@ -220,7 +257,7 @@ exports.createReferral = async (req, res) => {
       symptomsText: req.body.symptoms ?? req.body.symptomsText,
       summaryNotes: req.body.summaryNotes,
       symptomTags: req.body.symptomTags,
-      department: req.body.department,
+      department: targetPref.department,
       diagnosisText: req.body.diagnosisText,
       notes: req.body.notes,
       attachments: req.body.attachments,
@@ -228,7 +265,7 @@ exports.createReferral = async (req, res) => {
       budgetMax: req.body.budgetMax != null ? Number(req.body.budgetMax) : undefined,
       budgetBracket: req.body.budgetBracket,
       targetHospitalId,
-      targetDoctorId: (req.body.targetDoctorId && mongoose.Types.ObjectId.isValid(req.body.targetDoctorId)) ? req.body.targetDoctorId : undefined,
+      targetDoctorId: targetPref.targetDoctorId,
       scoringData: req.body.scoringData,
       promoCode,
       slaDeadline: slaDeadlineFromUrgency(urgency),
@@ -267,6 +304,10 @@ exports.createReferral = async (req, res) => {
       console.error('Hospital new referral email notification failed:', err.message);
     }
 
+    notificationService.notifyNewReferral(referral, targetOwner).catch((err) =>
+      console.error('Hospital new referral WhatsApp notification failed:', err.message)
+    );
+
     const io = req.app.get('io');
     if (io) {
       io.to(`hospital:${targetHospitalId}`).emit('NEW_REFERRAL', {
@@ -299,11 +340,27 @@ exports.getMyReferrals = async (req, res) => {
     const referrals = await Referral.find({ consultantId: consultant._id })
       .populate('targetHospitalId', 'hospitalName')
       .populate('targetDoctorId', 'name specialty')
-      .sort({ createdAt: -1 });
+      .populate('rankedHospitalPreferences.targetDoctorId', 'name specialty')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const Admission = require('../models/Admission');
+    const referralIds = referrals.map((r) => r._id);
+    const admissions = await Admission.find({ referralId: { $in: referralIds } })
+      .populate('treatingDoctorId', 'name specialty')
+      .lean();
+    const admissionByReferral = new Map(
+      admissions.map((a) => [a.referralId.toString(), a])
+    );
+
+    const data = referrals.map((r) => ({
+      ...r,
+      admission: admissionByReferral.get(r._id.toString()) || null,
+    }));
 
     res.json({
       success: true,
-      data: referrals,
+      data,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching referrals' });
@@ -322,6 +379,7 @@ exports.getHospitalInbox = async (req, res) => {
       status: 'pending',
     })
       .populate('targetDoctorId', 'name specialty')
+      .populate('rankedHospitalPreferences.targetDoctorId', 'name specialty')
       .populate({
         path: 'consultantId',
         select: 'userId pmdcNumber specialty',
@@ -402,9 +460,18 @@ exports.getReferralDetails = async (req, res) => {
       }
     }
 
+    let admission = null;
+    if (['admitted', 'closed'].includes(referral.status)) {
+      const Admission = require('../models/Admission');
+      admission = await Admission.findOne({ referralId: referral._id }).populate('treatingDoctorId', 'name specialty').lean();
+    }
+
     res.json({
       success: true,
-      data: referral,
+      data: {
+        ...referral.toJSON(),
+        admission,
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching referral details' });
@@ -484,6 +551,18 @@ exports.updateReferralStatus = async (req, res) => {
       });
     } catch (err) {
       console.error('Hospital status email notification failed:', err.message);
+    }
+
+    if (consultantUser?.phone) {
+      if (status === 'accepted') {
+        notificationService
+          .notifyReferralAccepted(referral, consultantUser, hospital.hospitalName)
+          .catch((err) => console.error('Referral accepted WhatsApp failed:', err.message));
+      } else if (status === 'rejected') {
+        notificationService
+          .notifyReferralRejected(referral, consultantUser, referral.rejectionReason)
+          .catch((err) => console.error('Referral rejected WhatsApp failed:', err.message));
+      }
     }
 
     // Recalculate hospital performance metrics (Factor 5: SLA History)
@@ -607,7 +686,81 @@ exports.createWithdrawalRequest = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to process withdrawal' });
   }
 };
+
+/**
+ * PATCH /referrals/:id — Consultant can edit their own referral's clinical fields
+ * Only allowed when status is NOT 'admitted' or 'closed'.
+ */
+exports.updateReferralByConsultant = async (req, res) => {
+  try {
+    const consultant = await Consultant.findOne({ userId: req.user.id });
+    if (!consultant) {
+      return res.status(404).json({ success: false, message: 'Consultant profile not found' });
+    }
+
+    const referral = await Referral.findOne({
+      _id: req.params.id,
+      consultantId: consultant._id,
+    });
+
+    if (!referral) {
+      return res.status(404).json({ success: false, message: 'Referral not found or unauthorized' });
+    }
+
+    if (['admitted', 'closed'].includes(referral.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot edit a referral that is already admitted or closed',
+      });
+    }
+
+    // Only allow updating clinical/patient fields — NOT status, hospital, or scoring
+    const allowedFields = [
+      'patientName', 'age', 'gender', 'phone', 'area', 'cnic',
+      'guardianName', 'guardianCnic', 'urgency', 'symptomsText',
+      'summaryNotes', 'department', 'diagnosisText', 'notes',
+      'attachments', 'budgetBracket', 'budgetMin', 'budgetMax',
+    ];
+
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+
+    // Validate CNIC format if provided
+    const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
+    if (updates.cnic && !cnicRegex.test(updates.cnic)) {
+      return res.status(400).json({ success: false, message: 'Patient CNIC must be in the format XXXXX-XXXXXXX-X' });
+    }
+    if (updates.guardianCnic && !cnicRegex.test(updates.guardianCnic)) {
+      return res.status(400).json({ success: false, message: 'Guardian CNIC must be in the format XXXXX-XXXXXXX-X' });
+    }
+    if (updates.urgency && !['emergency', 'urgent', 'routine'].includes(updates.urgency)) {
+      return res.status(400).json({ success: false, message: 'Invalid urgency value' });
+    }
+
+    Object.assign(referral, updates);
+    await referral.save();
+
+    await logAction({
+      req,
+      action: 'REFERRAL_UPDATED_BY_CONSULTANT',
+      entityId: referral._id,
+      entityModel: 'Referral',
+      details: { updatedFields: Object.keys(updates) }
+    });
+
+    res.json({ success: true, message: 'Referral updated successfully', data: referral });
+  } catch (error) {
+    console.error('updateReferralByConsultant error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update referral' });
+  }
+};
+
 exports.addClinicalNote = async (req, res) => {
+
   try {
     const { content, type } = req.body;
     if (!content || !type) {

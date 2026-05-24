@@ -4,7 +4,10 @@ const Hospital = require('../models/Hospital');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendVerificationEmail, sendResetPasswordEmail, sendEmail } = require('../utils/emailService');
+const { sendEmail, sendResetPasswordEmail } = require('../utils/emailService');
+const { sendOtpWhatsApp, sendWhatsApp, normalisePhone } = require('../utils/whatsappService');
+const { generateOtp, verifyOtp, hasLiveOtp } = require('../utils/otpService');
+const notificationService = require('../services/notificationService');
 
 const ALLOWED_WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burns', 'Maternity', 'Psychiatric', 'Cardiac'];
 
@@ -117,28 +120,64 @@ exports.register = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const e164Phone = normalisePhone(phoneClean);
 
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      phone: phoneClean,
+      phone: e164Phone || phoneClean,
       passwordHash,
       role,
       status: 'pending',
-      emailVerificationToken: verificationToken,
-      emailVerificationExpires: verificationExpires,
+      isPhoneVerified: false,
+      isEmailVerified: false,
     });
 
-    // Send verification email (async)
-    sendVerificationEmail(user, verificationToken);
+    // Dual Verification: 1. Generate Email Verification Token
+    const emailToken = crypto.randomBytes(32).toString('hex');
+    const emailTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    user.emailVerificationToken = emailToken;
+    user.emailVerificationExpires = emailTokenExpires;
+    await user.save();
+    
+    // Send Verification Email (async)
+    sendEmail(user.email, 'CareBridge - Verify Your Email', `
+      <h1>Welcome to CareBridge Health</h1>
+      <p>Please verify your email address to complete your registration.</p>
+      <a href="${process.env.FRONTEND_URL}/verify-email?token=${emailToken}" style="display:inline-block;padding:10px 20px;background:#10b981;color:#fff;text-decoration:none;border-radius:5px;">Verify Email</a>
+      <p>Or copy this link: ${process.env.FRONTEND_URL}/verify-email?token=${emailToken}</p>
+    `).catch(err => console.error('Failed to send verification email:', err));
+
+    // Dual Verification: 2. Generate and send WhatsApp OTP
+    const otp = generateOtp(e164Phone);
+    sendOtpWhatsApp(e164Phone, otp, name.trim()).then((wa) => {
+      if (!wa.success) {
+        console.error('[REG] WhatsApp OTP failed:', wa.error);
+      }
+    });
 
     if (role === 'consultant') {
       const pmdc = String(req.body.pmdcNumber || '').trim();
       if (!pmdc || /^pending-/i.test(pmdc)) {
         await User.deleteOne({ _id: user._id });
         return res.status(400).json({ success: false, message: 'Valid PMDC number is required' });
+      }
+
+      const cnic = String(req.body.cnic || '').trim();
+      const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
+      if (!cnicRegex.test(cnic)) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({ success: false, message: 'CNIC must be in the format XXXXX-XXXXXXX-X' });
+      }
+
+      const verificationDocuments = req.body.verificationDocuments || [];
+      if (!verificationDocuments.some((d) => d.name === 'PMDC Certificate' && d.url)) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({ success: false, message: 'PMDC Certificate upload is required' });
+      }
+      if (!verificationDocuments.some((d) => d.name === 'CNIC' && d.url)) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({ success: false, message: 'CNIC document upload is required' });
       }
 
       const dupPmdc = await Consultant.findOne({ pmdcNumber: pmdc });
@@ -150,11 +189,11 @@ exports.register = async (req, res) => {
       await Consultant.create({
         userId: user._id,
         pmdcNumber: pmdc,
-        cnic: req.body.cnic?.trim() || '',
+        cnic,
         specialty: (req.body.specialty || 'General').trim(),
         clinicName: req.body.clinicName?.trim(),
         clinicAddress: req.body.clinicAddress?.trim(),
-        verificationDocuments: req.body.verificationDocuments || [],
+        verificationDocuments,
       });
     } else if (role === 'hospital') {
       const regNum = String(req.body.registrationNumber || '').trim();
@@ -169,24 +208,45 @@ exports.register = async (req, res) => {
         return res.status(400).json({ success: false, message: parsed.error });
       }
 
+      const representativeCnic = String(req.body.representativeCnic || req.body.cnic || '').trim();
+      const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
+      if (!cnicRegex.test(representativeCnic)) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({
+          success: false,
+          message: 'Representative CNIC must be in the format XXXXX-XXXXXXX-X',
+        });
+      }
+
+      const registrationDocuments = req.body.registrationDocuments || [];
+      if (!registrationDocuments.some((d) => d.name === 'CNIC' && d.url)) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({ success: false, message: 'CNIC document upload is required' });
+      }
+      if (!registrationDocuments.some((d) => d.name === 'SHCC License' && d.url)) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({ success: false, message: 'SHCC License upload is required' });
+      }
+
       await Hospital.create({
         userId: user._id,
         hospitalName: (req.body.hospitalName || name).trim(),
         registrationNumber: regNum,
+        representativeCnic,
         address: req.body.address?.trim(),
         departments: parsed.departments,
         location: parsed.location,
         bedsInventory: parsed.bedsInventory,
         ratePackages: Array.isArray(req.body.ratePackages) ? req.body.ratePackages : [],
-        registrationDocuments: req.body.registrationDocuments || [],
+        registrationDocuments,
         isActive: false,
       });
     }
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful. Please verify your email to proceed.',
-      data: { userId: user._id, role: user.role, status: user.status },
+      message: 'Registration successful. We sent a verification code to your WhatsApp and a verification link to your email.',
+      data: { userId: user._id, role: user.role, status: user.status, phone: phoneClean },
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -208,11 +268,20 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
+    if (!user.isPhoneVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your WhatsApp number before logging in.',
+        needsPhoneVerification: true,
+        phone: user.phone,
+      });
+    }
+
     if (!user.isEmailVerified) {
       return res.status(403).json({
         success: false,
         message: 'Please verify your email address before logging in.',
-        needsVerification: true
+        needsEmailVerification: true,
       });
     }
 
@@ -226,16 +295,10 @@ exports.login = async (req, res) => {
     const accessToken = generateToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // Send login notification email (async)
-    try {
-      sendEmail({
-        to: user.email,
-        subject: 'CareBridge: New Login Detected',
-        text: `Hello ${user.name},\n\nWe detected a new login to your CareBridge Health account at ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}.\n\nIf this was you, no action is needed. If you did not log in, please secure your account immediately by resetting your password.`,
-      });
-    } catch (mailErr) {
-      console.error('Login notification email failed:', mailErr.message);
-    }
+    // Send login notification via WhatsApp + email (async, non-blocking)
+    notificationService.notifyLoginAlert(user).catch((e) =>
+      console.error('Login notification error:', e.message)
+    );
 
     res.status(200).json({
       success: true,
@@ -259,40 +322,115 @@ exports.login = async (req, res) => {
 exports.verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
-
     if (!token) {
       return res.status(400).json({ success: false, message: 'Verification token is required' });
     }
-
     const user = await User.findOne({
       emailVerificationToken: token,
       emailVerificationExpires: { $gt: new Date() },
     });
-    console.log('User found:', user ? user.email : 'None');
-
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid or expired verification token' });
     }
-
     user.isEmailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
     await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Email verified successfully. You can now log in.',
-    });
+    res.status(200).json({ success: true, message: 'Email verified successfully.' });
   } catch (error) {
     console.error('Email verification error:', error);
     res.status(500).json({ success: false, message: 'Server error during email verification' });
   }
 };
 
+/**
+ * Verify phone number with a WhatsApp OTP.
+ * POST /auth/verify-phone   { phone, otp }
+ */
+exports.verifyPhone = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) {
+      return res.status(400).json({ success: false, message: 'Phone and OTP are required' });
+    }
+
+    const e164 = normalisePhone(phone);
+    const result = verifyOtp(e164, otp);
+
+    if (!result.valid) {
+      return res.status(400).json({ success: false, message: result.reason });
+    }
+
+    const user = await User.findOne({ phone: { $in: [e164, phone] } });
+    if (!user) {
+      // Try without country code prefix
+      const altPhone = phone.replace(/^\+92/, '0');
+      const altUser = await User.findOne({ phone: { $in: [phone, altPhone, e164] } });
+      if (!altUser) {
+        return res.status(404).json({ success: false, message: 'User not found for this phone number' });
+      }
+      altUser.isPhoneVerified = true;
+      await altUser.save();
+      return res.status(200).json({ success: true, message: 'Phone verified! You can now log in.' });
+    }
+
+    user.isPhoneVerified = true;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Phone verified successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Phone verification error:', error);
+    res.status(500).json({ success: false, message: 'Server error during phone verification' });
+  }
+};
+
+/**
+ * Resend phone OTP via WhatsApp.
+ * POST /auth/resend-phone-otp   { phone }
+ */
+exports.resendPhoneOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
+
+    const e164 = normalisePhone(phone);
+    const user = await User.findOne({ phone: { $in: [phone, e164, phone.replace(/^\+92/, '0')] } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No account found for this phone number' });
+    }
+
+    if (user.isPhoneVerified) {
+      return res.status(400).json({ success: false, message: 'Phone number is already verified' });
+    }
+
+    // Rate limit: only allow resend if no live OTP (or after 60s)
+    const otp = generateOtp(e164);
+    const wa = await sendOtpWhatsApp(e164, otp, user.name);
+    if (!wa.success) {
+      return res.status(502).json({
+        success: false,
+        message: 'Could not send WhatsApp verification code. Please try again in a moment.',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: wa.mocked
+        ? 'Verification code generated (dev mock — see server console).'
+        : 'A new verification code has been sent to your WhatsApp.',
+      mocked: Boolean(wa.mocked),
+    });
+  } catch (error) {
+    console.error('Resend phone OTP error:', error);
+    res.status(500).json({ success: false, message: 'Server error during OTP resend' });
+  }
+};
+
 exports.resendVerification = async (req, res) => {
   try {
     const { email } = req.body;
-
     if (!email) {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
@@ -306,22 +444,22 @@ exports.resendVerification = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email is already verified' });
     }
 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    user.emailVerificationToken = verificationToken;
-    user.emailVerificationExpires = verificationExpires;
+    const emailToken = crypto.randomBytes(32).toString('hex');
+    const emailTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.emailVerificationToken = emailToken;
+    user.emailVerificationExpires = emailTokenExpires;
     await user.save();
 
-    sendVerificationEmail(user, verificationToken);
+    await sendEmail(user.email, 'CareBridge - Verify Your Email', `
+      <h1>Welcome back to CareBridge Health</h1>
+      <p>Please verify your email address to log in.</p>
+      <a href="${process.env.FRONTEND_URL}/verify-email?token=${emailToken}" style="display:inline-block;padding:10px 20px;background:#10b981;color:#fff;text-decoration:none;border-radius:5px;">Verify Email</a>
+    `);
 
-    res.status(200).json({
-      success: true,
-      message: 'Verification email resent successfully. Please check your inbox.',
-    });
+    res.status(200).json({ success: true, message: 'A new verification email has been sent.' });
   } catch (error) {
-    console.error('Resend verification error:', error);
-    res.status(500).json({ success: false, message: 'Server error during resending verification' });
+    console.error('Resend email error:', error);
+    res.status(500).json({ success: false, message: 'Server error during email resend' });
   }
 };
 
@@ -408,15 +546,10 @@ exports.resetPassword = async (req, res) => {
     user.resetPasswordExpires = undefined;
     await user.save();
 
-    try {
-      await sendEmail({
-        to: user.email,
-        subject: 'Your CareBridge Password Has Changed',
-        text: `Hello ${user.name},\n\nThis is a confirmation that the password for your CareBridge Health account has been successfully updated.\n\nIf you did not make this change, please contact platform support immediately.`,
-      });
-    } catch (mailErr) {
-      console.error('Password changed notification email failed:', mailErr.message);
-    }
+    // Notify via WhatsApp + email
+    notificationService.notifyPasswordChanged(user).catch((e) =>
+      console.error('Password changed notification error:', e.message)
+    );
 
     res.status(200).json({
       success: true,
@@ -425,5 +558,34 @@ exports.resetPassword = async (req, res) => {
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({ success: false, message: 'Server error during password reset process' });
+  }
+};
+
+exports.getPlatformBrandingSettings = async (req, res) => {
+  try {
+    const PlatformSettings = require('../models/PlatformSettings');
+    let settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
+    if (!settings) {
+      settings = {
+        platformName: 'CareBridge',
+        logoUrl: '',
+        primaryColor: '#4f46e5',
+        accentColor: '#06b6d4',
+        faviconUrl: '',
+      };
+    }
+    res.json({
+      success: true,
+      data: {
+        platformName: settings.platformName || 'CareBridge',
+        logoUrl: settings.logoUrl || '',
+        primaryColor: settings.primaryColor || '#4f46e5',
+        accentColor: settings.accentColor || '#06b6d4',
+        faviconUrl: settings.faviconUrl || '',
+      }
+    });
+  } catch (error) {
+    console.error('getPlatformBrandingSettings error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch platform branding settings' });
   }
 };

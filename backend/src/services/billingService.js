@@ -68,16 +68,12 @@ exports.finalizeAdmission = async (admissionId, paymentMethod, paymentReference,
     note: `Case closed — bill ${bill/100} PKR (Hospital Cut: ${deductionPercentage}%, Consultant split: ${commissionPercentage}%)`,
   });
 
-  // 5. Update Consultant balance with auto-release check
+  // 5. Consultant wallet balance auto-credits are disabled under the manual weekly settlement workflow.
+  // Payout is created in 'accrued' status above, and balance will be officially credited and paid
+  // once the manual weekly settlement receipt upload and verification cycle completes.
   if (consultant) {
-    consultant.walletBalance = (consultant.walletBalance || 0) + payoutAmount;
-    consultant.totalEarnings = (consultant.totalEarnings || 0) + payoutAmount;
-    consultant.monthlyEarnings = (consultant.monthlyEarnings || 0) + payoutAmount;
-    await consultant.save();
-
-    // Check if threshold is reached for auto-release
-    const { checkAndReleasePayouts } = require('./paymentService');
-    await checkAndReleasePayouts(consultant);
+    // Only log the accrual for audit purposes
+    console.log(`[BILLING] Accrued manual payout of ${payoutAmount/100} PKR for Consultant ${consultant._id} (Admission: ${admission._id})`);
   }
 
   // 6. Emit Socket updates

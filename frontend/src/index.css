@@ -32,4 +32,21 @@ body {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .bg-brand {
+    background-color: var(--primary, #2563eb);
+  }
+  .text-brand {
+    color: var(--primary, #2563eb);
+  }
+  .border-brand {
+    border-color: var(--primary, #2563eb);
+  }
+  .btn-brand {
+    background-color: var(--primary, #2563eb);
+    color: white;
+  }
+  .btn-brand:hover {
+    filter: brightness(0.92);
+  }
 }

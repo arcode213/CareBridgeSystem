@@ -8,6 +8,7 @@ const DepartmentCatalog = require('../models/DepartmentCatalog');
 const ScoringConfig = require('../models/ScoringConfig');
 const PlatformSettings = require('../models/PlatformSettings');
 const AuditLog = require('../models/AuditLog');
+const HospitalDoctor = require('../models/HospitalDoctor');
 const { logAction } = require('../utils/logger');
 
 exports.listPendingUsers = async (req, res) => {
@@ -18,10 +19,12 @@ exports.listPendingUsers = async (req, res) => {
       users.map(async (u) => {
         const base = { ...u };
         if (u.role === 'consultant') {
-          base.profile = await Consultant.findOne({ userId: u._id }).select('pmdcNumber specialty clinicName clinicAddress verificationDocuments').lean();
+          base.profile = await Consultant.findOne({ userId: u._id })
+            .select('pmdcNumber specialty clinicName clinicAddress cnic verificationDocuments isVerified')
+            .lean();
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
-            .select('hospitalName registrationNumber departments bedsInventory address registrationDocuments')
+            .select('hospitalName registrationNumber representativeCnic departments bedsInventory address registrationDocuments isRegistrationVerified')
             .lean();
         }
         return base;
@@ -53,7 +56,7 @@ exports.listAllUsers = async (req, res) => {
             .lean();
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
-            .select('hospitalName registrationNumber departments bedsInventory address city area deductionPercentage isActive registrationDocuments')
+            .select('hospitalName registrationNumber representativeCnic departments bedsInventory address city area deductionPercentage isActive isRegistrationVerified registrationDocuments ratePackages')
             .lean();
         }
         return base;
@@ -82,13 +85,28 @@ exports.updateUserStatus = async (req, res) => {
     }
 
     user.status = status;
+
+    if (status === 'active') {
+      user.isPhoneVerified = true;
+      user.isEmailVerified = true;
+    }
+
     await user.save();
 
     if (user.role === 'hospital') {
-      await Hospital.updateOne({ userId: user._id }, { isActive: status === 'active' });
+      await Hospital.updateOne(
+        { userId: user._id },
+        {
+          isActive: status === 'active',
+          ...(status === 'active' ? { isRegistrationVerified: true } : { isRegistrationVerified: false }),
+        }
+      );
     }
-    if (user.role === 'consultant' && status === 'active') {
-      await Consultant.updateOne({ userId: user._id }, { isVerified: true });
+    if (user.role === 'consultant') {
+      await Consultant.updateOne(
+        { userId: user._id },
+        { isVerified: status === 'active' }
+      );
     }
 
     await logAction({
@@ -98,6 +116,17 @@ exports.updateUserStatus = async (req, res) => {
       entityModel: 'User',
       details: { role: user.role, newStatus: status }
     });
+
+    const notificationService = require('../services/notificationService');
+    if (status === 'active') {
+      notificationService.notifyAccountApproved(user).catch((err) =>
+        console.error('Account approved WhatsApp failed:', err.message)
+      );
+    } else {
+      notificationService.notifyAccountSuspended(user).catch((err) =>
+        console.error('Account suspended WhatsApp failed:', err.message)
+      );
+    }
 
     res.json({
       success: true,
@@ -266,6 +295,11 @@ exports.updatePlatformSettings = async (req, res) => {
       defaultConsultantCommissionPercentage,
       walletThresholdPaisa,
       walletInitialHoldPaisa,
+      platformName,
+      logoUrl,
+      primaryColor,
+      accentColor,
+      faviconUrl,
     } = req.body;
 
     let doc = await PlatformSettings.findOne().sort({ updatedAt: -1 });
@@ -283,6 +317,11 @@ exports.updatePlatformSettings = async (req, res) => {
     if (walletInitialHoldPaisa != null) {
       doc.walletInitialHoldPaisa = Math.max(0, Number(walletInitialHoldPaisa));
     }
+    if (platformName != null) doc.platformName = String(platformName).trim();
+    if (logoUrl != null) doc.logoUrl = String(logoUrl).trim();
+    if (primaryColor != null) doc.primaryColor = String(primaryColor).trim();
+    if (accentColor != null) doc.accentColor = String(accentColor).trim();
+    if (faviconUrl != null) doc.faviconUrl = String(faviconUrl).trim();
 
     await doc.save();
 
@@ -296,6 +335,11 @@ exports.updatePlatformSettings = async (req, res) => {
         defaultConsultantCommissionPercentage,
         walletThresholdPaisa,
         walletInitialHoldPaisa,
+        platformName,
+        logoUrl,
+        primaryColor,
+        accentColor,
+        faviconUrl,
       }
     });
 
@@ -354,11 +398,29 @@ exports.markPayoutAsPaid = async (req, res) => {
 exports.listAllReferrals = async (req, res) => {
   try {
     const referrals = await Referral.find()
-      .populate('consultantId', 'name')
+      .populate({ path: 'consultantId', populate: { path: 'userId', select: 'name email phone' } })
       .populate('targetHospitalId', 'hospitalName')
+      .populate('targetDoctorId', 'name specialty')
       .sort({ createdAt: -1 })
       .lean();
-    res.json({ success: true, data: referrals });
+
+    const enriched = await Promise.all(
+      referrals.map(async (r) => {
+        let admission = null;
+        if (['admitted', 'closed'].includes(r.status)) {
+          admission = await Admission.findOne({ referralId: r._id })
+            .populate('treatingDoctorId', 'name specialty')
+            .lean();
+        }
+        return {
+          ...r,
+          consultantName: r.consultantId?.userId?.name || 'Unknown',
+          admission
+        };
+      })
+    );
+
+    res.json({ success: true, data: enriched });
   } catch (error) {
     console.error('listAllReferrals error:', error);
     res.status(500).json({ success: false, message: 'Failed to list referrals' });
@@ -657,3 +719,415 @@ exports.adminUpdateHospitalDeduction = async (req, res) => {
   }
 };
 
+exports.updateReferralFull = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const referral = await Referral.findById(id);
+    if (!referral) return res.status(404).json({ success: false, message: 'Referral not found' });
+
+    const updates = { ...req.body };
+    
+    // Encrypt CNIC fields if they are updated
+    const { encrypt } = require('../utils/crypto');
+    if (updates.cnic) updates.cnic = encrypt(updates.cnic);
+    if (updates.guardianCnic) updates.guardianCnic = encrypt(updates.guardianCnic);
+
+    Object.assign(referral, updates);
+    await referral.save();
+
+    // Synchronize admission details if present
+    if (updates.roomNumber || updates.bedNumber || updates.admissionDepartment || updates.treatingDoctorId) {
+      const admissionUpdates = {};
+      if (updates.roomNumber) admissionUpdates.roomNumber = updates.roomNumber;
+      if (updates.bedNumber) admissionUpdates.bedNumber = updates.bedNumber;
+      if (updates.admissionDepartment) admissionUpdates.admissionDepartment = updates.admissionDepartment;
+      if (updates.treatingDoctorId) admissionUpdates.treatingDoctorId = updates.treatingDoctorId;
+
+      await Admission.findOneAndUpdate(
+        { referralId: referral._id },
+        { $set: admissionUpdates },
+        { new: true }
+      );
+    }
+
+    await logAction({
+      req,
+      action: 'ADMIN_UPDATE_REFERRAL_FULL',
+      entityId: referral._id,
+      entityModel: 'Referral',
+      details: updates
+    });
+
+    res.json({ success: true, data: referral });
+  } catch (error) {
+    console.error('updateReferralFull error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update referral' });
+  }
+};
+
+exports.deleteReferral = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const referral = await Referral.findById(id);
+    if (!referral) return res.status(404).json({ success: false, message: 'Referral not found' });
+
+    await Admission.deleteOne({ referralId: referral._id });
+    await Referral.deleteOne({ _id: referral._id });
+
+    await logAction({
+      req,
+      action: 'ADMIN_DELETE_REFERRAL',
+      entityId: referral._id,
+      entityModel: 'Referral',
+      details: { referralCode: referral.referralCode, patientName: referral.patientName }
+    });
+
+    res.json({ success: true, message: 'Referral and associated admission records deleted successfully.' });
+  } catch (error) {
+    console.error('deleteReferral error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete referral' });
+  }
+};
+
+exports.listAllAdmissions = async (req, res) => {
+  try {
+    const admissions = await Admission.find()
+      .populate('referralId', 'referralCode patientName urgency status department cnic guardianName guardianCnic phone')
+      .populate('consultantId', 'pmdcNumber specialty clinicName')
+      .populate('hospitalId', 'hospitalName city area')
+      .populate('treatingDoctorId', 'name specialty')
+      .sort({ updatedAt: -1 });
+    res.json({ success: true, data: admissions });
+  } catch (error) {
+    console.error('listAllAdmissions error:', error);
+    res.status(500).json({ success: false, message: 'Failed to list admissions' });
+  }
+};
+
+exports.adminUpdateHospitalBeds = async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { beds } = req.body;
+
+    if (!Array.isArray(beds)) {
+      return res.status(400).json({ success: false, message: 'Invalid beds payload, expected array.' });
+    }
+
+    const hospital = await Hospital.findById(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not found' });
+    }
+
+    beds.forEach((updatedWard) => {
+      const { ward, totalBeds, occupiedBeds } = updatedWard;
+      let wardItem = hospital.bedsInventory.find((b) => b.ward === ward);
+      if (!wardItem) {
+        hospital.bedsInventory.push({
+          ward,
+          totalBeds: Number(totalBeds) || 0,
+          occupiedBeds: Number(occupiedBeds) || 0,
+          availableBeds: Math.max(0, (Number(totalBeds) || 0) - (Number(occupiedBeds) || 0)),
+        });
+      } else {
+        wardItem.totalBeds = Number(totalBeds) || 0;
+        wardItem.occupiedBeds = Number(occupiedBeds) || 0;
+        wardItem.availableBeds = Math.max(0, wardItem.totalBeds - wardItem.occupiedBeds);
+      }
+    });
+
+    await hospital.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`hospital:${hospital._id.toString()}`).emit('BED_UPDATE', {
+        hospitalId: hospital._id.toString(),
+        beds: hospital.bedsInventory,
+      });
+    }
+
+    await logAction({
+      req,
+      action: 'ADMIN_UPDATE_HOSPITAL_BEDS',
+      entityId: hospital._id,
+      entityModel: 'Hospital',
+      details: { beds }
+    });
+
+    res.json({ success: true, message: 'Bed inventory updated successfully', data: hospital.bedsInventory });
+  } catch (error) {
+    console.error('adminUpdateHospitalBeds error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update bed inventory' });
+  }
+};
+
+async function attachAdmissionsToReferrals(referrals) {
+  if (!referrals.length) return [];
+  const referralIds = referrals.map((r) => r._id);
+  const admissions = await Admission.find({ referralId: { $in: referralIds } })
+    .populate('treatingDoctorId', 'name specialty')
+    .lean();
+  const byReferral = new Map(admissions.map((a) => [a.referralId.toString(), a]));
+  return referrals.map((r) => ({
+    ...r,
+    admission: byReferral.get(r._id.toString()) || null,
+  }));
+}
+
+/** Patients / referrals for a hospital with admission placement details */
+exports.getHospitalPatients = async (req, res) => {
+  try {
+    const hospital = await Hospital.findById(req.params.id);
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not found' });
+    }
+
+    const referrals = await Referral.find({ targetHospitalId: hospital._id })
+      .populate('targetDoctorId', 'name specialty')
+      .populate({
+        path: 'consultantId',
+        select: 'userId pmdcNumber',
+        populate: { path: 'userId', select: 'name email phone' },
+      })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const data = await attachAdmissionsToReferrals(referrals);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('getHospitalPatients error:', error);
+    res.status(500).json({ success: false, message: 'Failed to load hospital patients' });
+  }
+};
+
+/** Referred patients for a consultant with admission details */
+exports.getConsultantPatients = async (req, res) => {
+  try {
+    let consultant = await Consultant.findById(req.params.id);
+    if (!consultant) {
+      consultant = await Consultant.findOne({ userId: req.params.id });
+    }
+    if (!consultant) {
+      return res.status(404).json({ success: false, message: 'Consultant not found' });
+    }
+
+    const referrals = await Referral.find({ consultantId: consultant._id })
+      .populate('targetHospitalId', 'hospitalName city')
+      .populate('targetDoctorId', 'name specialty')
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const data = await attachAdmissionsToReferrals(referrals);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('getConsultantPatients error:', error);
+    res.status(500).json({ success: false, message: 'Failed to load consultant patients' });
+  }
+};
+
+async function resolveHospitalByParam(id) {
+  let hospital = await Hospital.findById(id);
+  if (!hospital) {
+    hospital = await Hospital.findOne({ userId: id });
+  }
+  return hospital;
+}
+
+/** Admin: full hospital profile update */
+exports.adminUpdateHospital = async (req, res) => {
+  try {
+    const hospital = await resolveHospitalByParam(req.params.id);
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not found' });
+    }
+
+    const allowed = [
+      'hospitalName',
+      'registrationNumber',
+      'representativeCnic',
+      'address',
+      'city',
+      'area',
+      'departments',
+      'ratePackages',
+      'isActive',
+      'deductionPercentage',
+      'avgResponseTime',
+      'acceptanceRate',
+      'rating',
+    ];
+
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        hospital[key] = req.body[key];
+      }
+    }
+
+    if (req.body.branding) {
+      hospital.branding = {
+        primaryColor: req.body.branding.primaryColor ?? hospital.branding?.primaryColor,
+        logoUrl: req.body.branding.logoUrl ?? hospital.branding?.logoUrl,
+      };
+    }
+
+    if (req.body.location?.coordinates) {
+      hospital.location = {
+        type: 'Point',
+        coordinates: req.body.location.coordinates,
+      };
+    }
+
+    if (Array.isArray(req.body.bedsInventory)) {
+      hospital.bedsInventory = req.body.bedsInventory.map((b) => ({
+        ward: b.ward,
+        totalBeds: Number(b.totalBeds) || 0,
+        occupiedBeds: Number(b.occupiedBeds) || 0,
+        availableBeds: Math.max(
+          0,
+          (Number(b.totalBeds) || 0) - (Number(b.occupiedBeds) || 0)
+        ),
+      }));
+    }
+
+    await hospital.save();
+
+    await logAction({
+      req,
+      action: 'ADMIN_UPDATE_HOSPITAL',
+      entityId: hospital._id,
+      entityModel: 'Hospital',
+      details: { fields: Object.keys(req.body) },
+    });
+
+    res.json({ success: true, data: hospital });
+  } catch (error) {
+    console.error('adminUpdateHospital error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update hospital' });
+  }
+};
+
+exports.adminListHospitalDoctors = async (req, res) => {
+  try {
+    const hospital = await resolveHospitalByParam(req.params.id);
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not found' });
+    }
+    const doctors = await HospitalDoctor.find({ hospitalId: hospital._id }).sort({ name: 1 });
+    res.json({ success: true, data: doctors });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to list doctors' });
+  }
+};
+
+exports.adminAddHospitalDoctor = async (req, res) => {
+  try {
+    const hospital = await resolveHospitalByParam(req.params.id);
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not found' });
+    }
+    const { name, specialty, pmdcNumber, consultationFee, phone, email, isAvailable } = req.body;
+    if (!name || !specialty) {
+      return res.status(400).json({ success: false, message: 'Name and specialty are required' });
+    }
+    const doctor = await HospitalDoctor.create({
+      hospitalId: hospital._id,
+      name: String(name).trim(),
+      specialty: String(specialty).trim(),
+      pmdcNumber: pmdcNumber?.trim(),
+      phone: phone?.trim(),
+      email: email?.trim(),
+      consultationFee: consultationFee != null ? Math.round(Number(consultationFee) * 100) : 0,
+      isAvailable: isAvailable !== false,
+    });
+    res.status(201).json({ success: true, data: doctor });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to add doctor' });
+  }
+};
+
+exports.adminUpdateHospitalDoctor = async (req, res) => {
+  try {
+    const hospital = await resolveHospitalByParam(req.params.id);
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not found' });
+    }
+    const updates = { ...req.body };
+    if (updates.consultationFee != null) {
+      updates.consultationFee = Math.round(Number(updates.consultationFee) * 100);
+    }
+    const doctor = await HospitalDoctor.findOneAndUpdate(
+      { _id: req.params.doctorId, hospitalId: hospital._id },
+      updates,
+      { new: true }
+    );
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: 'Doctor not found' });
+    }
+    res.json({ success: true, data: doctor });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to update doctor' });
+  }
+};
+
+exports.adminDeleteHospitalDoctor = async (req, res) => {
+  try {
+    const hospital = await resolveHospitalByParam(req.params.id);
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not found' });
+    }
+    const doctor = await HospitalDoctor.findOneAndDelete({
+      _id: req.params.doctorId,
+      hospitalId: hospital._id,
+    });
+    if (!doctor) {
+      return res.status(404).json({ success: false, message: 'Doctor not found' });
+    }
+    res.json({ success: true, message: 'Doctor removed' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to delete doctor' });
+  }
+};
+
+/** Admin: update consultant profile fields */
+exports.adminUpdateConsultant = async (req, res) => {
+  try {
+    let consultant = await Consultant.findById(req.params.id);
+    if (!consultant) {
+      consultant = await Consultant.findOne({ userId: req.params.id });
+    }
+    if (!consultant) {
+      return res.status(404).json({ success: false, message: 'Consultant not found' });
+    }
+
+    const allowed = [
+      'specialty',
+      'clinicName',
+      'clinicAddress',
+      'city',
+      'cnic',
+      'commissionPercentage',
+      'isVerified',
+    ];
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        consultant[key] = req.body[key];
+      }
+    }
+    if (req.body.payoutAccount) {
+      consultant.payoutAccount = { ...consultant.payoutAccount, ...req.body.payoutAccount };
+    }
+
+    await consultant.save();
+    await logAction({
+      req,
+      action: 'ADMIN_UPDATE_CONSULTANT',
+      entityId: consultant._id,
+      entityModel: 'Consultant',
+      details: { fields: Object.keys(req.body) },
+    });
+
+    res.json({ success: true, data: consultant });
+  } catch (error) {
+    console.error('adminUpdateConsultant error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update consultant' });
+  }
+};

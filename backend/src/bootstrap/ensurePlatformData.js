@@ -17,7 +17,29 @@ const DEFAULT_DEPARTMENTS = [
 async function ensureAdminUser() {
   const email = (process.env.ADMIN_EMAIL || 'admin@carebridge.local').toLowerCase().trim();
   const existing = await User.findOne({ email });
+
   if (existing) {
+    let changed = false;
+    if (existing.role !== 'admin') {
+      existing.role = 'admin';
+      changed = true;
+    }
+    if (existing.status !== 'active') {
+      existing.status = 'active';
+      changed = true;
+    }
+    if (!existing.isPhoneVerified) {
+      existing.isPhoneVerified = true;
+      changed = true;
+    }
+    if (!existing.isEmailVerified) {
+      existing.isEmailVerified = true;
+      changed = true;
+    }
+    if (changed) {
+      await existing.save();
+      console.log(`Updated admin user verification flags: ${email}`);
+    }
     return;
   }
 
@@ -32,6 +54,8 @@ async function ensureAdminUser() {
     passwordHash: await bcrypt.hash(password, 12),
     role: 'admin',
     status: 'active',
+    isPhoneVerified: true,
+    isEmailVerified: true,
   });
 
   console.log(`Seeded admin user: ${email}`);

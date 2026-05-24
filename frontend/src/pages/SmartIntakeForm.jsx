@@ -40,6 +40,8 @@ const SmartIntakeForm = () => {
   const [doctors, setDoctors] = useState({}); // { hospitalId: [doctors] }
   const [expandedHospitalId, setExpandedHospitalId] = useState(null);
   const [detectedDept, setDetectedDept] = useState('');
+  const [selectedDepartments, setSelectedDepartments] = useState({}); // { hospitalId: department }
+  const [selectedDoctors, setSelectedDoctors] = useState({}); // { hospitalId: doctorId }
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [submittingHospitalId, setSubmittingHospitalId] = useState(null);
@@ -154,8 +156,18 @@ const SmartIntakeForm = () => {
       const res = await api.get('/referrals/suggestions', { params });
       
       if (res.data.success) {
-        setSuggestions(res.data.suggestions);
+        const list = res.data.suggestions || [];
+        setSuggestions(list);
         setDetectedDept(res.data.detectedDept);
+        const deptDefaults = {};
+        list.forEach((h) => {
+          const defaultDept =
+            h.departments?.includes(res.data.detectedDept)
+              ? res.data.detectedDept
+              : h.departments?.[0] || res.data.detectedDept || '';
+          if (defaultDept) deptDefaults[h.hospitalId] = defaultDept;
+        });
+        setSelectedDepartments((prev) => ({ ...deptDefaults, ...prev }));
         setStep(4);
       }
     } catch (err) {
@@ -166,10 +178,34 @@ const SmartIntakeForm = () => {
     }
   };
 
+  const buildRankedPreferences = () =>
+    suggestions.map((s) => ({
+      hospitalId: s.hospitalId,
+      department: selectedDepartments[s.hospitalId] || detectedDept || '',
+      targetDoctorId: selectedDoctors[s.hospitalId] || undefined,
+    }));
+
   const submitReferral = async (hospital) => {
+    const dept = (selectedDepartments[hospital.hospitalId] || detectedDept || '').trim();
+    if (!dept) {
+      toast.error('Please select a department before confirming this referral.');
+      setExpandedHospitalId(hospital.hospitalId);
+      fetchDoctors(hospital.hospitalId);
+      return;
+    }
+
     setSubmittingHospitalId(hospital.hospitalId);
     try {
       const rankedHospitalIds = suggestions.map((s) => s.hospitalId).filter(Boolean);
+      const rankedHospitalPreferences = buildRankedPreferences();
+      const missingDept = rankedHospitalPreferences.find((p) => !p.department?.trim());
+      if (missingDept) {
+        toast.error('Select a department for each recommended hospital (expand cards to configure).');
+        setExpandedHospitalId(missingDept.hospitalId);
+        fetchDoctors(missingDept.hospitalId);
+        return;
+      }
+
       // Map budget brackets to numbers (in paisa)
       const bracketMap = {
         '5k-10k':   { min: 500000,   max: 1000000 },
@@ -184,7 +220,9 @@ const SmartIntakeForm = () => {
         ...formData,
         targetHospitalId: hospital.hospitalId,
         rankedHospitalIds,
-        department: detectedDept,
+        rankedHospitalPreferences,
+        department: dept,
+        targetDoctorId: selectedDoctors[hospital.hospitalId] || undefined,
         scoringData: hospital.breakdown,
         budgetBracket: formData.budgetBracket,
         budgetMin: bracket.min,
@@ -521,45 +559,104 @@ const SmartIntakeForm = () => {
                       </div>
                       <div className="flex items-center gap-3">
                         <button 
-                          onClick={() => submitReferral(hospital)}
+                          type="button"
+                          onClick={() => {
+                            if (expandedHospitalId !== hospital.hospitalId) {
+                              setExpandedHospitalId(hospital.hospitalId);
+                              fetchDoctors(hospital.hospitalId);
+                              return;
+                            }
+                            submitReferral(hospital);
+                          }}
                           disabled={submittingHospitalId !== null}
                           className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
                         >
-                          {submittingHospitalId === hospital.hospitalId ? 'Submitting...' : 'Confirm Referral'}
+                          {submittingHospitalId === hospital.hospitalId
+                            ? 'Submitting...'
+                            : expandedHospitalId === hospital.hospitalId
+                              ? 'Confirm Referral'
+                              : 'Select Dept & Doctor'}
                         </button>
                       </div>
                     </div>
                     
                     {expandedHospitalId === hospital.hospitalId && (
-                      <div className="mt-6 pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
-                          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          Select Specific Doctor (Optional)
-                        </h4>
+                      <div className="mt-6 pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300 space-y-6">
                         
-                        {!doctors[hospital.hospitalId] ? (
-                          <div className="text-sm text-gray-400 italic py-2">Loading available doctors...</div>
-                        ) : doctors[hospital.hospitalId].length === 0 ? (
-                          <div className="text-sm text-gray-400 italic py-2">No specific doctors listed for this facility.</div>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-3">
-                            {doctors[hospital.hospitalId].map((doc) => (
-                              <button
-                                key={doc._id}
-                                onClick={() => setFormData({...formData, targetDoctorId: formData.targetDoctorId === doc._id ? '' : doc._id})}
-                                className={`flex flex-col items-start p-4 rounded-xl border text-left transition-all ${formData.targetDoctorId === doc._id ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
-                              >
-                                <span className="font-bold text-gray-900 text-sm">{doc.name}</span>
-                                <span className="text-xs text-gray-500">{doc.specialty}</span>
-                                {doc.consultationFee && (
-                                  <span className="text-[10px] font-bold text-blue-600 mt-2">Fee: {doc.consultationFee / 100} PKR</span>
-                                )}
-                              </button>
+                        {/* Department Selector */}
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                            Select Department <span className="text-red-500">*</span>
+                          </h4>
+                          <select
+                            value={selectedDepartments[hospital.hospitalId] || detectedDept || ''}
+                            onChange={(e) => {
+                              setSelectedDepartments({ ...selectedDepartments, [hospital.hospitalId]: e.target.value });
+                            }}
+                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-sm font-medium"
+                          >
+                            <option value="">-- Select Department --</option>
+                            {hospital.departments?.map(dept => (
+                              <option key={dept} value={dept}>{dept}</option>
                             ))}
-                          </div>
-                        )}
+                            {!hospital.departments?.includes(detectedDept) && detectedDept && (
+                              <option value={detectedDept}>{detectedDept}</option>
+                            )}
+                          </select>
+                        </div>
+
+                        {/* Doctor Selector */}
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            Select Specific Doctor (Optional)
+                          </h4>
+                          
+                          {!doctors[hospital.hospitalId] ? (
+                            <div className="text-sm text-gray-400 italic py-2">Loading available doctors...</div>
+                          ) : doctors[hospital.hospitalId].length === 0 ? (
+                            <div className="text-sm text-gray-400 italic py-2">No specific doctors listed for this facility.</div>
+                          ) : (() => {
+                            const selectedDept = selectedDepartments[hospital.hospitalId] || detectedDept;
+                            let filtered = doctors[hospital.hospitalId] || [];
+                            if (selectedDept) {
+                              const matched = filtered.filter(doc => 
+                                doc.specialty?.toLowerCase().includes(selectedDept.toLowerCase()) || 
+                                selectedDept.toLowerCase().includes(doc.specialty?.toLowerCase())
+                              );
+                              if (matched.length > 0) {
+                                filtered = matched;
+                              }
+                            }
+                            return (
+                              <div className="grid grid-cols-2 gap-3">
+                                {filtered.map((doc) => (
+                                  <button
+                                    key={doc._id}
+                                    type="button"
+                                    onClick={() => setSelectedDoctors({
+                                      ...selectedDoctors,
+                                      [hospital.hospitalId]: selectedDoctors[hospital.hospitalId] === doc._id ? '' : doc._id
+                                    })}
+                                    className={`flex flex-col items-start p-4 rounded-xl border text-left transition-all ${selectedDoctors[hospital.hospitalId] === doc._id ? 'border-blue-600 bg-blue-50 shadow-sm' : 'border-gray-200 hover:border-blue-300'}`}
+                                  >
+                                    <span className="font-bold text-gray-900 text-sm">{doc.name}</span>
+                                    <span className="text-xs text-gray-500">{doc.specialty}</span>
+                                    {doc.consultationFee && (
+                                      <span className="text-[10px] font-bold text-blue-600 mt-2">Fee: {doc.consultationFee / 100} PKR</span>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </div>
+
                       </div>
                     )}
                    

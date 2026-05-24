@@ -4,8 +4,11 @@ import api from '../utils/api';
 import { SOCKET_URL } from '../config';
 import DetailModal from '../components/DetailModal';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
-import { FileText, User, Clock, Activity } from 'lucide-react';
+import { FileText, User, Clock, Activity, Pencil, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
+
+const EDITABLE_STATUSES = ['pending', 'accepted', 'rejected'];
 
 const statusConfig = {
   pending:  { cls: 'bg-amber-50 text-amber-600',    label: 'Pending' },
@@ -33,6 +36,9 @@ const ReferralsList = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const fetchReferrals = useCallback(async () => {
     try {
@@ -74,6 +80,48 @@ const ReferralsList = () => {
       ? referrals.filter(r => r.urgency === 'emergency') 
       : referrals.filter(r => r.status === filter);
 
+  const openEdit = (ref) => {
+    setEditForm({
+      patientName: ref.patientName || '',
+      age: ref.age ?? '',
+      gender: ref.gender || 'male',
+      phone: ref.phone || '',
+      area: ref.area || '',
+      cnic: ref.cnic || '',
+      guardianName: ref.guardianName || '',
+      guardianCnic: ref.guardianCnic || '',
+      urgency: ref.urgency || 'routine',
+      department: ref.department || '',
+      symptomsText: ref.symptomsText || '',
+      summaryNotes: ref.summaryNotes || '',
+      diagnosisText: ref.diagnosisText || '',
+      notes: ref.notes || '',
+    });
+    setIsEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!selected?._id) return;
+    setSavingEdit(true);
+    try {
+      const res = await api.patch(`/referrals/${selected._id}`, {
+        ...editForm,
+        age: Number(editForm.age),
+      });
+      if (res.data.success) {
+        toast.success('Referral updated');
+        setIsEditing(false);
+        const updated = res.data.data;
+        setSelected((prev) => ({ ...prev, ...updated }));
+        await fetchReferrals();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update referral');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   if (loading) return <Loader message="Fetching referral history..." />;
 
   return (
@@ -106,6 +154,7 @@ const ReferralsList = () => {
                   <th className="px-5 py-4">Hospital</th>
                   <th className="px-5 py-4">Urgency</th>
                   <th className="px-5 py-4">Status</th>
+                  <th className="px-5 py-4">Admission</th>
                   <th className="px-5 py-4">Date</th>
                 </tr>
               </thead>
@@ -116,7 +165,18 @@ const ReferralsList = () => {
                   return (
                     <tr key={r._id}
                       className="hover:bg-blue-50/40 transition-all cursor-pointer"
-                      onClick={() => setSelected(r)}
+                      onClick={async () => {
+                        setIsEditing(false);
+                        setSelected(r);
+                        try {
+                          const res = await api.get(`/referrals/${r._id}`);
+                          if (res.data.success) {
+                            setSelected(res.data.data);
+                          }
+                        } catch (err) {
+                          console.error('Failed to load referral details:', err);
+                        }
+                      }}
                     >
                       <td className="px-5 py-4 font-bold text-blue-600 font-mono text-sm">{r.referralCode}</td>
                       <td className="px-5 py-4">
@@ -141,6 +201,19 @@ const ReferralsList = () => {
                           {st.label}
                         </span>
                       </td>
+                      <td className="px-5 py-4 text-xs text-gray-600 max-w-[140px]">
+                        {r.admission ? (
+                          <span>
+                            {r.admission.admissionDepartment}
+                            <br />
+                            <span className="text-gray-400">
+                              R{r.admission.roomNumber} · B{r.admission.bedNumber}
+                            </span>
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                       <td className="px-5 py-4 text-gray-500 text-sm">
                         {new Date(r.createdAt).toLocaleDateString()}
                       </td>
@@ -164,13 +237,14 @@ const ReferralsList = () => {
       {/* Detail Slide-over */}
       <DetailModal
         isOpen={!!selected}
-        onClose={() => setSelected(null)}
+        onClose={() => { setSelected(null); setIsEditing(false); }}
         title={`Referral ${selected?.referralCode || ''}`}
         subtitle={selected ? `${selected.patientName} · ${selected.status?.toUpperCase()}` : ''}
       >
         {selected && (() => {
           const st  = statusConfig[selected.status]  || statusConfig.pending;
           const urg = urgencyConfig[selected.urgency] || urgencyConfig.routine;
+          const canEdit = EDITABLE_STATUSES.includes(selected.status);
           return (
             <div className="space-y-6">
               {/* Status banner */}
@@ -180,7 +254,54 @@ const ReferralsList = () => {
                 <span className={`ml-auto text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${urg}`}>
                   {selected.urgency}
                 </span>
+                {canEdit && !isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => openEdit(selected)}
+                    className="ml-2 flex items-center gap-1 px-3 py-1 rounded-lg bg-white/80 text-slate-700 text-xs font-bold hover:bg-white"
+                  >
+                    <Pencil size={14} /> Edit
+                  </button>
+                )}
               </div>
+
+              {isEditing && (
+                <div className="border border-blue-200 rounded-2xl p-4 bg-blue-50/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-slate-800 text-sm">Edit referral</h3>
+                    <button type="button" onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-slate-600">
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Patient name" value={editForm.patientName} onChange={(e) => setEditForm({ ...editForm, patientName: e.target.value })} />
+                    <input className="rounded-lg border px-3 py-2 text-sm" type="number" placeholder="Age" value={editForm.age} onChange={(e) => setEditForm({ ...editForm, age: e.target.value })} />
+                    <select className="rounded-lg border px-3 py-2 text-sm" value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Phone" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+                    <input className="rounded-lg border px-3 py-2 text-sm col-span-2" placeholder="Patient CNIC" value={editForm.cnic} onChange={(e) => setEditForm({ ...editForm, cnic: e.target.value })} />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Guardian name" value={editForm.guardianName} onChange={(e) => setEditForm({ ...editForm, guardianName: e.target.value })} />
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Guardian CNIC" value={editForm.guardianCnic} onChange={(e) => setEditForm({ ...editForm, guardianCnic: e.target.value })} />
+                    <select className="rounded-lg border px-3 py-2 text-sm" value={editForm.urgency} onChange={(e) => setEditForm({ ...editForm, urgency: e.target.value })}>
+                      <option value="emergency">Emergency</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="routine">Routine</option>
+                    </select>
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Department" value={editForm.department} onChange={(e) => setEditForm({ ...editForm, department: e.target.value })} />
+                  </div>
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} placeholder="Symptoms" value={editForm.symptomsText} onChange={(e) => setEditForm({ ...editForm, symptomsText: e.target.value })} />
+                  <textarea className="w-full rounded-lg border px-3 py-2 text-sm" rows={2} placeholder="Clinical summary" value={editForm.summaryNotes} onChange={(e) => setEditForm({ ...editForm, summaryNotes: e.target.value })} />
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm font-semibold text-slate-500">Cancel</button>
+                    <button type="button" onClick={saveEdit} disabled={savingEdit} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl disabled:opacity-50">
+                      {savingEdit ? 'Saving...' : 'Save changes'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Patient */}
               <div>
@@ -274,6 +395,18 @@ const ReferralsList = () => {
                         <p className="text-xs text-slate-600">{selected.targetDoctorId.specialty}</p>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Admission Details */}
+              {selected.admission && (
+                <div className="border-t border-slate-100 pt-5">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Admission & Bed Status</p>
+                  <div className="bg-blue-50 p-4 rounded-xl space-y-3 border border-blue-100/40">
+                    <Field label="Admitted Department" value={selected.admission.admissionDepartment} />
+                    <Field label="Treating Doctor" value={selected.admission.treatingDoctorId?.name ? `Dr. ${selected.admission.treatingDoctorId.name.replace(/^Dr\.\s*/i, '')} (${selected.admission.treatingDoctorId.specialty || 'N/A'})` : '—'} />
+                    <Field label="Room & Bed Number" value={`Room: ${selected.admission.roomNumber} · Bed: ${selected.admission.bedNumber}`} />
                   </div>
                 </div>
               )}

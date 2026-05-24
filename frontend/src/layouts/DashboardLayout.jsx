@@ -2,20 +2,24 @@ import { useState, useEffect } from 'react';
 import { Navigate, Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../features/auth/AuthContext';
+import { useBranding } from '../context/BrandingContext';
+import BrandLogo from '../components/BrandLogo';
+import BrandNavLink from '../components/BrandNavLink';
 import { Sun, Moon } from 'lucide-react';
 import api from '../utils/api';
 
-const linkClass = ({ isActive }) =>
-  `flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-    isActive 
-      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20 dark:bg-blue-500' 
-      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/60'
-  }`;
-
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
+  const { effective } = useBranding();
+  const brandPrimary = effective.primaryColor || '#2563eb';
   const navigate = useNavigate();
   const location = useLocation();
+
+  const mobileNavClass = (isActive) =>
+    `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${
+      isActive ? 'text-white' : 'text-slate-600 dark:text-slate-300'
+    }`;
+  const mobileNavStyle = (isActive) => (isActive ? { backgroundColor: brandPrimary } : undefined);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
@@ -69,7 +73,7 @@ const DashboardLayout = () => {
     <div className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row transition-colors">
       {/* Mobile top nav */}
       <header className="md:hidden sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 flex items-center justify-between dark:bg-slate-900 dark:border-slate-800 transition-colors">
-        <span className="font-bold text-blue-600 dark:text-blue-400">CareBridge</span>
+        <BrandLogo size="sm" className="text-base" />
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -93,18 +97,18 @@ const DashboardLayout = () => {
       <nav className="md:hidden flex gap-1 overflow-x-auto px-3 py-2 bg-white border-b border-slate-100 scrollbar-hide dark:bg-slate-900 dark:border-slate-800">
         {user.role === 'consultant' && (
           <>
-            <NavLink to="/dashboard" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Home</NavLink>
-            <NavLink to="/referrals/new" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>New</NavLink>
-            <NavLink to="/referrals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${(isActive || location.pathname === '/referrals/new') ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>List</NavLink>
-            <NavLink to="/earnings" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Earn</NavLink>
-            <NavLink to="/profile" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Profile</NavLink>
+            <NavLink to="/dashboard" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Home</NavLink>
+            <NavLink to="/referrals/new" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>New</NavLink>
+            <NavLink to="/referrals" className={({ isActive }) => mobileNavClass(isActive || location.pathname === '/referrals/new')} style={({ isActive }) => mobileNavStyle(isActive || location.pathname === '/referrals/new')}>List</NavLink>
+            <NavLink to="/earnings" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Earn</NavLink>
+            <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
         )}
         {user.role === 'hospital' && (
           <>
-            <NavLink to="/hospital/dashboard" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Home</NavLink>
+            <NavLink to="/hospital/dashboard" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Home</NavLink>
             <NavLink to="/hospital/emergency" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-red-600 text-white shadow-sm' : 'text-red-500 hover:bg-red-50'}`}>Emergency</NavLink>
-            <NavLink to="/hospital/inbox" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>
+            <NavLink to="/hospital/inbox" className={({ isActive }) => `${mobileNavClass(isActive)} flex items-center gap-1.5`} style={({ isActive }) => mobileNavStyle(isActive)}>
               Inbox
               {inboxCount > 0 && (
                 <span className="px-1.5 py-0.5 text-[9px] font-black bg-red-500 text-white rounded-full animate-pulse">
@@ -112,21 +116,22 @@ const DashboardLayout = () => {
                 </span>
               )}
             </NavLink>
-            <NavLink to="/hospital/referrals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Referrals</NavLink>
-            <NavLink to="/hospital/admissions" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Admit</NavLink>
-            <NavLink to="/hospital/ledger" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Ledger</NavLink>
-            <NavLink to="/hospital/beds" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Beds</NavLink>
-            <NavLink to="/hospital/departments" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Depts</NavLink>
-            <NavLink to="/hospital/doctors" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Docs</NavLink>
-            <NavLink to="/profile" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Profile</NavLink>
+            <NavLink to="/hospital/referrals" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Referrals</NavLink>
+            <NavLink to="/hospital/admissions" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Admit</NavLink>
+            <NavLink to="/hospital/ledger" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Ledger</NavLink>
+            <NavLink to="/hospital/settlements" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Settlements</NavLink>
+            <NavLink to="/hospital/beds" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Beds</NavLink>
+            <NavLink to="/hospital/departments" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Depts</NavLink>
+            <NavLink to="/hospital/doctors" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Docs</NavLink>
+            <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
         )}
         {user.role === 'admin' && (
           <>
-            <NavLink to="/admin/overview" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Overview</NavLink>
-            <NavLink to="/admin/referrals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Referrals</NavLink>
-            <NavLink to="/admin/beds" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Beds</NavLink>
-            <NavLink to="/admin/approvals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>
+            <NavLink to="/admin/overview" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Overview</NavLink>
+            <NavLink to="/admin/referrals" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Referrals</NavLink>
+            <NavLink to="/admin/beds" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Beds</NavLink>
+            <NavLink to="/admin/approvals" className={({ isActive }) => `${mobileNavClass(isActive)} flex items-center gap-1.5`} style={({ isActive }) => mobileNavStyle(isActive)}>
               Approvals
               {approvalsCount > 0 && (
                 <span className="px-1.5 py-0.5 text-[9px] font-black bg-amber-500 text-white rounded-full">
@@ -134,12 +139,14 @@ const DashboardLayout = () => {
                 </span>
               )}
             </NavLink>
-            <NavLink to="/admin/consultants" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Consultants</NavLink>
-            <NavLink to="/admin/hospitals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Hospitals</NavLink>
-            <NavLink to="/admin/payouts" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Payouts</NavLink>
-            <NavLink to="/admin/settings" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Setup</NavLink>
-            <NavLink to="/admin/audit" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Audit</NavLink>
-            <NavLink to="/profile" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>Profile</NavLink>
+            <NavLink to="/admin/consultants" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Consultants</NavLink>
+            <NavLink to="/admin/hospitals" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Hospitals</NavLink>
+            <NavLink to="/admin/payouts" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Payouts</NavLink>
+            <NavLink to="/admin/settlements" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Settlements</NavLink>
+            <NavLink to="/admin/whatsapp" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-emerald-600 text-white' : 'text-emerald-600 dark:text-emerald-400'}`}>WhatsApp</NavLink>
+            <NavLink to="/admin/settings" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Setup</NavLink>
+            <NavLink to="/admin/audit" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Audit</NavLink>
+            <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
         )}
       </nav>
@@ -147,116 +154,83 @@ const DashboardLayout = () => {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 bg-white border-r border-slate-200 flex-col dark:bg-slate-900 dark:border-slate-800 transition-colors h-screen sticky top-0">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 transition-colors">
-          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-xl tracking-tight">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm font-black">CB</div>
-            <span>CareBridge</span>
-          </div>
+          <BrandLogo size="md" className="text-xl" />
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {user.role === 'consultant' && (
             <>
-              <NavLink to="/dashboard" className={linkClass}>
-                <span>Dashboard</span>
-              </NavLink>
-              <NavLink to="/referrals/new" end className={linkClass}>
-                <span>New referral</span>
-              </NavLink>
-              <NavLink to="/referrals" end className={linkClass}>
-                <span>My referrals</span>
-              </NavLink>
-              <NavLink to="/earnings" className={linkClass}>
-                <span>Earnings</span>
-              </NavLink>
-              <NavLink to="/profile" className={linkClass}>
-                <span>Profile settings</span>
-              </NavLink>
+              <BrandNavLink to="/dashboard"><span>Dashboard</span></BrandNavLink>
+              <BrandNavLink to="/referrals/new" end><span>New referral</span></BrandNavLink>
+              <BrandNavLink to="/referrals" end><span>My referrals</span></BrandNavLink>
+              <BrandNavLink to="/earnings"><span>Earnings</span></BrandNavLink>
+              <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>
           )}
 
           {user.role === 'hospital' && (
             <>
-              <NavLink to="/hospital/dashboard" className={linkClass}>
-                <span>Dashboard</span>
-              </NavLink>
+              <BrandNavLink to="/hospital/dashboard"><span>Dashboard</span></BrandNavLink>
               <NavLink to="/hospital/emergency" className={({ isActive }) => `flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-red-600 text-white shadow-md shadow-red-600/20' : 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20'}`}>
                 <span>Emergency Center</span>
               </NavLink>
-              <NavLink to="/hospital/inbox" className={linkClass}>
-                <span>Inbox</span>
-                {inboxCount > 0 && (
-                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-black leading-none bg-red-500 text-white rounded-full animate-pulse shadow-sm">
-                    {inboxCount}
-                  </span>
-                )}
-              </NavLink>
-              <NavLink to="/hospital/referrals" className={linkClass}>
-                <span>All Referrals</span>
-              </NavLink>
-              <NavLink to="/hospital/admissions" className={linkClass}>
-                <span>Admissions & billing</span>
-              </NavLink>
-              <NavLink to="/hospital/ledger" className={linkClass}>
-                <span>Financial Ledger</span>
-              </NavLink>
-              <NavLink to="/hospital/beds" className={linkClass}>
-                <span>Bed management</span>
-              </NavLink>
-              <NavLink to="/hospital/departments" className={linkClass}>
-                <span>Departments</span>
-              </NavLink>
-              <NavLink to="/hospital/doctors" className={linkClass}>
-                <span>Manage doctors</span>
-              </NavLink>
-              <NavLink to="/profile" className={linkClass}>
-                <span>Profile settings</span>
-              </NavLink>
+              <BrandNavLink to="/hospital/inbox">
+                <>
+                  <span>Inbox</span>
+                  {inboxCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-black leading-none bg-red-500 text-white rounded-full animate-pulse shadow-sm">
+                      {inboxCount}
+                    </span>
+                  )}
+                </>
+              </BrandNavLink>
+              <BrandNavLink to="/hospital/referrals"><span>All Referrals</span></BrandNavLink>
+              <BrandNavLink to="/hospital/admissions"><span>Admissions & billing</span></BrandNavLink>
+              <BrandNavLink to="/hospital/ledger"><span>Financial Ledger</span></BrandNavLink>
+              <BrandNavLink to="/hospital/settlements"><span>Weekly Settlements</span></BrandNavLink>
+              <BrandNavLink to="/hospital/beds"><span>Bed management</span></BrandNavLink>
+              <BrandNavLink to="/hospital/departments"><span>Departments</span></BrandNavLink>
+              <BrandNavLink to="/hospital/doctors"><span>Manage doctors</span></BrandNavLink>
+              <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>
           )}
 
           {user.role === 'admin' && (
             <>
-              <NavLink to="/admin/overview" className={linkClass}>
-                <span>Overview</span>
+              <BrandNavLink to="/admin/overview"><span>Overview</span></BrandNavLink>
+              <BrandNavLink to="/admin/referrals"><span>Referrals</span></BrandNavLink>
+              <BrandNavLink to="/admin/beds"><span>Bed Management</span></BrandNavLink>
+              <BrandNavLink to="/admin/approvals">
+                <>
+                  <span>Approvals</span>
+                  {approvalsCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-black leading-none bg-amber-500 text-white rounded-full shadow-sm">
+                      {approvalsCount}
+                    </span>
+                  )}
+                </>
+              </BrandNavLink>
+              <BrandNavLink to="/admin/consultants"><span>Consultants</span></BrandNavLink>
+              <BrandNavLink to="/admin/hospitals"><span>Hospitals</span></BrandNavLink>
+              <BrandNavLink to="/admin/payouts"><span>Payouts</span></BrandNavLink>
+              <BrandNavLink to="/admin/settlements"><span>Settlements Queue</span></BrandNavLink>
+              <NavLink
+                to="/admin/whatsapp"
+                className={({ isActive }) =>
+                  `flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                      : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/20'
+                  }`
+                }
+              >
+                <span>📱 WhatsApp</span>
               </NavLink>
-              <NavLink to="/admin/referrals" className={linkClass}>
-                <span>Referrals</span>
-              </NavLink>
-              <NavLink to="/admin/beds" className={linkClass}>
-                <span>Bed Management</span>
-              </NavLink>
-              <NavLink to="/admin/approvals" className={linkClass}>
-                <span>Approvals</span>
-                {approvalsCount > 0 && (
-                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-black leading-none bg-amber-500 text-white rounded-full shadow-sm">
-                    {approvalsCount}
-                  </span>
-                )}
-              </NavLink>
-              <NavLink to="/admin/consultants" className={linkClass}>
-                <span>Consultants</span>
-              </NavLink>
-              <NavLink to="/admin/hospitals" className={linkClass}>
-                <span>Hospitals</span>
-              </NavLink>
-              <NavLink to="/admin/payouts" className={linkClass}>
-                <span>Payouts</span>
-              </NavLink>
-              <NavLink to="/admin/scoring" className={linkClass}>
-                <span>Scoring weights</span>
-              </NavLink>
-              <NavLink to="/admin/departments" className={linkClass}>
-                <span>Departments</span>
-              </NavLink>
-              <NavLink to="/admin/settings" className={linkClass}>
-                <span>Settings</span>
-              </NavLink>
-              <NavLink to="/admin/audit" className={linkClass}>
-                <span>Audit Logs</span>
-              </NavLink>
-              <NavLink to="/profile" className={linkClass}>
-                <span>Profile settings</span>
-              </NavLink>
+              <BrandNavLink to="/admin/scoring"><span>Scoring weights</span></BrandNavLink>
+              <BrandNavLink to="/admin/departments"><span>Departments</span></BrandNavLink>
+              <BrandNavLink to="/admin/settings"><span>Settings</span></BrandNavLink>
+              <BrandNavLink to="/admin/audit"><span>Audit Logs</span></BrandNavLink>
+              <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>
           )}
         </nav>
@@ -280,7 +254,10 @@ const DashboardLayout = () => {
             </button>
           </div>
           <div className="flex items-center gap-3 px-2 py-2 mb-2">
-            <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-700 dark:text-blue-300 font-bold text-sm">
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm"
+              style={{ backgroundColor: `${brandPrimary}22`, color: brandPrimary }}
+            >
               {user?.name?.charAt(0) || 'U'}
             </div>
             <div className="flex-1 min-w-0">

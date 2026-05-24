@@ -28,12 +28,33 @@ const AdminHospitals = () => {
   const [selected, setSelected] = useState(null);
   const [actionId, setActionId] = useState(null);
   const [customDeduction, setCustomDeduction] = useState(20);
+  const [patients, setPatients] = useState([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [adminDoctors, setAdminDoctors] = useState([]);
+  const [newDoctor, setNewDoctor] = useState({ name: '', specialty: '', consultationFee: '' });
 
   useEffect(() => {
     if (selected?.profile?.deductionPercentage != null) {
       setCustomDeduction(selected.profile.deductionPercentage);
     }
   }, [selected]);
+
+  useEffect(() => {
+    const hospitalId = selected?.profile?._id;
+    if (!hospitalId) {
+      setPatients([]);
+      return;
+    }
+    setPatientsLoading(true);
+    api.get(`/admin/hospitals/${hospitalId}/patients`)
+      .then((res) => {
+        if (res.data.success) setPatients(res.data.data || []);
+      })
+      .catch(() => toast.error('Failed to load patient list'))
+      .finally(() => setPatientsLoading(false));
+  }, [selected?.profile?._id]);
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +99,98 @@ const AdminHospitals = () => {
       } finally {
         setActionId(null);
       }
+    }
+  };
+
+  const loadAdminDoctors = async (hospitalId) => {
+    if (!hospitalId) return;
+    try {
+      const res = await api.get(`/admin/hospitals/${hospitalId}/doctors`);
+      if (res.data.success) setAdminDoctors(res.data.data || []);
+    } catch {
+      setAdminDoctors([]);
+    }
+  };
+
+  const openFacilityEdit = () => {
+    if (!selected?.profile) return;
+    const p = selected.profile;
+    setEditForm({
+      hospitalName: p.hospitalName || '',
+      registrationNumber: p.registrationNumber || '',
+      representativeCnic: p.representativeCnic || '',
+      address: p.address || '',
+      city: p.city || '',
+      area: p.area || '',
+      departments: (p.departments || []).join(', '),
+      isActive: p.isActive !== false,
+      deductionPercentage: p.deductionPercentage ?? 20,
+      ratePackages: p.ratePackages || [],
+    });
+    loadAdminDoctors(p._id);
+    setEditOpen(true);
+  };
+
+  const saveFacilityEdit = async () => {
+    const hospitalId = selected?.profile?._id;
+    if (!hospitalId) return;
+    setActionId(selected._id);
+    try {
+      const departments = editForm.departments
+        ? String(editForm.departments).split(',').map((d) => d.trim()).filter(Boolean)
+        : [];
+      await api.patch(`/admin/hospitals/${hospitalId}`, {
+        hospitalName: editForm.hospitalName,
+        registrationNumber: editForm.registrationNumber,
+        representativeCnic: editForm.representativeCnic,
+        address: editForm.address,
+        city: editForm.city,
+        area: editForm.area,
+        departments,
+        isActive: editForm.isActive,
+        deductionPercentage: Number(editForm.deductionPercentage),
+        ratePackages: editForm.ratePackages,
+      });
+      toast.success('Hospital updated');
+      setEditOpen(false);
+      await load();
+      const refreshed = (await api.get('/admin/users?role=hospital')).data.data?.find((h) => h._id === selected._id);
+      if (refreshed) setSelected(refreshed);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Update failed');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const addAdminDoctor = async () => {
+    const hospitalId = selected?.profile?._id;
+    if (!hospitalId || !newDoctor.name || !newDoctor.specialty) {
+      return toast.error('Doctor name and specialty required');
+    }
+    try {
+      await api.post(`/admin/hospitals/${hospitalId}/doctors`, {
+        name: newDoctor.name,
+        specialty: newDoctor.specialty,
+        consultationFee: Number(newDoctor.consultationFee) || 0,
+      });
+      toast.success('Doctor added');
+      setNewDoctor({ name: '', specialty: '', consultationFee: '' });
+      loadAdminDoctors(hospitalId);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add doctor');
+    }
+  };
+
+  const removeAdminDoctor = async (doctorId) => {
+    const hospitalId = selected?.profile?._id;
+    if (!window.confirm('Remove this doctor?')) return;
+    try {
+      await api.delete(`/admin/hospitals/${hospitalId}/doctors/${doctorId}`);
+      toast.success('Doctor removed');
+      loadAdminDoctors(hospitalId);
+    } catch (err) {
+      toast.error('Failed to remove doctor');
     }
   };
 
@@ -253,6 +366,13 @@ const AdminHospitals = () => {
                     {actionId === selected._id ? '…' : selected.status === 'active' ? 'Suspend' : 'Activate'}
                   </button>
                   <button
+                    type="button"
+                    onClick={openFacilityEdit}
+                    className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Edit facility
+                  </button>
+                  <button
                     onClick={() => handleChangePassword(selected._id)}
                     className="px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
                   >
@@ -284,6 +404,8 @@ const AdminHospitals = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <Field label="Hospital Name" value={selected.profile.hospitalName} />
                     <Field label="Reg. Number" value={selected.profile.registrationNumber} />
+                    <Field label="Representative CNIC" value={selected.profile.representativeCnic} />
+                    <Field label="Registration verified" value={selected.profile.isRegistrationVerified ? 'Yes' : 'No'} />
                     <Field label="Address" value={selected.profile.address} />
                   </div>
                 </div>
@@ -332,6 +454,54 @@ const AdminHospitals = () => {
                     </div>
                   </div>
                 )}
+                <div className="border-t border-slate-100 pt-5">
+                  <div className="flex items-center gap-2 text-slate-800 font-bold text-sm mb-3">
+                    Patients & bed placement
+                  </div>
+                  {patientsLoading ? (
+                    <p className="text-sm text-slate-500">Loading patients…</p>
+                  ) : patients.length === 0 ? (
+                    <p className="text-sm text-slate-500">No referrals for this hospital yet.</p>
+                  ) : (
+                    <div className="rounded-xl border border-slate-100 overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-slate-50 text-slate-500">
+                          <tr>
+                            <th className="px-3 py-2 text-left">Code</th>
+                            <th className="px-3 py-2 text-left">Patient</th>
+                            <th className="px-3 py-2 text-left">Status</th>
+                            <th className="px-3 py-2 text-left">Dept</th>
+                            <th className="px-3 py-2 text-left">Doctor</th>
+                            <th className="px-3 py-2 text-left">Room / Bed</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {patients.map((p) => (
+                            <tr key={p._id}>
+                              <td className="px-3 py-2 font-mono text-blue-600">{p.referralCode}</td>
+                              <td className="px-3 py-2 font-medium">{p.patientName}</td>
+                              <td className="px-3 py-2 capitalize">{p.status}</td>
+                              <td className="px-3 py-2">{p.admission?.admissionDepartment || p.assignedDepartment || p.department || '—'}</td>
+                              <td className="px-3 py-2">
+                                {p.admission?.treatingDoctorId?.name
+                                  ? `Dr. ${p.admission.treatingDoctorId.name.replace(/^Dr\.\s*/i, '')}`
+                                  : p.targetDoctorId?.name
+                                    ? `Dr. ${p.targetDoctorId.name.replace(/^Dr\.\s*/i, '')} (target)`
+                                    : '—'}
+                              </td>
+                              <td className="px-3 py-2">
+                                {p.admission
+                                  ? `R${p.admission.roomNumber} · B${p.admission.bedNumber}`
+                                  : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
                 {/* Platform Deduction settings */}
                 <div className="border-t border-slate-100 pt-5">
                   <div className="flex items-center gap-2 text-teal-700 font-bold text-sm mb-3">
@@ -383,6 +553,96 @@ const AdminHospitals = () => {
           </div>
         )}
       </DetailModal>
+
+      {editOpen && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 space-y-4">
+            <h3 className="text-lg font-bold text-slate-900">Edit hospital facility</h3>
+            <div className="grid gap-3">
+              <input className="w-full border rounded-xl px-3 py-2 text-sm" placeholder="Hospital name" value={editForm.hospitalName || ''} onChange={(e) => setEditForm({ ...editForm, hospitalName: e.target.value })} />
+            <input className="w-full border rounded-xl px-3 py-2 text-sm" placeholder="Registration number" value={editForm.registrationNumber || ''} onChange={(e) => setEditForm({ ...editForm, registrationNumber: e.target.value })} />
+            <input className="w-full border rounded-xl px-3 py-2 text-sm font-mono" placeholder="Representative CNIC" value={editForm.representativeCnic || ''} onChange={(e) => setEditForm({ ...editForm, representativeCnic: e.target.value })} />
+            <input className="w-full border rounded-xl px-3 py-2 text-sm" placeholder="Address" value={editForm.address || ''} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <input className="border rounded-xl px-3 py-2 text-sm" placeholder="City" value={editForm.city || ''} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} />
+                <input className="border rounded-xl px-3 py-2 text-sm" placeholder="Area" value={editForm.area || ''} onChange={(e) => setEditForm({ ...editForm, area: e.target.value })} />
+              </div>
+              <textarea className="w-full border rounded-xl px-3 py-2 text-sm" rows={2} placeholder="Departments (comma-separated)" value={editForm.departments || ''} onChange={(e) => setEditForm({ ...editForm, departments: e.target.value })} />
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={editForm.isActive !== false} onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })} />
+                Active for referrals
+              </label>
+            </div>
+            <div className="border-t pt-4 space-y-2">
+              <p className="text-xs font-bold text-slate-500 uppercase">Rate packages (PKR)</p>
+              {(editForm.ratePackages || []).map((pkg, idx) => (
+                <div key={idx} className="grid grid-cols-4 gap-1 text-xs">
+                  <input className="border rounded px-2 py-1" placeholder="Dept" value={pkg.department || ''}
+                    onChange={(e) => {
+                      const ratePackages = [...editForm.ratePackages];
+                      ratePackages[idx] = { ...ratePackages[idx], department: e.target.value };
+                      setEditForm({ ...editForm, ratePackages });
+                    }} />
+                  <input className="border rounded px-2 py-1" placeholder="Service" value={pkg.serviceName || ''}
+                    onChange={(e) => {
+                      const ratePackages = [...editForm.ratePackages];
+                      ratePackages[idx] = { ...ratePackages[idx], serviceName: e.target.value };
+                      setEditForm({ ...editForm, ratePackages });
+                    }} />
+                  <input className="border rounded px-2 py-1" type="number" placeholder="Min" value={pkg.minPrice ? pkg.minPrice / 100 : ''}
+                    onChange={(e) => {
+                      const ratePackages = [...editForm.ratePackages];
+                      ratePackages[idx] = { ...ratePackages[idx], minPrice: Math.round(Number(e.target.value) * 100) };
+                      setEditForm({ ...editForm, ratePackages });
+                    }} />
+                  <input className="border rounded px-2 py-1" type="number" placeholder="Max" value={pkg.maxPrice ? pkg.maxPrice / 100 : ''}
+                    onChange={(e) => {
+                      const ratePackages = [...editForm.ratePackages];
+                      ratePackages[idx] = { ...ratePackages[idx], maxPrice: Math.round(Number(e.target.value) * 100) };
+                      setEditForm({ ...editForm, ratePackages });
+                    }} />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  setEditForm({
+                    ...editForm,
+                    ratePackages: [
+                      ...(editForm.ratePackages || []),
+                      { department: '', serviceName: '', minPrice: 0, maxPrice: 0 },
+                    ],
+                  })
+                }
+                className="text-xs font-bold text-blue-600"
+              >
+                + Add rate package
+              </button>
+            </div>
+            <div className="border-t pt-4">
+              <p className="text-xs font-bold text-slate-500 uppercase mb-2">Doctors roster</p>
+              <ul className="space-y-1 max-h-32 overflow-y-auto text-sm mb-3">
+                {adminDoctors.map((d) => (
+                  <li key={d._id} className="flex justify-between items-center bg-slate-50 px-2 py-1 rounded">
+                    <span>Dr. {d.name} ({d.specialty})</span>
+                    <button type="button" onClick={() => removeAdminDoctor(d._id)} className="text-red-600 text-xs font-bold">Remove</button>
+                  </li>
+                ))}
+              </ul>
+              <div className="grid grid-cols-3 gap-2">
+                <input className="border rounded-lg px-2 py-1.5 text-xs" placeholder="Name" value={newDoctor.name} onChange={(e) => setNewDoctor({ ...newDoctor, name: e.target.value })} />
+                <input className="border rounded-lg px-2 py-1.5 text-xs" placeholder="Specialty" value={newDoctor.specialty} onChange={(e) => setNewDoctor({ ...newDoctor, specialty: e.target.value })} />
+                <input className="border rounded-lg px-2 py-1.5 text-xs" placeholder="Fee PKR" type="number" value={newDoctor.consultationFee} onChange={(e) => setNewDoctor({ ...newDoctor, consultationFee: e.target.value })} />
+              </div>
+              <button type="button" onClick={addAdminDoctor} className="mt-2 text-xs font-bold text-blue-600">+ Add doctor</button>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setEditOpen(false)} className="px-4 py-2 text-sm font-semibold text-slate-500">Cancel</button>
+              <button type="button" onClick={saveFacilityEdit} disabled={actionId === selected?._id} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl disabled:opacity-50">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, FileCheck } from 'lucide-react';
 import api from '../utils/api';
 
 const WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burns', 'Maternity', 'Psychiatric', 'Cardiac'];
@@ -37,6 +37,7 @@ const HospitalRegister = () => {
     password: '',
     hospitalName: '',
     registrationNumber: '',
+    representativeCnic: '',
     address: '',
     role: 'hospital',
     lat: '24.8607',
@@ -46,32 +47,33 @@ const HospitalRegister = () => {
   const [departments, setDepartments] = useState(['Internal Medicine']);
   const [bedsInventory, setBedsInventory] = useState(defaultBeds);
   const [registrationDocuments, setRegistrationDocuments] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleFileUpload = async (e, docName) => {
     const file = e.target.files[0];
-    if (file) {
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const res = await api.post('/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        
-        if (res.data.success) {
-          const fileUrl = res.data.url;
-          setRegistrationDocuments(prev => [
-            ...prev.filter(d => d.name !== docName),
-            { name: docName, url: fileUrl }
-          ]);
-          toast.success(`${docName} uploaded successfully`);
-        }
-      } catch (err) {
-        console.error('Upload failed:', err);
-        toast.error(`Failed to upload ${docName}`);
+    if (!file) return;
+    try {
+      setIsUploading(true);
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      const res = await api.post('/upload', uploadData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success) {
+        setRegistrationDocuments((prev) => [
+          ...prev.filter((d) => d.name !== docName),
+          { name: docName, url: res.data.url },
+        ]);
+        toast.success(`${docName} uploaded successfully`);
       }
+    } catch (err) {
+      console.error('Upload failed:', err);
+      toast.error(`Failed to upload ${docName}`);
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -99,6 +101,18 @@ const HospitalRegister = () => {
     if (departments.length === 0) {
       toast.error('Please select at least one department.');
       return;
+    }
+    if (!registrationDocuments.find(d => d.name === 'SHCC License')) {
+      toast.error('Please upload your SHCC License for verification.');
+      return;
+    }
+    if (!registrationDocuments.find((d) => d.name === 'CNIC')) {
+      toast.error('Please upload your CNIC copy for verification.');
+      return;
+    }
+    const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
+    if (!cnicRegex.test(formData.representativeCnic)) {
+      return toast.error('Representative CNIC must be in the format XXXXX-XXXXXXX-X');
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
@@ -136,8 +150,8 @@ const HospitalRegister = () => {
 
     const result = await register(payload);
     if (result.success) {
-      toast.success(result.message || 'Hospital registered! Please check your email for verification.', { duration: 6000 });
-      setTimeout(() => navigate('/login'), 4000);
+      toast.success(result.message || 'Hospital registered! A verification code was sent to your WhatsApp.', { duration: 6000, icon: '📱' });
+      navigate('/verify-phone', { state: { phone: phoneClean } });
     } else {
       toast.error(result.message || 'Registration failed');
     }
@@ -184,6 +198,20 @@ const HospitalRegister = () => {
               <input name="name" type="text" required value={formData.name}
                 onChange={handleChange} className={inputClass} placeholder="John Admin" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Representative CNIC Number</label>
+            <input
+              name="representativeCnic"
+              type="text"
+              required
+              value={formData.representativeCnic}
+              onChange={handleChange}
+              className={inputClass}
+              placeholder="42101-XXXXXXX-X"
+            />
+            <p className="text-xs text-slate-400 mt-1">CNIC of the authorized hospital administrator.</p>
           </div>
 
           <div>
@@ -265,25 +293,56 @@ const HospitalRegister = () => {
           </div>
         </div>
 
-        {/* Section 3: Supporting Documents (Q3) */}
+        {/* Section 3: Supporting Documents */}
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-1">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Supporting Documents</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Verification Documents</h3>
             <div className="flex-1 h-px bg-slate-100"></div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50">
-              <label className="block text-sm font-semibold text-slate-700 mb-1">SHCC Professional License</label>
-              <input type="file" onChange={(e) => handleFileUpload(e, 'SHCC License')} 
-                className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-            </div>
-            <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50">
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Billing Rate List (Softcopy)</label>
-              <input type="file" onChange={(e) => handleFileUpload(e, 'Rate List')}
-                className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-            </div>
+          <div className="bg-teal-50 rounded-2xl p-5 border border-teal-100 space-y-4">
+            <p className="text-xs text-teal-800 font-medium">
+              Upload SHCC license, CNIC copy of the representative, and optional rate list. All are reviewed during admin approval.
+            </p>
+
+            {['SHCC License', 'CNIC', 'Rate List'].map((docName) => {
+              const required = docName !== 'Rate List';
+              const uploaded = registrationDocuments.find((d) => d.name === docName);
+              return (
+                <div key={docName} className="relative group">
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => handleFileUpload(e, docName)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    disabled={isUploading}
+                  />
+                  <div
+                    className={`flex items-center justify-between p-4 bg-white rounded-xl border-2 border-dashed transition-all ${
+                      uploaded ? 'border-emerald-500 bg-emerald-50' : 'border-teal-200 group-hover:border-teal-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${uploaded ? 'bg-emerald-100 text-emerald-600' : 'bg-teal-100 text-teal-600'}`}>
+                        <FileCheck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">
+                          {uploaded ? `${docName} uploaded` : `Upload ${docName}`}
+                          {required && <span className="text-red-500 ml-1">*</span>}
+                        </p>
+                        <p className="text-xs text-slate-500">PDF, JPG, PNG (max 5MB)</p>
+                      </div>
+                    </div>
+                    {uploaded && <span className="text-xs font-bold text-emerald-600 uppercase">Ready</span>}
+                  </div>
+                </div>
+              );
+            })}
+
+            {isUploading && (
+              <p className="text-xs text-center text-teal-700 font-semibold animate-pulse">Uploading document…</p>
+            )}
           </div>
-          <p className="text-xs text-slate-400">Mandatory for verification (TAT: 24-48 hours).</p>
         </div>
 
         {/* Section 4: Account Credentials */}

@@ -30,12 +30,18 @@ const UserSchema = new mongoose.Schema(
       enum: ['pending', 'active', 'suspended'],
       default: 'pending',
     },
+    // Email verification (kept for backward compat; not required during new reg flow)
     isEmailVerified: {
       type: Boolean,
       default: false,
     },
     emailVerificationToken: String,
     emailVerificationExpires: Date,
+    // Phone (WhatsApp) verification
+    isPhoneVerified: {
+      type: Boolean,
+      default: false,
+    },
     resetPasswordToken: String,
     resetPasswordExpires: Date,
   },

@@ -35,6 +35,15 @@ const AdmissionSchema = new mongoose.Schema(
     paymentReference: { type: String, trim: true },
     notes: { type: String, trim: true },
     completedAt: { type: Date },
+    weeklySettlementId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'WeeklySettlement',
+      default: null
+    },
+    roomNumber: { type: String, required: true },
+    bedNumber: { type: String, required: true },
+    admissionDepartment: { type: String, required: true },
+    treatingDoctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'HospitalDoctor', required: true },
   },
   { timestamps: true }
 );

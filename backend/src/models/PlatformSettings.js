@@ -10,6 +10,11 @@ const PlatformSettingsSchema = new mongoose.Schema(
     walletInitialHoldPaisa: { type: Number, default: 950000 },
     /** Withdrawal request TAT in days - default 3 */
     payoutTATDays: { type: Number, default: 3 },
+    platformName: { type: String, default: 'CareBridge' },
+    logoUrl: { type: String },
+    primaryColor: { type: String, default: '#4f46e5' },
+    accentColor: { type: String, default: '#06b6d4' },
+    faviconUrl: { type: String },
   },
   { timestamps: true }
 );

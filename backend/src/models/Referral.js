@@ -59,6 +59,14 @@ const ReferralSchema = new mongoose.Schema(
     targetDoctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'HospitalDoctor' },
     /** Top hospitals from scoring at submission time (escalation order). */
     rankedHospitalIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Hospital' }],
+    /** Per-hospital department + optional doctor (used on escalation). */
+    rankedHospitalPreferences: [
+      {
+        hospitalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hospital', required: true },
+        department: { type: String, required: true, trim: true },
+        targetDoctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'HospitalDoctor' },
+      },
+    ],
     /** Index into rankedHospitalIds for the hospital currently responsible (SLA). */
     currentRankIndex: { type: Number, default: 0 },
     status: {

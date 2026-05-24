@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, MessageCircle } from 'lucide-react';
 import api from '../utils/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showResend, setShowResend] = useState(false);
-  const [isResending, setIsResending] = useState(false);
+  const [showResendPhone, setShowResendPhone] = useState(false);
+  const [showResendEmail, setShowResendEmail] = useState(false);
+  const [pendingPhone, setPendingPhone] = useState('');
+  const [isResendingPhone, setIsResendingPhone] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
   const { login, isLoading, user } = useAuth();
   const navigate = useNavigate();
 
@@ -35,33 +38,58 @@ const Login = () => {
         navigate('/dashboard');
       }
     } else {
-      if (result.needsVerification) {
+      if (result.needsPhoneVerification) {
+        toast.error('Please verify your WhatsApp number first.', { duration: 6000, icon: '📱' });
+        setPendingPhone(result.phone || '');
+        setShowResendPhone(true);
+      } else if (result.needsEmailVerification) {
         toast.error('Please verify your email address. Check your inbox!', { duration: 6000, icon: '✉️' });
-        setShowResend(true);
+        setShowResendEmail(true);
       } else {
         toast.error(result.message || 'Login failed');
       }
     }
   };
 
-  const handleResend = async () => {
+  const handleResendPhone = async () => {
+    if (!pendingPhone) {
+      toast.error('Phone number not available. Please register again.');
+      return;
+    }
+    setIsResendingPhone(true);
+    try {
+      const res = await api.post('/auth/resend-phone-otp', { phone: pendingPhone });
+      if (res.data.success) {
+        toast.success(res.data.message, { icon: '📱' });
+        navigate('/verify-phone', { state: { phone: pendingPhone } });
+      } else {
+        toast.error(res.data.message);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to resend OTP');
+    } finally {
+      setIsResendingPhone(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
     if (!email) {
       toast.error('Please enter your email address first');
       return;
     }
-    setIsResending(true);
+    setIsResendingEmail(true);
     try {
       const res = await api.post('/auth/resend-verification', { email });
       if (res.data.success) {
-        toast.success(res.data.message);
-        setShowResend(false);
+        toast.success(res.data.message, { icon: '✉️' });
+        setShowResendEmail(false);
       } else {
         toast.error(res.data.message);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to resend verification email');
     } finally {
-      setIsResending(false);
+      setIsResendingEmail(false);
     }
   };
 
@@ -133,16 +161,38 @@ const Login = () => {
           </button>
         </div>
         
-        {showResend && (
-          <div className="text-center mt-4">
-            <button
-              type="button"
-              disabled={isResending}
-              onClick={handleResend}
-              className="text-sm font-bold text-blue-600 hover:text-blue-500 transition-colors"
-            >
-              {isResending ? 'Sending...' : 'Resend verification email?'}
-            </button>
+        {showResendPhone && (
+          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-start gap-3">
+            <MessageCircle size={18} className="text-emerald-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-emerald-800 font-semibold">Phone not verified</p>
+              <p className="text-xs text-emerald-600 mt-0.5">Your WhatsApp number needs to be verified before you can log in.</p>
+              <button
+                type="button"
+                disabled={isResendingPhone}
+                onClick={handleResendPhone}
+                className="mt-2 text-sm font-bold text-emerald-700 hover:text-emerald-900 transition-colors"
+              >
+                {isResendingPhone ? 'Sending…' : '📱 Resend verification code'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showResendEmail && (
+          <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 flex items-start gap-3 mt-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-blue-800 font-semibold">Email not verified</p>
+              <p className="text-xs text-blue-600 mt-0.5">Please check your inbox and verify your email.</p>
+              <button
+                type="button"
+                disabled={isResendingEmail}
+                onClick={handleResendEmail}
+                className="mt-2 text-sm font-bold text-blue-700 hover:text-blue-900 transition-colors"
+              >
+                {isResendingEmail ? 'Sending…' : '✉️ Resend verification link'}
+              </button>
+            </div>
           </div>
         )}
         

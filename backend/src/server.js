@@ -44,6 +44,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const settlementRoutes = require('./routes/settlementRoutes');
 
 app.use('/v1/auth', authRoutes);
 app.use('/v1/referrals', referralRoutes);
@@ -52,6 +53,7 @@ app.use('/v1/admin', adminRoutes);
 app.use('/v1/payments', paymentRoutes);
 app.use('/v1/upload', uploadRoutes);
 app.use('/v1/profile', profileRoutes);
+app.use('/v1/settlements', settlementRoutes);
 
 // Static uploads
 app.use('/uploads', express.static('uploads'));

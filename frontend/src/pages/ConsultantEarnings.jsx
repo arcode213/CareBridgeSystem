@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, Eye, FileText } from 'lucide-react';
+import { Wallet, TrendingUp, Eye, FileText, Check, Clock, ExternalLink, AlertCircle, Landmark } from 'lucide-react';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
@@ -12,15 +12,33 @@ const ConsultantEarnings = () => {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [manualPayouts, setManualPayouts] = useState([]);
 
   const fetchEarnings = async () => {
     try {
-      const res = await api.get('/referrals/earnings');
-      if (res.data.success) setData(res.data.data);
+      setLoading(true);
+      const [earningsRes, manualRes] = await Promise.all([
+        api.get('/referrals/earnings'),
+        api.get('/settlements/consultant')
+      ]);
+      if (earningsRes.data.success) setData(earningsRes.data.data);
+      if (manualRes.data.success) setManualPayouts(manualRes.data.data || []);
     } catch (err) {
       console.error('Failed to fetch earnings:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirmManualPayout = async (settlementId) => {
+    try {
+      const res = await api.post(`/settlements/consultant/${settlementId}/verify`);
+      if (res.data.success) {
+        toast.success('Payout receipt successfully confirmed and verified!');
+        fetchEarnings(); // Refresh wallet balances and listings
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to confirm payout');
     }
   };
 
@@ -153,7 +171,98 @@ const ConsultantEarnings = () => {
           </div>
         </div>
       </div>
-
+ 
+      {/* Manual settlements payouts section */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-colors">
+        <div className="px-5 sm:px-8 py-5 border-b border-slate-100 dark:border-slate-800 transition-colors">
+          <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 flex items-center gap-2">
+            <Landmark size={20} className="text-blue-500" />
+            Weekly Settlement Payouts
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Manual commissions processed and distributed by the platform admin (§12.4).</p>
+        </div>
+ 
+        <div className="p-5 sm:p-8 space-y-4">
+          {manualPayouts.length === 0 ? (
+            <p className="text-center text-sm text-slate-400 dark:text-slate-500 py-6">
+              No manual settlements payouts dispatched to your account yet.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {manualPayouts.map(item => (
+                <div 
+                  key={item.myPayoutId}
+                  className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-850 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
+                >
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                        {item.hospitalName}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">
+                        ({new Date(item.billingPeriodStart).toLocaleDateString()} - {new Date(item.billingPeriodEnd).toLocaleDateString()})
+                      </span>
+                    </div>
+ 
+                    <div className="flex items-center gap-4 text-xs">
+                      <div>
+                        <span className="text-slate-455 dark:text-slate-500 block text-[10px] font-bold uppercase tracking-wider mb-0.5">Amount Dispatched</span>
+                        <span className="font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{formatPkr(item.amountPaisa)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-455 dark:text-slate-500 block text-[10px] font-bold uppercase tracking-wider mb-0.5">Commission Split</span>
+                        <span className="font-bold text-slate-650 dark:text-slate-450">{item.commissionPercentage}%</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-455 dark:text-slate-500 block text-[10px] font-bold uppercase tracking-wider mb-0.5">Workflow Status</span>
+                        {item.status === 'pending_payout' && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-[9px] uppercase tracking-wider">
+                            <Clock size={10} /> Disbursing Payment
+                          </span>
+                        )}
+                        {item.status === 'pending_verification' && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wider animate-pulse">
+                            <AlertCircle size={10} /> Paid, Pending Sign-off
+                          </span>
+                        )}
+                        {item.status === 'verified' && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 font-bold text-[9px] uppercase tracking-wider">
+                            <Check size={10} /> Verified & Signed Off
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+ 
+                  {/* Actions right */}
+                  <div className="shrink-0 flex items-center flex-wrap gap-2.5">
+                    {item.payoutReceiptFileUrl && (
+                      <a 
+                        href={item.payoutReceiptFileUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-350 rounded-xl font-bold text-xs shadow-sm transition-all"
+                      >
+                        <ExternalLink size={13} /> View Receipt Proof
+                      </a>
+                    )}
+                    
+                    {item.status === 'pending_verification' && (
+                      <button
+                        onClick={() => handleConfirmManualPayout(item.settlementId)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1"
+                      >
+                        <Check size={14} /> Confirm Receipt of Funds
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+ 
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
         <div className="px-5 sm:px-8 py-5 border-b border-slate-100 dark:border-slate-800 transition-colors">
           <h2 className="text-lg font-black text-slate-900 dark:text-slate-50">Payout history</h2>

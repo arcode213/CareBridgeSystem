@@ -91,6 +91,7 @@ const scoreHospital = (hospital, referralData, consultant, weights = DEFAULT_WEI
     totalScore: Math.min(100, totalScore),
     breakdown,
     distance: `${distance.toFixed(1)} km`,
+    departments: hospital.departments || [],
   };
 };
 

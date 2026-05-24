@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ClipboardList, CheckCircle2, Wallet, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
@@ -28,14 +28,108 @@ const HospitalAdmissions = () => {
     paymentReference: '',
   });
 
-  const startAdmission = async (referralId) => {
+  const [admittingReferral, setAdmittingReferral] = useState(null);
+  const [admitForm, setAdmitForm] = useState({
+    roomNumber: '',
+    bedNumber: '',
+    admissionDepartment: '',
+    treatingDoctorId: '',
+  });
+  const [hospitalInfo, setHospitalInfo] = useState(null);
+  const [doctorsList, setDoctorsList] = useState([]);
+  const [editingAdmission, setEditingAdmission] = useState(null);
+  const [editAdmissionForm, setEditAdmissionForm] = useState({
+    roomNumber: '',
+    bedNumber: '',
+    admissionDepartment: '',
+    treatingDoctorId: '',
+  });
+
+  const loadDoctors = async () => {
     try {
-      await api.post('/hospitals/admissions', { referralId });
-      toast.success('Admission started!');
+      const doctorsRes = await api.get('/hospitals/doctors');
+      if (doctorsRes.data.success) {
+        const list = doctorsRes.data.data || [];
+        setDoctorsList(list.filter((d) => d.isAvailable !== false));
+      }
+    } catch (err) {
+      console.error('Failed to load doctors:', err);
+      toast.error(err.response?.data?.message || 'Could not load doctors list');
+    }
+  };
+
+  useEffect(() => {
+    const fetchInfo = async () => {
+      try {
+        const profileRes = await api.get('/profile/me');
+        if (profileRes.data.success) {
+          setHospitalInfo(profileRes.data.data.profile);
+        }
+        await loadDoctors();
+      } catch (err) {
+        console.error('Failed to load hospital profile:', err);
+      }
+    };
+    fetchInfo();
+  }, []);
+
+  const handleStartAdmission = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!admitForm.roomNumber.trim() || !admitForm.bedNumber.trim() || !admitForm.admissionDepartment || !admitForm.treatingDoctorId) {
+      return toast.error('Room Number, Bed Number, Department, and Doctor are all compulsory.');
+    }
+    try {
+      await api.post('/hospitals/admissions', {
+        referralId: admittingReferral._id,
+        roomNumber: admitForm.roomNumber.trim(),
+        bedNumber: admitForm.bedNumber.trim(),
+        admissionDepartment: admitForm.admissionDepartment,
+        treatingDoctorId: admitForm.treatingDoctorId,
+      });
+      toast.success('Admission started successfully!');
+      setAdmittingReferral(null);
+      setAdmitForm({ roomNumber: '', bedNumber: '', admissionDepartment: '', treatingDoctorId: '' });
       queryClient.invalidateQueries({ queryKey: ['pipeline'] });
       queryClient.invalidateQueries({ queryKey: ['admissions'] });
     } catch (e) {
       toast.error(e.response?.data?.message || 'Could not start admission');
+    }
+  };
+
+  const openEditAdmission = (admission) => {
+    setEditingAdmission(admission);
+    setEditAdmissionForm({
+      roomNumber: admission.roomNumber || '',
+      bedNumber: admission.bedNumber || '',
+      admissionDepartment: admission.admissionDepartment || '',
+      treatingDoctorId: admission.treatingDoctorId?._id || admission.treatingDoctorId || '',
+    });
+  };
+
+  const saveAdmissionPlacement = async (e) => {
+    e.preventDefault();
+    if (!editingAdmission) return;
+    if (
+      !editAdmissionForm.roomNumber.trim() ||
+      !editAdmissionForm.bedNumber.trim() ||
+      !editAdmissionForm.admissionDepartment ||
+      !editAdmissionForm.treatingDoctorId
+    ) {
+      return toast.error('Room, bed, department, and doctor are required.');
+    }
+    try {
+      await api.patch(`/hospitals/admissions/${editingAdmission._id}`, {
+        roomNumber: editAdmissionForm.roomNumber.trim(),
+        bedNumber: editAdmissionForm.bedNumber.trim(),
+        admissionDepartment: editAdmissionForm.admissionDepartment,
+        treatingDoctorId: editAdmissionForm.treatingDoctorId,
+      });
+      toast.success('Admission placement updated');
+      setEditingAdmission(null);
+      queryClient.invalidateQueries({ queryKey: ['admissions'] });
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update admission');
     }
   };
 
@@ -174,7 +268,15 @@ const HospitalAdmissions = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => startAdmission(r._id)}
+                      onClick={() => {
+                        setAdmittingReferral(r);
+                        setAdmitForm({
+                          roomNumber: '',
+                          bedNumber: '',
+                          admissionDepartment: r.assignedDepartment || r.department || '',
+                          treatingDoctorId: r.targetDoctorId?._id || r.targetDoctorId || '',
+                        });
+                      }}
                       className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm"
                     >
                       Start admission
@@ -229,6 +331,34 @@ const HospitalAdmissions = () => {
                     {a.status}
                   </span>
                 </div>
+
+                {a.admissionDepartment && (
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="font-bold text-slate-400 uppercase tracking-wider block text-[9px] mb-0.5">Admitted Department</span>
+                      <span className="font-semibold text-slate-700">{a.admissionDepartment}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-400 uppercase tracking-wider block text-[9px] mb-0.5">Treating Doctor</span>
+                      <span className="font-semibold text-slate-700">Dr. {a.treatingDoctorId?.name?.replace(/^Dr\.\s*/i, '') || '—'} ({a.treatingDoctorId?.specialty || 'N/A'})</span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-400 uppercase tracking-wider block text-[9px] mb-0.5">Room & Bed Number</span>
+                      <span className="font-semibold text-slate-700">Room: {a.roomNumber} · Bed: {a.bedNumber}</span>
+                    </div>
+                    {a.status === 'active' && (
+                      <div className="col-span-full pt-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditAdmission(a)}
+                          className="text-xs font-bold text-blue-600 hover:text-blue-800"
+                        >
+                          Edit room / bed / doctor
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {a.status !== 'billed' && (
                   <>
@@ -357,6 +487,171 @@ const HospitalAdmissions = () => {
           </ul>
         )}
       </section>
+
+      {/* Start Admission Form Dialog */}
+      {admittingReferral && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Admit Patient</h3>
+            <p className="text-xs text-slate-500 mb-5">
+              Specify Room/Bed details to start admission for <span className="font-bold text-slate-800">{admittingReferral.patientName}</span> ({admittingReferral.referralCode}).
+            </p>
+            
+            <form onSubmit={handleStartAdmission} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Room Number <span className="text-red-500">*</span></label>
+                <input
+                  type="text" required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
+                  placeholder="e.g. Room 302"
+                  value={admitForm.roomNumber}
+                  onChange={(e) => setAdmitForm({ ...admitForm, roomNumber: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Bed Number <span className="text-red-500">*</span></label>
+                <input
+                  type="text" required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium"
+                  placeholder="e.g. Bed 4"
+                  value={admitForm.bedNumber}
+                  onChange={(e) => setAdmitForm({ ...admitForm, bedNumber: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Admitted Department <span className="text-red-500">*</span></label>
+                <select
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm font-medium"
+                  value={admitForm.admissionDepartment}
+                  onChange={(e) => setAdmitForm({ ...admitForm, admissionDepartment: e.target.value })}
+                >
+                  <option value="">-- Choose Department --</option>
+                  {hospitalInfo?.departments?.map((dept) => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                  {admittingReferral.department && !hospitalInfo?.departments?.includes(admittingReferral.department) && (
+                    <option value={admittingReferral.department}>{admittingReferral.department}</option>
+                  )}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Treating Consultant / Doctor <span className="text-red-500">*</span></label>
+                <select
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm font-medium"
+                  value={admitForm.treatingDoctorId}
+                  onChange={(e) => setAdmitForm({ ...admitForm, treatingDoctorId: e.target.value })}
+                >
+                  <option value="">-- Choose Doctor --</option>
+                  {doctorsList?.map((doc) => (
+                    <option key={doc._id} value={doc._id}>
+                      Dr. {doc.name.replace(/^Dr\.\s*/i, '')} ({doc.specialty})
+                    </option>
+                  ))}
+                </select>
+                {doctorsList.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    No doctors on file. Add doctors under <strong>Manage doctors</strong> in the sidebar.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAdmittingReferral(null)}
+                  className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm"
+                >
+                  Confirm & Admit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editingAdmission && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Update bed placement</h3>
+            <p className="text-xs text-slate-500 mb-5">
+              {editingAdmission.referralId?.patientName} · {editingAdmission.referralId?.referralCode}
+            </p>
+            <form onSubmit={saveAdmissionPlacement} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Room Number *</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
+                  value={editAdmissionForm.roomNumber}
+                  onChange={(e) => setEditAdmissionForm({ ...editAdmissionForm, roomNumber: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Bed Number *</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
+                  value={editAdmissionForm.bedNumber}
+                  onChange={(e) => setEditAdmissionForm({ ...editAdmissionForm, bedNumber: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Department *</label>
+                <select
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white"
+                  value={editAdmissionForm.admissionDepartment}
+                  onChange={(e) => setEditAdmissionForm({ ...editAdmissionForm, admissionDepartment: e.target.value })}
+                >
+                  {(hospitalInfo?.departments || []).map((dept) => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase">Treating doctor *</label>
+                <select
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white"
+                  value={editAdmissionForm.treatingDoctorId}
+                  onChange={(e) => setEditAdmissionForm({ ...editAdmissionForm, treatingDoctorId: e.target.value })}
+                >
+                  <option value="">-- Choose Doctor --</option>
+                  {doctorsList.map((doc) => (
+                    <option key={doc._id} value={doc._id}>
+                      Dr. {doc.name.replace(/^Dr\.\s*/i, '')} ({doc.specialty})
+                    </option>
+                  ))}
+                </select>
+                {doctorsList.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">No doctors on file. Add them under Manage doctors.</p>
+                )}
+              </div>
+              <div className="flex gap-3 justify-end pt-2">
+                <button type="button" onClick={() => setEditingAdmission(null)} className="px-4 py-2 text-sm font-bold text-slate-500">
+                  Cancel
+                </button>
+                <button type="submit" className="px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl">
+                  Save changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

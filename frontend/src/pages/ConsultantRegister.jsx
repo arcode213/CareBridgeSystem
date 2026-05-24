@@ -12,6 +12,7 @@ const ConsultantRegister = () => {
     phone: '',
     password: '',
     pmdcNumber: '',
+    cnic: '',
     specialty: 'General Physician',
     clinicName: '',
     clinicAddress: '',
@@ -58,8 +59,15 @@ const ConsultantRegister = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (verificationDocuments.length === 0) {
+    if (!verificationDocuments.find(d => d.name === 'PMDC Certificate')) {
       return toast.error('Please upload your PMDC Certificate for verification');
+    }
+    if (!verificationDocuments.find(d => d.name === 'CNIC')) {
+      return toast.error('Please upload your CNIC copy for verification');
+    }
+    const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
+    if (!cnicRegex.test(formData.cnic)) {
+      return toast.error('CNIC must be in the format XXXXX-XXXXXXX-X');
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
@@ -75,8 +83,8 @@ const ConsultantRegister = () => {
     }
     const result = await register({ ...formData, phone: phoneClean, verificationDocuments });
     if (result.success) {
-      toast.success(result.message || 'Registration successful! Please check your email for verification.', { duration: 6000 });
-      setTimeout(() => navigate('/login'), 3000);
+      toast.success(result.message || 'Registration successful! A verification code was sent to your WhatsApp.', { duration: 6000, icon: '📱' });
+      navigate('/verify-phone', { state: { phone: phoneClean } });
     } else {
       toast.error(result.message || 'Registration failed');
     }
@@ -122,6 +130,13 @@ const ConsultantRegister = () => {
                 <option value="Orthopedic">Orthopedic</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">CNIC Number</label>
+            <input name="cnic" type="text" required value={formData.cnic} onChange={handleChange}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
+              placeholder="42101-XXXXXXX-X" />
           </div>
 
           <div>
@@ -196,6 +211,34 @@ const ConsultantRegister = () => {
                     </div>
                   </div>
                   {verificationDocuments.find(d => d.name === 'PMDC Certificate') && (
+                    <div className="flex items-center gap-2 text-emerald-600">
+                      <span className="text-xs font-bold uppercase">Ready</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="relative group mt-4">
+                <input 
+                  type="file" 
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => handleFileUpload(e, 'CNIC')}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  disabled={isUploading}
+                />
+                <div className={`flex items-center justify-between p-4 bg-white rounded-xl border-2 border-dashed ${verificationDocuments.find(d => d.name === 'CNIC') ? 'border-emerald-500 bg-emerald-50' : 'border-blue-200 group-hover:border-blue-400'} transition-all`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${verificationDocuments.find(d => d.name === 'CNIC') ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                      <ArrowLeft className={`w-5 h-5 transform rotate-90`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">
+                        {verificationDocuments.find(d => d.name === 'CNIC') ? 'CNIC Copy Uploaded' : 'Upload CNIC Copy'}
+                      </p>
+                      <p className="text-xs text-slate-500">PDF, JPG, PNG (Max 5MB)</p>
+                    </div>
+                  </div>
+                  {verificationDocuments.find(d => d.name === 'CNIC') && (
                     <div className="flex items-center gap-2 text-emerald-600">
                       <span className="text-xs font-bold uppercase">Ready</span>
                     </div>

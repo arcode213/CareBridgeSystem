@@ -37,7 +37,7 @@ const AdminApprovals = () => {
     setActionId(userId);
     try {
       await api.patch(`/admin/users/${userId}`, { status: 'active' });
-      toast.success('User approved and activated!');
+      toast.success('Approved — phone, email, and profile verification marked complete.');
       setSelected(null);
       await load();
     } catch (e) {
@@ -161,9 +161,11 @@ const AdminApprovals = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="PMDC Number" value={selected.profile.pmdcNumber} />
+                  <Field label="CNIC" value={selected.profile.cnic} />
                   <Field label="Specialty" value={selected.profile.specialty} />
                   <Field label="Clinic Name" value={selected.profile.clinicName} />
                   <Field label="Clinic Address" value={selected.profile.clinicAddress} />
+                  <Field label="Verified" value={selected.profile.isVerified ? 'Yes' : 'Pending'} />
                 </div>
                 {/* Consultant Verification Documents (Q1) */}
                 <div className="border-t border-slate-50 pt-4">
@@ -196,7 +198,10 @@ const AdminApprovals = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Hospital Name" value={selected.profile.hospitalName} />
                   <Field label="Reg. Number" value={selected.profile.registrationNumber} />
+                  <Field label="Representative CNIC" value={selected.profile.representativeCnic} />
                   <Field label="Address" value={selected.profile.address} />
+                  <Field label="Phone verified" value={selected.isPhoneVerified ? 'Yes' : 'No'} />
+                  <Field label="Email verified" value={selected.isEmailVerified ? 'Yes' : 'No'} />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Departments</p>

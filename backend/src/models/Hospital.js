@@ -24,6 +24,10 @@ const HospitalSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
     hospitalName: { type: String, required: true },
     registrationNumber: { type: String },
+    /** Authorized representative / admin CNIC (text) */
+    representativeCnic: { type: String, trim: true },
+    /** Set when admin approves registration */
+    isRegistrationVerified: { type: Boolean, default: false },
     /** Supporting documents for registration (Q3) */
     registrationDocuments: [
       {

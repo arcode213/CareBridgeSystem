@@ -6,7 +6,10 @@ const HospitalDoctor = require('../models/HospitalDoctor');
 exports.listDoctors = async (req, res) => {
   try {
     const hospital = await Hospital.findOne({ userId: req.user.id });
-    const doctors = await HospitalDoctor.find({ hospitalId: hospital._id });
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital profile not found' });
+    }
+    const doctors = await HospitalDoctor.find({ hospitalId: hospital._id }).sort({ name: 1 });
     res.json({ success: true, data: doctors });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching doctors' });
@@ -212,14 +215,26 @@ exports.getBeds = async (req, res) => {
 
 exports.updateBeds = async (req, res) => {
   try {
-    const { ward, availableBeds } = req.body;
+    const { ward, availableBeds, totalBeds, occupiedBeds } = req.body;
     const hospital = await Hospital.findOne({ userId: req.user.id });
 
     const wardIndex = hospital.bedsInventory.findIndex((b) => b.ward === ward);
     if (wardIndex > -1) {
-      hospital.bedsInventory[wardIndex].availableBeds = availableBeds;
-      const total = hospital.bedsInventory[wardIndex].totalBeds;
-      hospital.bedsInventory[wardIndex].occupiedBeds = Math.max(0, total - availableBeds);
+      const row = hospital.bedsInventory[wardIndex];
+      if (totalBeds != null && totalBeds !== '') {
+        row.totalBeds = Math.max(0, Number(totalBeds));
+      }
+      if (occupiedBeds != null && occupiedBeds !== '') {
+        row.occupiedBeds = Math.max(0, Number(occupiedBeds));
+        row.availableBeds = Math.max(0, row.totalBeds - row.occupiedBeds);
+      } else if (availableBeds != null && availableBeds !== '') {
+        row.availableBeds = Math.max(0, Number(availableBeds));
+        row.occupiedBeds = Math.max(0, row.totalBeds - row.availableBeds);
+      }
+      if (row.occupiedBeds > row.totalBeds) {
+        row.occupiedBeds = row.totalBeds;
+        row.availableBeds = 0;
+      }
       await hospital.save();
 
       const io = req.app.get('io');

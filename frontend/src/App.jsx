@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
+import { BrandingProvider } from './context/BrandingContext';
 import { Toaster } from 'react-hot-toast';
 import { SOCKET_URL } from './config';
 import AuthLayout from './layouts/AuthLayout';
@@ -27,10 +28,12 @@ import HospitalEmergencyCenter from './pages/HospitalEmergencyCenter';
 import HospitalDepartments from './pages/HospitalDepartments';
 import ConsultantEarnings from './pages/ConsultantEarnings';
 import HospitalLedger from './pages/HospitalLedger';
+import HospitalSettlements from './pages/HospitalSettlements';
 import AdminOverview from './pages/admin/AdminOverview';
 import AdminApprovals from './pages/admin/AdminApprovals';
 import AdminConsultants from './pages/admin/AdminConsultants';
 import AdminHospitals from './pages/admin/AdminHospitals';
+import AdminSettlements from './pages/admin/AdminSettlements';
 import AdminScoring from './pages/admin/AdminScoring';
 import AdminDepartments from './pages/admin/AdminDepartments';
 import AdminPayouts from './pages/admin/AdminPayouts';
@@ -38,6 +41,8 @@ import AdminSettings from './pages/admin/AdminSettings';
 import AdminReferrals from './pages/admin/AdminReferrals';
 import AdminBeds from './pages/admin/AdminBeds';
 import AdminAudit from './pages/admin/AdminAudit';
+import AdminWhatsApp from './pages/admin/AdminWhatsApp';
+import VerifyPhone from './pages/VerifyPhone';
 const RoleGuard = ({ children, roles }) => {
   const { user, token } = useAuth();
 
@@ -99,12 +104,14 @@ import ProfileSettings from './pages/ProfileSettings';
 function App() {
   return (
     <AuthProvider>
+      <BrandingProvider>
       <SocketListener />
       <Toaster position="top-right" />
       <Router>
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-phone" element={<VerifyPhone />} />
 
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
@@ -131,6 +138,7 @@ function App() {
             <Route path="/hospital/emergency" element={<RoleGuard roles={['hospital']}><HospitalEmergencyCenter /></RoleGuard>} />
             <Route path="/hospital/departments" element={<RoleGuard roles={['hospital']}><HospitalDepartments /></RoleGuard>} />
             <Route path="/hospital/ledger" element={<RoleGuard roles={['hospital']}><HospitalLedger /></RoleGuard>} />
+            <Route path="/hospital/settlements" element={<RoleGuard roles={['hospital']}><HospitalSettlements /></RoleGuard>} />
 
             <Route path="/admin/overview" element={<RoleGuard roles={['admin']}><AdminOverview /></RoleGuard>} />
             <Route path="/admin/approvals" element={<RoleGuard roles={['admin']}><AdminApprovals /></RoleGuard>} />
@@ -139,14 +147,17 @@ function App() {
             <Route path="/admin/scoring" element={<RoleGuard roles={['admin']}><AdminScoring /></RoleGuard>} />
             <Route path="/admin/departments" element={<RoleGuard roles={['admin']}><AdminDepartments /></RoleGuard>} />
             <Route path="/admin/payouts" element={<RoleGuard roles={['admin']}><AdminPayouts /></RoleGuard>} />
+            <Route path="/admin/settlements" element={<RoleGuard roles={['admin']}><AdminSettlements /></RoleGuard>} />
             <Route path="/admin/settings" element={<RoleGuard roles={['admin']}><AdminSettings /></RoleGuard>} />
             <Route path="/admin/referrals" element={<RoleGuard roles={['admin']}><AdminReferrals /></RoleGuard>} />
             <Route path="/admin/beds" element={<RoleGuard roles={['admin']}><AdminBeds /></RoleGuard>} />
             <Route path="/admin/audit" element={<RoleGuard roles={['admin']}><AdminAudit /></RoleGuard>} />
+            <Route path="/admin/whatsapp" element={<RoleGuard roles={['admin']}><AdminWhatsApp /></RoleGuard>} />
             <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
           </Route>
         </Routes>
       </Router>
+      </BrandingProvider>
     </AuthProvider>
   );
 }

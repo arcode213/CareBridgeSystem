@@ -43,6 +43,9 @@ exports.updateProfile = async (req, res) => {
     delete otherData.registrationDocuments;
     delete otherData.walletBalance;
     delete otherData.isActive;
+    delete otherData.userId;
+    delete otherData._id;
+    delete otherData.isRegistrationVerified;
 
     let updatedProfile = {};
 
@@ -56,6 +59,15 @@ exports.updateProfile = async (req, res) => {
           ...otherData.paymentGatewayCredentials
         };
         delete otherData.paymentGatewayCredentials;
+      }
+
+      if (otherData.branding) {
+        const prev = hospital.branding?.toObject?.() || hospital.branding || {};
+        hospital.branding = {
+          primaryColor: otherData.branding.primaryColor ?? prev.primaryColor ?? '#2980b9',
+          logoUrl: otherData.branding.logoUrl ?? prev.logoUrl,
+        };
+        delete otherData.branding;
       }
 
       // Update other fields
@@ -119,6 +131,49 @@ exports.toggleFavoriteHospital = async (req, res) => {
   } catch (error) {
     console.error('Toggle favorite error:', error);
     res.status(500).json({ success: false, message: 'Server error updating favorites' });
+  }
+};
+
+/** Replace or add a verification / registration document by name */
+exports.upsertProfileDocument = async (req, res) => {
+  try {
+    const { name, url } = req.body;
+    if (!name || !url) {
+      return res.status(400).json({ success: false, message: 'Document name and url are required' });
+    }
+
+    const docName = String(name).trim();
+    const docUrl = String(url).trim();
+    const user = await User.findById(req.user.id);
+
+    if (user.role === 'consultant') {
+      const consultant = await Consultant.findOne({ userId: user._id });
+      if (!consultant) {
+        return res.status(404).json({ success: false, message: 'Consultant profile not found' });
+      }
+      const docs = (consultant.verificationDocuments || []).filter((d) => d.name !== docName);
+      docs.push({ name: docName, url: docUrl, uploadedAt: new Date() });
+      consultant.verificationDocuments = docs;
+      await consultant.save();
+      return res.json({ success: true, data: consultant.verificationDocuments });
+    }
+
+    if (user.role === 'hospital') {
+      const hospital = await Hospital.findOne({ userId: user._id });
+      if (!hospital) {
+        return res.status(404).json({ success: false, message: 'Hospital profile not found' });
+      }
+      const docs = (hospital.registrationDocuments || []).filter((d) => d.name !== docName);
+      docs.push({ name: docName, url: docUrl, uploadedAt: new Date() });
+      hospital.registrationDocuments = docs;
+      await hospital.save();
+      return res.json({ success: true, data: hospital.registrationDocuments });
+    }
+
+    return res.status(403).json({ success: false, message: 'Documents not supported for this role' });
+  } catch (error) {
+    console.error('upsertProfileDocument error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update document' });
   }
 };
 

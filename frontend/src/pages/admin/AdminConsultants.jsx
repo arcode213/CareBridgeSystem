@@ -32,6 +32,10 @@ const AdminConsultants = () => {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [activeTab, setActiveTab] = useState('performance'); // performance or logs
   const [customComm, setCustomComm] = useState(60);
+  const [patients, setPatients] = useState([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [consultantEditOpen, setConsultantEditOpen] = useState(false);
+  const [consultantEditForm, setConsultantEditForm] = useState({});
 
   useEffect(() => {
     if (profileData?.profile?.commissionPercentage != null) {
@@ -59,6 +63,20 @@ const AdminConsultants = () => {
     };
     fetchProfile();
   }, [selected]);
+
+  useEffect(() => {
+    if (!selected?._id) {
+      setPatients([]);
+      return;
+    }
+    setPatientsLoading(true);
+    api.get(`/admin/consultants/${selected._id}/patients`)
+      .then((res) => {
+        if (res.data.success) setPatients(res.data.data || []);
+      })
+      .catch(() => toast.error('Failed to load referred patients'))
+      .finally(() => setPatientsLoading(false));
+  }, [selected?._id]);
 
   const load = useCallback(async () => {
     try {
@@ -103,6 +121,36 @@ const AdminConsultants = () => {
       } finally {
         setActionId(null);
       }
+    }
+  };
+
+  const openConsultantEdit = () => {
+    const p = profileData?.profile || selected?.profile || {};
+    setConsultantEditForm({
+      specialty: p.specialty || '',
+      clinicName: p.clinicName || '',
+      clinicAddress: p.clinicAddress || '',
+      city: p.city || '',
+      cnic: p.cnic || '',
+      commissionPercentage: p.commissionPercentage ?? 60,
+      isVerified: p.isVerified === true,
+    });
+    setConsultantEditOpen(true);
+  };
+
+  const saveConsultantEdit = async () => {
+    setActionId(selected._id);
+    try {
+      await api.patch(`/admin/consultants/${selected._id}`, consultantEditForm);
+      toast.success('Consultant profile updated');
+      setConsultantEditOpen(false);
+      const res = await api.get(`/admin/consultants/${selected._id}/profile`);
+      if (res.data.success) setProfileData(res.data.data);
+      await load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Update failed');
+    } finally {
+      setActionId(null);
     }
   };
 
@@ -264,6 +312,13 @@ const AdminConsultants = () => {
                     {actionId === selected._id ? '…' : selected.status === 'active' ? 'Suspend' : 'Activate'}
                   </button>
                   <button
+                    type="button"
+                    onClick={openConsultantEdit}
+                    className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Edit profile
+                  </button>
+                  <button
                     onClick={() => handleChangePassword(selected._id)}
                     className="px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
                   >
@@ -375,6 +430,42 @@ const AdminConsultants = () => {
                           <p className="text-xl font-extrabold text-indigo-700 mt-1">{profileData.profile.performance.successRate}%</p>
                         </div>
                       </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider">Referred patients</h4>
+                      {patientsLoading ? (
+                        <p className="text-xs text-slate-500">Loading patients…</p>
+                      ) : patients.length === 0 ? (
+                        <p className="text-xs text-slate-500">No referrals yet.</p>
+                      ) : (
+                        <div className="rounded-xl border border-slate-100 overflow-x-auto max-h-48 overflow-y-auto">
+                          <table className="min-w-full text-xs">
+                            <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                              <tr>
+                                <th className="px-2 py-1.5 text-left">Code</th>
+                                <th className="px-2 py-1.5 text-left">Patient</th>
+                                <th className="px-2 py-1.5 text-left">Hospital</th>
+                                <th className="px-2 py-1.5 text-left">Dept</th>
+                                <th className="px-2 py-1.5 text-left">Room/Bed</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {patients.map((p) => (
+                                <tr key={p._id}>
+                                  <td className="px-2 py-1.5 font-mono text-blue-600">{p.referralCode}</td>
+                                  <td className="px-2 py-1.5">{p.patientName}</td>
+                                  <td className="px-2 py-1.5">{p.targetHospitalId?.hospitalName || '—'}</td>
+                                  <td className="px-2 py-1.5">{p.admission?.admissionDepartment || p.department || '—'}</td>
+                                  <td className="px-2 py-1.5">
+                                    {p.admission ? `R${p.admission.roomNumber} B${p.admission.bedNumber}` : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
 
                     {/* 4. Wallet Section */}
@@ -515,6 +606,27 @@ const AdminConsultants = () => {
           </div>
         )}
       </DetailModal>
+
+      {consultantEditOpen && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold">Edit consultant</h3>
+            <input className="w-full border rounded-xl px-3 py-2 text-sm" placeholder="Specialty" value={consultantEditForm.specialty || ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, specialty: e.target.value })} />
+            <input className="w-full border rounded-xl px-3 py-2 text-sm" placeholder="CNIC" value={consultantEditForm.cnic || ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, cnic: e.target.value })} />
+            <input className="w-full border rounded-xl px-3 py-2 text-sm" placeholder="Clinic name" value={consultantEditForm.clinicName || ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, clinicName: e.target.value })} />
+            <textarea className="w-full border rounded-xl px-3 py-2 text-sm" rows={2} placeholder="Clinic address" value={consultantEditForm.clinicAddress || ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, clinicAddress: e.target.value })} />
+            <input className="w-full border rounded-xl px-3 py-2 text-sm" type="number" placeholder="Commission %" value={consultantEditForm.commissionPercentage ?? ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, commissionPercentage: Number(e.target.value) })} />
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={consultantEditForm.isVerified === true} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, isVerified: e.target.checked })} />
+              PMDC / profile verified
+            </label>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setConsultantEditOpen(false)} className="px-4 py-2 text-sm text-slate-500">Cancel</button>
+              <button type="button" onClick={saveConsultantEdit} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

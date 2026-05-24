@@ -1,6 +1,8 @@
+const mongoose = require('mongoose');
 const Admission = require('../models/Admission');
 const Referral = require('../models/Referral');
 const Hospital = require('../models/Hospital');
+const HospitalDoctor = require('../models/HospitalDoctor');
 const Consultant = require('../models/Consultant');
 const Payout = require('../models/Payout');
 const PlatformSettings = require('../models/PlatformSettings');
@@ -14,6 +16,7 @@ exports.listAdmissions = async (req, res) => {
     const rows = await Admission.find({ hospitalId: hospital._id })
       .populate('referralId', 'referralCode patientName urgency status department')
       .populate('consultantId', 'pmdcNumber')
+      .populate('treatingDoctorId', 'name specialty')
       .sort({ updatedAt: -1 });
     res.json({ success: true, data: rows });
   } catch (e) {
@@ -29,9 +32,20 @@ exports.createAdmission = async (req, res) => {
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
-    const { referralId } = req.body;
-    if (!referralId) {
-      return res.status(400).json({ success: false, message: 'referralId required' });
+    const { referralId, roomNumber, bedNumber, admissionDepartment, treatingDoctorId } = req.body;
+    const room = roomNumber != null ? String(roomNumber).trim() : '';
+    const bed = bedNumber != null ? String(bedNumber).trim() : '';
+    const dept = admissionDepartment != null ? String(admissionDepartment).trim() : '';
+
+    if (!referralId || !room || !bed || !dept || !treatingDoctorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'referralId, roomNumber, bedNumber, admissionDepartment, and treatingDoctorId are all required.'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(treatingDoctorId)) {
+      return res.status(400).json({ success: false, message: 'Invalid treating doctor' });
     }
 
     const referral = await Referral.findOne({
@@ -51,10 +65,22 @@ exports.createAdmission = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Admission already exists for this referral' });
     }
 
+    const doctor = await HospitalDoctor.findOne({
+      _id: treatingDoctorId,
+      hospitalId: hospital._id,
+    });
+    if (!doctor) {
+      return res.status(400).json({ success: false, message: 'Treating doctor not found at this hospital' });
+    }
+
     const admission = await Admission.create({
       referralId: referral._id,
       hospitalId: hospital._id,
       consultantId: referral.consultantId,
+      roomNumber: room,
+      bedNumber: bed,
+      admissionDepartment: dept,
+      treatingDoctorId: doctor._id,
       status: 'active',
       admitDate: new Date(),
     });
@@ -101,7 +127,56 @@ exports.updateAdmission = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Admission is already finalized' });
     }
 
-    const { services, billTotalPaisa, paymentMethod, paymentReference, notes, dischargeDate, status } = req.body;
+    const {
+      services,
+      billTotalPaisa,
+      paymentMethod,
+      paymentReference,
+      notes,
+      dischargeDate,
+      status,
+      roomNumber,
+      bedNumber,
+      admissionDepartment,
+      treatingDoctorId,
+    } = req.body;
+
+    if (admission.status === 'active') {
+      if (roomNumber != null) {
+        const room = String(roomNumber).trim();
+        if (!room) {
+          return res.status(400).json({ success: false, message: 'Room number cannot be empty' });
+        }
+        admission.roomNumber = room;
+      }
+      if (bedNumber != null) {
+        const bed = String(bedNumber).trim();
+        if (!bed) {
+          return res.status(400).json({ success: false, message: 'Bed number cannot be empty' });
+        }
+        admission.bedNumber = bed;
+      }
+      if (admissionDepartment != null) {
+        const dept = String(admissionDepartment).trim();
+        if (!dept) {
+          return res.status(400).json({ success: false, message: 'Admission department cannot be empty' });
+        }
+        admission.admissionDepartment = dept;
+      }
+      if (treatingDoctorId != null) {
+        if (!mongoose.Types.ObjectId.isValid(treatingDoctorId)) {
+          return res.status(400).json({ success: false, message: 'Invalid treating doctor' });
+        }
+        const doctor = await HospitalDoctor.findOne({
+          _id: treatingDoctorId,
+          hospitalId: hospital._id,
+        });
+        if (!doctor) {
+          return res.status(400).json({ success: false, message: 'Treating doctor not found at this hospital' });
+        }
+        admission.treatingDoctorId = doctor._id;
+      }
+    }
 
     if (Array.isArray(services)) {
       admission.services = services.map((s) => ({
