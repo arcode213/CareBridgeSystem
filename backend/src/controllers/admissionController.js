@@ -139,6 +139,7 @@ exports.updateAdmission = async (req, res) => {
       bedNumber,
       admissionDepartment,
       treatingDoctorId,
+      patientBillFileUrl,
     } = req.body;
 
     if (admission.status === 'active') {
@@ -187,6 +188,7 @@ exports.updateAdmission = async (req, res) => {
     if (billTotalPaisa != null) admission.billTotalPaisa = Math.max(0, Number(billTotalPaisa));
     if (paymentMethod) admission.paymentMethod = paymentMethod;
     if (paymentReference != null) admission.paymentReference = String(paymentReference).trim();
+    if (patientBillFileUrl != null) admission.patientBillFileUrl = String(patientBillFileUrl).trim();
     if (notes != null) admission.notes = String(notes).trim();
     if (dischargeDate) admission.dischargeDate = new Date(dischargeDate);
     if (status === 'discharged') admission.status = 'discharged';
@@ -232,6 +234,13 @@ exports.completeAdmission = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Select payment method (cash, jazzcash, easypaisa, bank_transfer)',
+      });
+    }
+
+    if (!admission.patientBillFileUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Patient bill file is mandatory. Please upload the bill receipt/document before finalizing.',
       });
     }
 

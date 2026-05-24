@@ -27,8 +27,8 @@ exports.finalizeAdmission = async (admissionId, paymentMethod, paymentReference,
   const defaultHospitalCut = settings?.defaultHospitalDeductionPercentage ?? 20;
   const defaultConsultantCut = settings?.defaultConsultantCommissionPercentage ?? 60;
 
-  const deductionPercentage = hospital?.deductionPercentage ?? defaultHospitalCut;
-  const commissionPercentage = consultant?.commissionPercentage ?? defaultConsultantCut;
+  const deductionPercentage = hospital?.deductionPercentage || defaultHospitalCut;
+  const commissionPercentage = consultant?.commissionPercentage || defaultConsultantCut;
 
   const totalBillPaisa = bill;
   const platformCutPaisa = Math.round(totalBillPaisa * (deductionPercentage / 100));

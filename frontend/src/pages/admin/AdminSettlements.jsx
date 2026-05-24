@@ -306,8 +306,34 @@ const AdminSettlements = () => {
                 </div>
               </div>
 
+              {/* Individual Patient Bills */}
+              {selectedSettlement.admissionIds?.length > 0 && (
+                <div className="space-y-3 pt-3">
+                  <h4 className="text-xs font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest">Individual Patient Bills</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {selectedSettlement.admissionIds.map(adm => (
+                      <div key={adm._id} className="p-3 bg-slate-50 dark:bg-slate-950/20 border border-slate-150 dark:border-slate-850 rounded-xl">
+                        <div className="flex justify-between items-center mb-2">
+                           <span className="font-bold text-xs text-slate-700 dark:text-slate-300">Patient: {adm.referralId?.patientName || 'Unknown'}</span>
+                           <span className="font-mono text-[10px] text-slate-500">{adm.referralId?.referralCode}</span>
+                        </div>
+                        {adm.patientBillFileUrl ? (
+                          <a href={adm.patientBillFileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[11px] font-bold text-indigo-500 hover:text-indigo-700 underline">
+                            <FileText size={14} /> View Patient Receipt
+                          </a>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic flex items-center gap-1">
+                            <AlertCircle size={12} /> No receipt uploaded
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Audit Action Bar: Verify Hospital payment */}
-              {selectedSettlement.status === 'pending_admin_verification' && (
+              {(selectedSettlement.status === 'pending_admin_verification' || selectedSettlement.status === 'pending_payment') && (
                 <div className="bg-slate-50 dark:bg-slate-950/40 p-4 border border-slate-150 dark:border-slate-800 rounded-xl space-y-4 transition-colors">
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-indigo-550 shrink-0" />
@@ -362,7 +388,7 @@ const AdminSettlements = () => {
               )}
 
               {/* Consultant payouts detail panel: Admin uploads payout screenshots */}
-              {(selectedSettlement.status === 'paid_pending_consultant_payout' || selectedSettlement.status === 'paid_pending_consultant_verification' || selectedSettlement.status === 'completed') && (
+              {selectedSettlement.consultantPayouts?.length > 0 && (
                 <div className="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-5 transition-colors">
                   <h4 className="text-xs font-black text-slate-450 dark:text-slate-500 uppercase tracking-widest">Manual Doctor Payout Approvals Grid</h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-1 leading-normal">Transfer commissions manually to each doctor's preferred account. Then upload payout transfer screenshots.</p>
@@ -455,17 +481,23 @@ const AdminSettlements = () => {
                             {/* Uploader */}
                             {pay.status === 'pending_payout' && (
                               <div>
-                                <label className="flex items-center justify-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-lg shadow-sm cursor-pointer transition-colors active:scale-95">
-                                  <Upload size={13} />
-                                  {isUploading ? 'Uploading...' : 'Attach Transfer Receipt'}
-                                  <input
-                                    type="file"
-                                    accept=".pdf,.png,.jpg,.jpeg"
-                                    onChange={e => handleUploadPayoutReceipt(selectedSettlement._id, pay.consultantId._id, e.target.files[0])}
-                                    disabled={isUploading}
-                                    className="hidden"
-                                  />
-                                </label>
+                                {['paid_pending_consultant_payout', 'paid_pending_consultant_verification'].includes(selectedSettlement.status) ? (
+                                  <label className="flex items-center justify-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-lg shadow-sm cursor-pointer transition-colors active:scale-95">
+                                    <Upload size={13} />
+                                    {isUploading ? 'Uploading...' : 'Attach Transfer Receipt'}
+                                    <input
+                                      type="file"
+                                      accept=".pdf,.png,.jpg,.jpeg"
+                                      onChange={e => handleUploadPayoutReceipt(selectedSettlement._id, pay.consultantId._id, e.target.files[0])}
+                                      disabled={isUploading}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 italic font-bold text-right block">
+                                    Verify hospital payment first to unlock upload
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>

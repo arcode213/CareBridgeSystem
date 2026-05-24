@@ -4,7 +4,7 @@ const Hospital = require('../models/Hospital');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendEmail, sendResetPasswordEmail } = require('../utils/emailService');
+const { sendVerificationEmail, sendResetPasswordEmail } = require('../utils/emailService');
 const { sendOtpWhatsApp, sendWhatsApp, normalisePhone } = require('../utils/whatsappService');
 const { generateOtp, verifyOtp, hasLiveOtp } = require('../utils/otpService');
 const notificationService = require('../services/notificationService');
@@ -140,13 +140,9 @@ exports.register = async (req, res) => {
     user.emailVerificationExpires = emailTokenExpires;
     await user.save();
     
-    // Send Verification Email (async)
-    sendEmail(user.email, 'CareBridge - Verify Your Email', `
-      <h1>Welcome to CareBridge Health</h1>
-      <p>Please verify your email address to complete your registration.</p>
-      <a href="${process.env.FRONTEND_URL}/verify-email?token=${emailToken}" style="display:inline-block;padding:10px 20px;background:#10b981;color:#fff;text-decoration:none;border-radius:5px;">Verify Email</a>
-      <p>Or copy this link: ${process.env.FRONTEND_URL}/verify-email?token=${emailToken}</p>
-    `).catch(err => console.error('Failed to send verification email:', err));
+    sendVerificationEmail(user, emailToken).catch((err) =>
+      console.error('Failed to send verification email:', err.message || err)
+    );
 
     // Dual Verification: 2. Generate and send WhatsApp OTP
     const otp = generateOtp(e164Phone);
@@ -450,11 +446,7 @@ exports.resendVerification = async (req, res) => {
     user.emailVerificationExpires = emailTokenExpires;
     await user.save();
 
-    await sendEmail(user.email, 'CareBridge - Verify Your Email', `
-      <h1>Welcome back to CareBridge Health</h1>
-      <p>Please verify your email address to log in.</p>
-      <a href="${process.env.FRONTEND_URL}/verify-email?token=${emailToken}" style="display:inline-block;padding:10px 20px;background:#10b981;color:#fff;text-decoration:none;border-radius:5px;">Verify Email</a>
-    `);
+    await sendVerificationEmail(user, emailToken);
 
     res.status(200).json({ success: true, message: 'A new verification email has been sent.' });
   } catch (error) {

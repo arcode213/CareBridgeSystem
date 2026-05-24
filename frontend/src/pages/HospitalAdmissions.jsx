@@ -26,7 +26,9 @@ const HospitalAdmissions = () => {
     billTotalPaisa: '',
     paymentMethod: 'cash',
     paymentReference: '',
+    patientBillFileUrl: '',
   });
+  const [uploadingBill, setUploadingBill] = useState(false);
 
   const [admittingReferral, setAdmittingReferral] = useState(null);
   const [admitForm, setAdmitForm] = useState({
@@ -135,18 +137,11 @@ const HospitalAdmissions = () => {
 
   const saveAdmission = async (id) => {
     try {
-      const services = [];
-      if (form.serviceDesc && form.serviceAmount) {
-        services.push({
-          description: form.serviceDesc,
-          amountPaisa: Math.round(Number(form.serviceAmount) * 100),
-        });
-      }
       await api.patch(`/hospitals/admissions/${id}`, {
-        services,
+        services: [], // Services removed per request
         billTotalPaisa: Math.round(Number(form.billTotalPaisa) * 100),
         paymentMethod: form.paymentMethod,
-        paymentReference: form.paymentReference || undefined,
+        patientBillFileUrl: form.patientBillFileUrl || undefined,
       });
       toast.success('Billing draft saved.');
       setExpanded(null);
@@ -159,43 +154,14 @@ const HospitalAdmissions = () => {
   const complete = async (id) => {
     try {
       // 1. Always save current form data first to ensure DB has the latest bill total
-      const services = [];
-      if (form.serviceDesc && form.serviceAmount) {
-        services.push({
-          description: form.serviceDesc,
-          amountPaisa: Math.round(Number(form.serviceAmount) * 100),
-        });
-      }
-      
       await api.patch(`/hospitals/admissions/${id}`, {
-        services,
+        services: [], // Services removed per request
         billTotalPaisa: Math.round(Number(form.billTotalPaisa) * 100),
         paymentMethod: form.paymentMethod,
-        paymentReference: form.paymentReference || undefined,
+        patientBillFileUrl: form.patientBillFileUrl || undefined,
       });
 
-      // 2. Handle JazzCash specifically
-      if (form.paymentMethod === 'jazzcash') {
-        const res = await api.get(`/payments/initiate-jazzcash/${id}`);
-        if (res.data.success) {
-          const { url, params } = res.data.data;
-          const formEl = document.createElement('form');
-          formEl.method = 'POST';
-          formEl.action = url;
-          Object.entries(params).forEach(([key, value]) => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = value;
-            formEl.appendChild(input);
-          });
-          document.body.appendChild(formEl);
-          formEl.submit();
-          return;
-        }
-      }
-
-      // 3. Finalize for other methods
+      // 2. Finalize
       await api.post(`/hospitals/admissions/${id}/complete`);
       toast.success('Case closed — consultant payout triggered.');
       setExpanded(null);
@@ -370,31 +336,12 @@ const HospitalAdmissions = () => {
                             <p className="text-xs text-slate-500">Record services and confirm payment method</p>
                           </div>
                           <div className="text-right bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Consultant Payout Accrual</p>
-                            <p className="font-bold text-blue-700">1,000 PKR <span className="font-normal text-xs text-blue-500">flat rate</span></p>
+                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Status</p>
+                            <p className="font-bold text-blue-700">Billing in Progress</p>
                           </div>
                         </div>
 
                         <div className="grid sm:grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-600">Service Description</label>
-                            <input
-                              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                              placeholder="e.g. ICU Stay & Meds"
-                              value={form.serviceDesc}
-                              onChange={(e) => setForm({ ...form, serviceDesc: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-600">Line Amount (PKR)</label>
-                            <input
-                              type="number"
-                              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                              placeholder="0.00"
-                              value={form.serviceAmount}
-                              onChange={(e) => setForm({ ...form, serviceAmount: e.target.value })}
-                            />
-                          </div>
                           <div className="space-y-1 sm:col-span-2">
                             <label className="text-xs font-semibold text-slate-600">Total Patient Bill (PKR) <span className="text-red-500">*</span></label>
                             <input
@@ -405,7 +352,7 @@ const HospitalAdmissions = () => {
                               onChange={(e) => setForm({ ...form, billTotalPaisa: e.target.value })}
                             />
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-1 sm:col-span-2">
                             <label className="text-xs font-semibold text-slate-600">Payment Gateway <span className="text-red-500">*</span></label>
                             <select
                               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
@@ -419,14 +366,42 @@ const HospitalAdmissions = () => {
                               ))}
                             </select>
                           </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-600">Transaction Ref (Optional)</label>
-                            <input
-                              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                              placeholder="e.g. TID-12345"
-                              value={form.paymentReference}
-                              onChange={(e) => setForm({ ...form, paymentReference: e.target.value })}
-                            />
+                          <div className="space-y-1 sm:col-span-2">
+                            <label className="text-xs font-semibold text-slate-600">Patient Bill Document (Image/PDF) <span className="text-red-500">*</span></label>
+                            <div className="flex items-center gap-3">
+                              <label className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors text-sm font-semibold text-slate-700">
+                                {uploadingBill ? 'Uploading...' : 'Upload File'}
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept=".pdf,.png,.jpg,.jpeg"
+                                  disabled={uploadingBill}
+                                  onChange={async (e) => {
+                                    const file = e.target.files[0];
+                                    if (!file) return;
+                                    setUploadingBill(true);
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+                                    try {
+                                      const res = await api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                                      if (res.data.success) {
+                                        setForm({ ...form, patientBillFileUrl: res.data.url });
+                                        toast.success('Bill document uploaded!');
+                                      }
+                                    } catch (err) {
+                                      toast.error('Failed to upload document');
+                                    } finally {
+                                      setUploadingBill(false);
+                                    }
+                                  }}
+                                />
+                              </label>
+                              {form.patientBillFileUrl && (
+                                <a href={form.patientBillFileUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline font-bold">
+                                  View Uploaded Bill
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -461,11 +436,9 @@ const HospitalAdmissions = () => {
                         onClick={() => {
                           setExpanded(a._id);
                           setForm({
-                            serviceDesc: '',
-                            serviceAmount: '',
                             billTotalPaisa: a.billTotalPaisa ? String(a.billTotalPaisa / 100) : '',
                             paymentMethod: a.paymentMethod || 'cash',
-                            paymentReference: a.paymentReference || '',
+                            patientBillFileUrl: a.patientBillFileUrl || '',
                           });
                         }}
                         className="mt-3 px-4 py-2 bg-blue-50 text-blue-700 font-semibold rounded-xl text-sm hover:bg-blue-100 transition-colors w-fit flex items-center gap-2"

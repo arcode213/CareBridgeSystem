@@ -27,7 +27,13 @@ exports.listPendingAdmissions = async (req, res) => {
     })
     .sort({ completedAt: -1 });
 
-    res.json({ success: true, data: admissions });
+    const results = admissions.map(adm => {
+      const doc = adm.toObject();
+      doc.calculatedPlatformCutPaisa = Math.round((doc.billTotalPaisa || 0) * ((hospital.deductionPercentage || 20) / 100));
+      return doc;
+    });
+
+    res.json({ success: true, data: results });
   } catch (error) {
     console.error('[LIST_PENDING_ADMISSIONS_ERROR]', error);
     res.status(500).json({ success: false, message: 'Failed to fetch pending admissions' });
@@ -188,14 +194,26 @@ exports.listHospitalSettlements = async (req, res) => {
     }
 
     const settlements = await WeeklySettlement.find({ hospitalId: hospital._id })
-      .populate('admissionIds', 'referralId billTotalPaisa status completedAt')
+      .populate('admissionIds', 'referralId billTotalPaisa status completedAt patientBillFileUrl')
       .populate({
         path: 'consultantPayouts.consultantId',
         populate: { path: 'userId', select: 'name payoutAccount' }
       })
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, data: settlements });
+    const results = settlements.map(s => {
+      const doc = s.toObject();
+      if (doc.consultantPayouts) {
+        doc.consultantPayouts = doc.consultantPayouts.map(p => {
+          delete p.amountPaisa;
+          delete p.commissionPercentage;
+          return p;
+        });
+      }
+      return doc;
+    });
+
+    res.json({ success: true, data: results });
   } catch (error) {
     console.error('[LIST_HOSPITAL_SETTLEMENTS_ERROR]', error);
     res.status(500).json({ success: false, message: 'Failed to list settlements' });
@@ -207,7 +225,7 @@ exports.adminListSettlements = async (req, res) => {
   try {
     const settlements = await WeeklySettlement.find()
       .populate('hospitalId', 'hospitalName deductionPercentage')
-      .populate('admissionIds', 'billTotalPaisa completedAt')
+      .populate('admissionIds', 'billTotalPaisa completedAt patientBillFileUrl referralId')
       .populate({
         path: 'consultantPayouts.consultantId',
         populate: { path: 'userId', select: 'name payoutAccount' }
@@ -236,8 +254,8 @@ exports.adminVerifyHospitalReceipt = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Settlement not found' });
     }
 
-    if (settlement.status !== 'pending_admin_verification') {
-      return res.status(400).json({ success: false, message: 'Settlement is not in pending verification state' });
+    if (!['pending_admin_verification', 'pending_payment'].includes(settlement.status)) {
+      return res.status(400).json({ success: false, message: 'Settlement is not in a verifiable state' });
     }
 
     if (action === 'approve') {

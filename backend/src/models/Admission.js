@@ -30,7 +30,7 @@ const AdmissionSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       enum: ['pending', 'cash', 'jazzcash', 'easypaisa', 'bank_transfer'],
-      default: 'pending',
+      default: 'cash',
     },
     paymentReference: { type: String, trim: true },
     notes: { type: String, trim: true },
@@ -44,6 +44,7 @@ const AdmissionSchema = new mongoose.Schema(
     bedNumber: { type: String, required: true },
     admissionDepartment: { type: String, required: true },
     treatingDoctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'HospitalDoctor', required: true },
+    patientBillFileUrl: { type: String }, // User-uploaded bill file for this admission
   },
   { timestamps: true }
 );
