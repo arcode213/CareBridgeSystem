@@ -233,7 +233,7 @@ exports.completeAdmission = async (req, res) => {
     if (pm === 'pending') {
       return res.status(400).json({
         success: false,
-        message: 'Select payment method (cash, jazzcash, easypaisa, bank_transfer)',
+        message: 'Select payment method (manual, cash, jazzcash, easypaisa, bank_transfer)',
       });
     }
 

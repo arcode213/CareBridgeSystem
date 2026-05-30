@@ -7,12 +7,7 @@ import { useAdmissions, useHospitalPipeline } from '../hooks/useReferrals';
 import { useQueryClient } from '@tanstack/react-query';
 import Loader from '../components/Loader';
 
-const PAYMENT_OPTIONS = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'jazzcash', label: 'JazzCash' },
-  { value: 'easypaisa', label: 'EasyPaisa' },
-  { value: 'bank_transfer', label: 'Bank transfer' },
-];
+
 
 const HospitalAdmissions = () => {
   const queryClient = useQueryClient();
@@ -21,14 +16,48 @@ const HospitalAdmissions = () => {
   
   const [expanded, setExpanded] = useState(null);
   const [form, setForm] = useState({
-    serviceDesc: '',
-    serviceAmount: '',
-    billTotalPaisa: '',
-    paymentMethod: 'cash',
+    services: [{ description: '', amount: '' }],
+    billTotalPaisa: '0',
+    paymentMethod: 'manual',
     paymentReference: '',
     patientBillFileUrl: '',
   });
   const [uploadingBill, setUploadingBill] = useState(false);
+
+  const addServiceRow = () => {
+    const updatedServices = [...(form.services || []), { description: '', amount: '' }];
+    const total = updatedServices.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+    setForm({
+      ...form,
+      services: updatedServices,
+      billTotalPaisa: String(total),
+    });
+  };
+
+  const updateServiceRow = (index, field, value) => {
+    const updatedServices = (form.services || []).map((s, idx) => {
+      if (idx === index) {
+        return { ...s, [field]: value };
+      }
+      return s;
+    });
+    const total = updatedServices.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+    setForm({
+      ...form,
+      services: updatedServices,
+      billTotalPaisa: String(total),
+    });
+  };
+
+  const removeServiceRow = (index) => {
+    const updatedServices = (form.services || []).filter((_, idx) => idx !== index);
+    const total = updatedServices.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+    setForm({
+      ...form,
+      services: updatedServices,
+      billTotalPaisa: String(total || 0),
+    });
+  };
 
   const [admittingReferral, setAdmittingReferral] = useState(null);
   const [admitForm, setAdmitForm] = useState({
@@ -137,10 +166,16 @@ const HospitalAdmissions = () => {
 
   const saveAdmission = async (id) => {
     try {
+      const servicesPayload = (form.services || [])
+        .filter(s => s.description.trim())
+        .map(s => ({
+          description: s.description.trim(),
+          amountPaisa: Math.round((Number(s.amount) || 0) * 100),
+        }));
       await api.patch(`/hospitals/admissions/${id}`, {
-        services: [], // Services removed per request
+        services: servicesPayload,
         billTotalPaisa: Math.round(Number(form.billTotalPaisa) * 100),
-        paymentMethod: form.paymentMethod,
+        paymentMethod: 'manual',
         patientBillFileUrl: form.patientBillFileUrl || undefined,
       });
       toast.success('Billing draft saved.');
@@ -153,11 +188,17 @@ const HospitalAdmissions = () => {
 
   const complete = async (id) => {
     try {
+      const servicesPayload = (form.services || [])
+        .filter(s => s.description.trim())
+        .map(s => ({
+          description: s.description.trim(),
+          amountPaisa: Math.round((Number(s.amount) || 0) * 100),
+        }));
       // 1. Always save current form data first to ensure DB has the latest bill total
       await api.patch(`/hospitals/admissions/${id}`, {
-        services: [], // Services removed per request
+        services: servicesPayload,
         billTotalPaisa: Math.round(Number(form.billTotalPaisa) * 100),
-        paymentMethod: form.paymentMethod,
+        paymentMethod: 'manual',
         patientBillFileUrl: form.patientBillFileUrl || undefined,
       });
 
@@ -169,7 +210,7 @@ const HospitalAdmissions = () => {
       queryClient.invalidateQueries({ queryKey: ['pipeline'] });
     } catch (e) {
       console.error('Finalization failed:', e);
-      toast.error(e.response?.data?.message || 'Finalization failed. Ensure bill total and payment method are set.');
+      toast.error(e.response?.data?.message || 'Finalization failed. Ensure bill total is set.');
     }
   };
 
@@ -341,31 +382,55 @@ const HospitalAdmissions = () => {
                           </div>
                         </div>
 
-                        <div className="grid sm:grid-cols-2 gap-4">
-                          <div className="space-y-1 sm:col-span-2">
-                            <label className="text-xs font-semibold text-slate-600">Total Patient Bill (PKR) <span className="text-red-500">*</span></label>
-                            <input
-                              type="number"
-                              className="w-full rounded-xl border border-slate-200 px-4 py-3 text-lg font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all bg-white shadow-sm"
-                              placeholder="0.00"
-                              value={form.billTotalPaisa}
-                              onChange={(e) => setForm({ ...form, billTotalPaisa: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1 sm:col-span-2">
-                            <label className="text-xs font-semibold text-slate-600">Payment Gateway <span className="text-red-500">*</span></label>
-                            <select
-                              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
-                              value={form.paymentMethod}
-                              onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block">Billing Services & Procedures</label>
+                            {(form.services || []).map((service, index) => (
+                              <div key={index} className="flex gap-2 items-center">
+                                <input
+                                  type="text"
+                                  placeholder="Service / Procedure description (e.g. Lab test, Consultation)"
+                                  className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                  value={service.description}
+                                  onChange={(e) => updateServiceRow(index, 'description', e.target.value)}
+                                />
+                                <input
+                                  type="number"
+                                  placeholder="PKR"
+                                  className="w-28 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white text-right font-semibold"
+                                  value={service.amount}
+                                  onChange={(e) => updateServiceRow(index, 'amount', e.target.value)}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeServiceRow(index)}
+                                  className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors shrink-0 font-bold"
+                                  title="Remove Service"
+                                >
+                                  &times;
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={addServiceRow}
+                              className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1"
                             >
-                              {PAYMENT_OPTIONS.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
+                              + Add Billing Service Line
+                            </button>
                           </div>
+
+                          <div className="grid sm:grid-cols-2 gap-4 border-t border-slate-200 pt-4">
+                            <div className="space-y-1 sm:col-span-2">
+                              <label className="text-xs font-semibold text-slate-600">Total Patient Bill (PKR) <span className="text-red-500">*</span></label>
+                              <input
+                                type="number"
+                                readOnly
+                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-lg font-bold text-slate-800 bg-slate-50 outline-none transition-all shadow-sm cursor-not-allowed"
+                                placeholder="0.00"
+                                value={form.billTotalPaisa}
+                              />
+                            </div>
                           <div className="space-y-1 sm:col-span-2">
                             <label className="text-xs font-semibold text-slate-600">Patient Bill Document (Image/PDF) <span className="text-red-500">*</span></label>
                             <div className="flex items-center gap-3">
@@ -404,6 +469,7 @@ const HospitalAdmissions = () => {
                             </div>
                           </div>
                         </div>
+                      </div>
 
                         <div className="mt-6 flex flex-wrap gap-3 items-center justify-end border-t border-slate-200 pt-4">
                           <button
@@ -436,8 +502,11 @@ const HospitalAdmissions = () => {
                         onClick={() => {
                           setExpanded(a._id);
                           setForm({
-                            billTotalPaisa: a.billTotalPaisa ? String(a.billTotalPaisa / 100) : '',
-                            paymentMethod: a.paymentMethod || 'cash',
+                            services: a.services && a.services.length > 0
+                              ? a.services.map(s => ({ description: s.description, amount: String(s.amountPaisa / 100) }))
+                              : [{ description: '', amount: '' }],
+                            billTotalPaisa: a.billTotalPaisa ? String(a.billTotalPaisa / 100) : '0',
+                            paymentMethod: 'manual',
                             patientBillFileUrl: a.patientBillFileUrl || '',
                           });
                         }}

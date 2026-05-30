@@ -29,8 +29,8 @@ const AdmissionSchema = new mongoose.Schema(
     billTotalPaisa: { type: Number, min: 0 },
     paymentMethod: {
       type: String,
-      enum: ['pending', 'cash', 'jazzcash', 'easypaisa', 'bank_transfer'],
-      default: 'cash',
+      enum: ['pending', 'cash', 'jazzcash', 'easypaisa', 'bank_transfer', 'manual'],
+      default: 'manual',
     },
     paymentReference: { type: String, trim: true },
     notes: { type: String, trim: true },

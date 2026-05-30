@@ -4,14 +4,12 @@ import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
 import DetailModal from '../components/DetailModal';
-import WithdrawModal from '../components/WithdrawModal';
 import { generateEarningsPDF } from '../utils/pdfGenerator';
 
 const ConsultantEarnings = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [showWithdraw, setShowWithdraw] = useState(false);
   const [manualPayouts, setManualPayouts] = useState([]);
 
   const fetchEarnings = async () => {
@@ -124,43 +122,19 @@ const ConsultantEarnings = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Wallet Balance (Q14) */}
-        <div className="rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-slate-950 p-6 text-white shadow-lg relative overflow-hidden transition-colors border border-slate-800 dark:border-slate-800">
-          <div className="relative z-10">
-            <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest">Available in Wallet</p>
-            <p className="text-3xl font-black mt-2 tabular-nums">{formatPkr(data.consultant?.walletBalance || 0)}</p>
-            <div className="mt-4 flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-slate-700 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-blue-500 transition-all duration-1000" 
-                  style={{ width: `${Math.min(100, ((data.consultant?.walletBalance || 0) / 1000000) * 100)}%` }} 
-                />
-              </div>
-              <span className="text-[10px] font-bold text-slate-400">
-                {Math.round(Math.min(100, ((data.consultant?.walletBalance || 0) / 1000000) * 100))}%
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-500 mt-2 italic">Threshold: 10,000 PKR release / 9,500 PKR hold (§12.4)</p>
-          </div>
-        </div>
-
+        {/* Lifetime Earnings Card */}
         <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm relative overflow-hidden transition-colors">
           <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest">Lifetime Earnings</p>
           <p className="text-3xl font-black mt-2 text-slate-900 dark:text-slate-50 tabular-nums transition-colors">{formatPkr(data.totalEarningsPaisa)}</p>
-          <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between transition-colors">
-            <div>
-              <span className="text-slate-400 dark:text-slate-500 block text-[10px] font-bold uppercase">This Month</span>
-              <span className="font-bold tabular-nums text-slate-700 dark:text-slate-300 transition-colors">{formatPkr(data.monthlyEarningsPaisa)}</span>
-            </div>
-            <button 
-              onClick={() => setShowWithdraw(true)}
-              className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white font-bold rounded-lg text-xs shadow-md hover:bg-blue-700 dark:hover:bg-blue-600 transition-all active:scale-95"
-            >
-              Manual Withdraw
-            </button>
-          </div>
         </div>
 
+        {/* This Month's Earnings Card */}
+        <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm relative overflow-hidden transition-colors">
+          <p className="text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest">This Month's Earnings</p>
+          <p className="text-3xl font-black mt-2 text-slate-900 dark:text-slate-50 tabular-nums transition-colors">{formatPkr(data.monthlyEarningsPaisa)}</p>
+        </div>
+
+        {/* Active Referrals Card */}
         <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 shadow-sm flex items-center gap-5 transition-colors">
           <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 shadow-inner">
             <TrendingUp className="w-8 h-8" />
@@ -399,12 +373,7 @@ const ConsultantEarnings = () => {
         )}
       </DetailModal>
 
-      <WithdrawModal
-        isOpen={showWithdraw}
-        onClose={() => setShowWithdraw(false)}
-        balancePaisa={data.totalEarningsPaisa}
-        onRefresh={fetchEarnings}
-      />
+
     </div>
   );
 };
