@@ -135,9 +135,55 @@ async function ensureConsultantPromoCode(consultant) {
   return promoCode;
 }
 
+async function findReferralCodeByCnic(consultantId, inputCnic) {
+  if (!inputCnic) return null;
+  const Referral = require('../models/Referral');
+  const referrals = await Referral.find({ consultantId });
+  for (const ref of referrals) {
+    if (ref.cnic === inputCnic) {
+      return ref.referralCode;
+    }
+  }
+  return null;
+}
+
+exports.getNearestLaboratories = async (req, res) => {
+  try {
+    const { lat, lng } = req.query;
+    const latNum = parseFloat(lat);
+    const lngNum = parseFloat(lng);
+
+    if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid latitude and longitude query parameters are required',
+      });
+    }
+
+    const Laboratory = require('../models/Laboratory');
+    const laboratories = await Laboratory.find({
+      isActive: true,
+      isRegistrationVerified: true,
+      location: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [lngNum, latNum] },
+        },
+      },
+    }).select('laboratoryName city area address location departments rating avgResponseTime ratePackages');
+
+    res.json({
+      success: true,
+      data: laboratories,
+    });
+  } catch (error) {
+    console.error('getNearestLaboratories error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching nearest laboratories' });
+  }
+};
+
 exports.createReferral = async (req, res) => {
   try {
-    const { patientName, cnic, guardianName, guardianCnic, phone } = req.body;
+    const { patientName, cnic, guardianName, guardianCnic, phone, referralType = 'hospital' } = req.body;
     if (!patientName) {
       return res.status(400).json({ success: false, message: 'Patient Name is required' });
     }
@@ -163,6 +209,110 @@ exports.createReferral = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Consultant profile not found' });
     }
 
+    const urgency = req.body.urgency || 'routine';
+    if (!['emergency', 'urgent', 'routine'].includes(urgency)) {
+      return res.status(400).json({ success: false, message: 'Invalid urgency' });
+    }
+
+    const promoCode = await ensureConsultantPromoCode(consultant);
+
+    // Check if there is an existing referral code for this consultant/patient CNIC pair
+    const existingReferralCode = await findReferralCodeByCnic(consultant._id, cnic);
+
+    if (referralType === 'laboratory') {
+      const targetLaboratoryId = req.body.targetLaboratoryId;
+      if (!targetLaboratoryId || !mongoose.Types.ObjectId.isValid(targetLaboratoryId)) {
+        return res.status(400).json({ success: false, message: 'Valid target laboratory is required' });
+      }
+
+      const Laboratory = require('../models/Laboratory');
+      const targetLaboratory = await Laboratory.findById(targetLaboratoryId);
+      if (!targetLaboratory || !targetLaboratory.isActive) {
+        return res.status(400).json({ success: false, message: 'Laboratory is not available for referrals' });
+      }
+      const targetOwner = await User.findOne({
+        _id: targetLaboratory.userId,
+        role: 'laboratory',
+        status: 'active',
+      });
+      if (!targetOwner) {
+        return res.status(400).json({ success: false, message: 'Laboratory is not available for referrals' });
+      }
+
+      const referral = new Referral({
+        consultantId: consultant._id,
+        referralType: 'laboratory',
+        targetLaboratoryId,
+        patientName: req.body.patientName,
+        age: Number(req.body.age),
+        gender: req.body.gender,
+        phone: req.body.phone,
+        area: req.body.area,
+        cnic: req.body.cnic,
+        guardianName: req.body.guardianName,
+        guardianCnic: req.body.guardianCnic,
+        urgency,
+        symptomsText: req.body.symptoms ?? req.body.symptomsText,
+        summaryNotes: req.body.summaryNotes,
+        symptomTags: req.body.symptomTags,
+        department: req.body.department || 'General',
+        diagnosisText: req.body.diagnosisText,
+        notes: req.body.notes,
+        attachments: req.body.attachments,
+        budgetMin: req.body.budgetMin != null ? Number(req.body.budgetMin) : undefined,
+        budgetMax: req.body.budgetMax != null ? Number(req.body.budgetMax) : undefined,
+        budgetBracket: req.body.budgetBracket,
+        promoCode,
+        slaDeadline: slaDeadlineFromUrgency(urgency),
+        status: 'pending',
+      });
+
+      if (existingReferralCode) {
+        referral.referralCode = existingReferralCode;
+      }
+
+      await referral.save();
+
+      // Create a matching LabInvestigation record (Stage 1 - Order Received)
+      const LabInvestigation = require('../models/LabInvestigation');
+      await LabInvestigation.create({
+        referralId: referral._id,
+        laboratoryId: targetLaboratory._id,
+        consultantId: consultant._id,
+        status: 'order_received',
+        isStat: urgency === 'emergency',
+        section: req.body.department || 'General',
+        billTotalPaisa: req.body.budgetMax != null ? Number(req.body.budgetMax) : 0,
+      });
+
+      await logAction({
+        req,
+        action: 'LAB_REFERRAL_CREATED',
+        entityId: referral._id,
+        entityModel: 'Referral',
+        details: { targetLaboratoryId, urgency }
+      });
+
+      // Send lab referral WhatsApp notification
+      notificationService.notifyNewReferral(referral, targetOwner).catch((err) =>
+        console.error('Laboratory new referral WhatsApp notification failed:', err.message)
+      );
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`laboratory:${targetLaboratoryId}`).emit('NEW_REFERRAL', {
+          laboratoryId: String(targetLaboratoryId),
+          referralId: referral._id.toString(),
+        });
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: 'Referral submitted successfully',
+        data: referral,
+      });
+    }
+
     const targetHospitalId = req.body.targetHospitalId;
     if (!targetHospitalId || !mongoose.Types.ObjectId.isValid(targetHospitalId)) {
       return res.status(400).json({ success: false, message: 'Valid target hospital is required' });
@@ -181,12 +331,12 @@ exports.createReferral = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Hospital is not available for referrals' });
     }
 
-    const urgency = req.body.urgency || 'routine';
-    if (!['emergency', 'urgent', 'routine'].includes(urgency)) {
-      return res.status(400).json({ success: false, message: 'Invalid urgency' });
-    }
-
-    const promoCode = await ensureConsultantPromoCode(consultant);
+    // Already declared above:
+    // const urgency = req.body.urgency || 'routine';
+    // if (!['emergency', 'urgent', 'routine'].includes(urgency)) {
+    //   return res.status(400).json({ success: false, message: 'Invalid urgency' });
+    // }
+    // const promoCode = await ensureConsultantPromoCode(consultant);
 
     let ranked = (req.body.rankedHospitalIds || [])
       .filter((id) => mongoose.Types.ObjectId.isValid(id))
@@ -277,6 +427,10 @@ exports.createReferral = async (req, res) => {
       slaDeadline: slaDeadlineFromUrgency(urgency),
       status: 'pending',
     });
+
+    if (existingReferralCode) {
+      referral.referralCode = existingReferralCode;
+    }
 
     await referral.save();
 
@@ -449,6 +603,7 @@ exports.getReferralDetails = async (req, res) => {
     const referral = await Referral.findById(req.params.id)
       .populate('targetHospitalId', 'hospitalName location')
       .populate('targetDoctorId', 'name specialty pmdcNumber')
+      .populate('targetLaboratoryId', 'laboratoryName location departments')
       .populate({
         path: 'consultantId',
         select: 'userId pmdcNumber',
@@ -480,9 +635,23 @@ exports.getReferralDetails = async (req, res) => {
     }
 
     let admission = null;
+    let labInvestigations = [];
+
+    // Fetch admission if admitted to hospital
     if (['admitted', 'closed'].includes(referral.status)) {
       const Admission = require('../models/Admission');
       admission = await Admission.findOne({ referralId: referral._id }).populate('treatingDoctorId', 'name specialty').lean();
+    }
+
+    // Fetch all lab investigations for this patient's referral code
+    if (referral.referralCode) {
+      const relatedReferrals = await Referral.find({ referralCode: referral.referralCode }).select('_id');
+      const relatedIds = relatedReferrals.map(r => r._id);
+      
+      const LabInvestigation = require('../models/LabInvestigation');
+      labInvestigations = await LabInvestigation.find({ referralId: { $in: relatedIds } })
+        .populate('laboratoryId', 'laboratoryName location')
+        .lean();
     }
 
     res.json({
@@ -490,6 +659,7 @@ exports.getReferralDetails = async (req, res) => {
       data: {
         ...referral.toJSON(),
         admission,
+        labInvestigations,
       },
     });
   } catch (error) {

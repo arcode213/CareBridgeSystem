@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getSuggestions,
+  getNearestLaboratories,
   createReferral,
   getMyReferrals,
   getHospitalInbox,
@@ -19,6 +20,7 @@ router.use(protect);
 
 router.get('/hospitals/:id/doctors', authorize(['consultant', 'hospital']), getHospitalDoctors);
 router.get('/suggestions', authorize(['consultant']), getSuggestions);
+router.get('/nearest-laboratory', authorize(['consultant']), getNearestLaboratories);
 router.post('/', authorize(['consultant']), createReferral);
 router.get('/mine', authorize(['consultant']), getMyReferrals);
 router.get('/earnings', authorize(['consultant']), getConsultantEarnings);

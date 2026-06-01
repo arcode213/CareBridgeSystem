@@ -45,6 +45,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const settlementRoutes = require('./routes/settlementRoutes');
+const laboratoryRoutes = require('./routes/laboratoryRoutes');
 
 app.use('/v1/auth', authRoutes);
 app.use('/v1/referrals', referralRoutes);
@@ -54,6 +55,7 @@ app.use('/v1/payments', paymentRoutes);
 app.use('/v1/upload', uploadRoutes);
 app.use('/v1/profile', profileRoutes);
 app.use('/v1/settlements', settlementRoutes);
+app.use('/v1/laboratory', laboratoryRoutes);
 
 // Static uploads
 app.use('/uploads', express.static('uploads'));
@@ -88,6 +90,20 @@ io.on('connection', (socket) => {
       socket.join(`consultant:${consultant._id.toString()}`);
     } catch (e) {
       console.warn('join_consultant:', e.message);
+    }
+  });
+
+  socket.on('join_laboratory', async ({ token } = {}) => {
+    try {
+      if (!token || !process.env.JWT_SECRET) return;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.role !== 'laboratory') return;
+      const Laboratory = require('./models/Laboratory');
+      const lab = await Laboratory.findOne({ userId: decoded.id });
+      if (!lab) return;
+      socket.join(`laboratory:${lab._id.toString()}`);
+    } catch (e) {
+      console.warn('join_laboratory:', e.message);
     }
   });
 

@@ -126,6 +126,14 @@ const DashboardLayout = () => {
             <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
         )}
+        {user.role === 'laboratory' && (
+          <>
+            <NavLink to="/laboratory/dashboard" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Home</NavLink>
+            <NavLink to="/laboratory/investigations" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Investigations</NavLink>
+            <NavLink to="/laboratory/settlements" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Settlements</NavLink>
+            <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
+          </>
+        )}
         {user.role === 'admin' && (
           <>
             <NavLink to="/admin/overview" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Overview</NavLink>
@@ -191,6 +199,15 @@ const DashboardLayout = () => {
               <BrandNavLink to="/hospital/beds"><span>Bed management</span></BrandNavLink>
               <BrandNavLink to="/hospital/departments"><span>Departments</span></BrandNavLink>
               <BrandNavLink to="/hospital/doctors"><span>Manage doctors</span></BrandNavLink>
+              <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
+            </>
+          )}
+
+          {user.role === 'laboratory' && (
+            <>
+              <BrandNavLink to="/laboratory/dashboard"><span>Dashboard</span></BrandNavLink>
+              <BrandNavLink to="/laboratory/investigations"><span>Investigations</span></BrandNavLink>
+              <BrandNavLink to="/laboratory/settlements"><span>Weekly Settlements</span></BrandNavLink>
               <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>
           )}

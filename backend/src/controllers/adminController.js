@@ -26,6 +26,11 @@ exports.listPendingUsers = async (req, res) => {
           base.profile = await Hospital.findOne({ userId: u._id })
             .select('hospitalName registrationNumber representativeCnic departments bedsInventory address registrationDocuments isRegistrationVerified')
             .lean();
+        } else if (u.role === 'laboratory') {
+          const Laboratory = require('../models/Laboratory');
+          base.profile = await Laboratory.findOne({ userId: u._id })
+            .select('laboratoryName licenseNumber representativeCnic departments address registrationDocuments isRegistrationVerified')
+            .lean();
         }
         return base;
       })
@@ -57,6 +62,11 @@ exports.listAllUsers = async (req, res) => {
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
             .select('hospitalName registrationNumber representativeCnic departments bedsInventory address city area deductionPercentage isActive isRegistrationVerified registrationDocuments ratePackages')
+            .lean();
+        } else if (u.role === 'laboratory') {
+          const Laboratory = require('../models/Laboratory');
+          base.profile = await Laboratory.findOne({ userId: u._id })
+            .select('laboratoryName licenseNumber representativeCnic departments address city area deductionPercentage isActive isRegistrationVerified registrationDocuments ratePackages')
             .lean();
         }
         return base;
@@ -95,6 +105,16 @@ exports.updateUserStatus = async (req, res) => {
 
     if (user.role === 'hospital') {
       await Hospital.updateOne(
+        { userId: user._id },
+        {
+          isActive: status === 'active',
+          ...(status === 'active' ? { isRegistrationVerified: true } : { isRegistrationVerified: false }),
+        }
+      );
+    }
+    if (user.role === 'laboratory') {
+      const Laboratory = require('../models/Laboratory');
+      await Laboratory.updateOne(
         { userId: user._id },
         {
           isActive: status === 'active',
@@ -716,6 +736,43 @@ exports.adminUpdateHospitalDeduction = async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ success: false, message: 'Failed to update deduction percentage' });
+  }
+};
+
+exports.adminUpdateLaboratoryDeduction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { deductionPercentage } = req.body;
+
+    if (deductionPercentage == null || isNaN(deductionPercentage) || deductionPercentage < 0 || deductionPercentage > 100) {
+      return res.status(400).json({ success: false, message: 'Valid deduction percentage (0-100) is required' });
+    }
+
+    const Laboratory = require('../models/Laboratory');
+    let lab = await Laboratory.findOne({ userId: id });
+    if (!lab) {
+      lab = await Laboratory.findById(id);
+    }
+
+    if (!lab) {
+      return res.status(404).json({ success: false, message: 'Laboratory not found' });
+    }
+
+    lab.deductionPercentage = Number(deductionPercentage);
+    await lab.save();
+
+    await logAction({
+      req,
+      action: 'ADMIN_UPDATE_LABORATORY_DEDUCTION',
+      entityId: lab._id,
+      entityModel: 'Laboratory',
+      details: { deductionPercentage }
+    });
+
+    res.json({ success: true, message: 'Laboratory deduction percentage updated successfully', data: lab });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: 'Failed to update laboratory deduction percentage' });
   }
 };
 

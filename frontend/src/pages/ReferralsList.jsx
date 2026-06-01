@@ -368,6 +368,66 @@ const ReferralsList = () => {
                 </div>
               </div>
 
+              {/* Laboratory Investigations */}
+              {selected.labInvestigations && selected.labInvestigations.length > 0 && (
+                <div className="border-t border-slate-100 pt-5">
+                  <div className="flex items-center gap-2 text-slate-700 font-bold text-sm mb-3">
+                    <Activity size={15} /> Laboratory Investigations
+                  </div>
+                  <div className="space-y-3">
+                    {selected.labInvestigations.map((labInv, idx) => (
+                      <div key={idx} className="bg-violet-50/50 border border-violet-100 p-4 rounded-xl">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="text-xs font-bold text-violet-800">{labInv.laboratoryId?.laboratoryName || 'Laboratory'}</p>
+                            <p className="text-[10px] text-violet-600 uppercase tracking-wider">{labInv.section} • {labInv.status.replace('_', ' ')}</p>
+                          </div>
+                          {labInv.isStat && <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded-full text-[10px] font-black">STAT</span>}
+                        </div>
+                        
+                        {/* Validated Tests */}
+                        {labInv.investigations && labInv.investigations.length > 0 && (
+                          <div className="mt-3 bg-white rounded-lg border border-violet-100 overflow-hidden">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-violet-50 text-violet-600">
+                                <tr>
+                                  <th className="px-3 py-2 font-semibold">Test Name</th>
+                                  <th className="px-3 py-2 font-semibold">Result</th>
+                                  <th className="px-3 py-2 font-semibold">Ref Range</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-violet-50">
+                                {labInv.investigations.map((test, i) => (
+                                  <tr key={i}>
+                                    <td className="px-3 py-2 font-medium text-slate-700">{test.testName}</td>
+                                    <td className={`px-3 py-2 font-bold ${test.isCritical ? 'text-red-600' : 'text-slate-900'}`}>{test.resultValue}</td>
+                                    <td className="px-3 py-2 text-slate-500">{test.referenceRange || '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        
+                        {labInv.qcFailed && (
+                          <div className="mt-2 text-xs font-bold text-red-600 bg-red-50 p-2 rounded-lg">
+                            QC Failed: {labInv.qcFailureReason || 'Resample required'}
+                          </div>
+                        )}
+
+                        {labInv.reportFileUrl && (
+                          <div className="mt-3">
+                            <a href={labInv.reportFileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-700 transition-colors">
+                              📄 View Final Report
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Clinical Notes Log (Interactive) */}
               <div className="border-t border-slate-100 pt-5">
                 <ClinicalNotesLog 

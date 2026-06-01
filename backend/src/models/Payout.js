@@ -5,6 +5,7 @@ const PayoutSchema = new mongoose.Schema(
     consultantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Consultant', required: true },
     referralId: { type: mongoose.Schema.Types.ObjectId, ref: 'Referral', required: true },
     admissionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Admission' },
+    labInvestigationId: { type: mongoose.Schema.Types.ObjectId, ref: 'LabInvestigation' },
     amountPaisa: { type: Number, required: true, min: 0 },
     totalBillPaisa: { type: Number, default: 0 },
     deductionPercentage: { type: Number, default: 0 },
@@ -16,6 +17,11 @@ const PayoutSchema = new mongoose.Schema(
     weeklySettlementId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'WeeklySettlement',
+      default: null
+    },
+    labWeeklySettlementId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'LabWeeklySettlement',
       default: null
     },
   },

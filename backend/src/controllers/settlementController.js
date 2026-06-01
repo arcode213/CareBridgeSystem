@@ -464,3 +464,409 @@ exports.consultantVerifyPayout = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to verify payout' });
   }
 };
+
+exports.listPendingInvestigations = async (req, res) => {
+  try {
+    const Laboratory = require('../models/Laboratory');
+    const lab = await Laboratory.findOne({ userId: req.user.id });
+    if (!lab) {
+      return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
+    }
+
+    const LabInvestigation = require('../models/LabInvestigation');
+    const investigations = await LabInvestigation.find({
+      laboratoryId: lab._id,
+      status: 'completed',
+      weeklySettlementId: null
+    })
+    .populate('referralId', 'referralCode patientName urgency department completedAt')
+    .populate({
+      path: 'consultantId',
+      populate: { path: 'userId', select: 'name email' }
+    })
+    .sort({ completedAt: -1 });
+
+    const results = investigations.map(inv => {
+      const doc = inv.toObject();
+      doc.calculatedPlatformCutPaisa = Math.round((doc.billTotalPaisa || 0) * ((lab.deductionPercentage || 20) / 100));
+      return doc;
+    });
+
+    res.json({ success: true, data: results });
+  } catch (error) {
+    console.error('[LIST_PENDING_INVESTIGATIONS_ERROR]', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch pending investigations' });
+  }
+};
+
+exports.createLabSettlement = async (req, res) => {
+  try {
+    const { billingPeriodStart, billingPeriodEnd, labInvestigationIds, billSummaryFileUrl, notes } = req.body;
+    
+    if (!billingPeriodStart || !billingPeriodEnd || !labInvestigationIds || !labInvestigationIds.length || !billSummaryFileUrl) {
+      return res.status(400).json({ success: false, message: 'Missing required settlement parameters' });
+    }
+
+    const Laboratory = require('../models/Laboratory');
+    const lab = await Laboratory.findOne({ userId: req.user.id });
+    if (!lab) {
+      return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
+    }
+
+    const LabInvestigation = require('../models/LabInvestigation');
+    const investigations = await LabInvestigation.find({
+      _id: { $in: labInvestigationIds },
+      laboratoryId: lab._id,
+      status: 'completed',
+      weeklySettlementId: null
+    });
+
+    if (investigations.length !== labInvestigationIds.length) {
+      return res.status(400).json({ success: false, message: 'Some selected investigations are invalid or already settled' });
+    }
+
+    const payouts = await Payout.find({
+      labInvestigationId: { $in: labInvestigationIds },
+      status: 'accrued',
+      labWeeklySettlementId: null
+    });
+
+    const grossAmountPaisa = investigations.reduce((sum, inv) => sum + (inv.billTotalPaisa || 0), 0);
+    const calculatedPlatformCutPaisa = payouts.reduce((sum, p) => sum + (p.platformCutPaisa || 0), 0);
+
+    const consultantMap = {};
+    for (const payout of payouts) {
+      const cIdStr = payout.consultantId.toString();
+      if (!consultantMap[cIdStr]) {
+        const consultant = await Consultant.findById(payout.consultantId);
+        consultantMap[cIdStr] = {
+          consultantId: payout.consultantId,
+          amountPaisa: 0,
+          commissionPercentage: consultant ? (consultant.commissionPercentage || 60) : 60,
+          status: 'pending_payout'
+        };
+      }
+      consultantMap[cIdStr].amountPaisa += payout.amountPaisa;
+    }
+    const consultantPayouts = Object.values(consultantMap);
+
+    const LabWeeklySettlement = require('../models/LabWeeklySettlement');
+    const settlement = await LabWeeklySettlement.create({
+      laboratoryId: lab._id,
+      billingPeriodStart: new Date(billingPeriodStart),
+      billingPeriodEnd: new Date(billingPeriodEnd),
+      labInvestigationIds,
+      grossAmountPaisa,
+      deductionPercentage: lab.deductionPercentage || 20,
+      calculatedPlatformCutPaisa,
+      billSummaryFileUrl,
+      notes,
+      status: 'pending_payment',
+      consultantPayouts
+    });
+
+    await LabInvestigation.updateMany({ _id: { $in: labInvestigationIds } }, { $set: { weeklySettlementId: settlement._id } });
+    await Payout.updateMany({ labInvestigationId: { $in: labInvestigationIds } }, { $set: { labWeeklySettlementId: settlement._id } });
+
+    await logAction({
+      userId: req.user.id,
+      action: 'LAB_WEEKLY_SETTLEMENT_CREATED',
+      entityId: settlement._id,
+      entityModel: 'LabWeeklySettlement',
+      details: { grossAmountPaisa, calculatedPlatformCutPaisa }
+    });
+
+    res.status(201).json({ success: true, message: 'Lab weekly settlement summary uploaded successfully', data: settlement });
+  } catch (error) {
+    console.error('[CREATE_LAB_SETTLEMENT_ERROR]', error);
+    res.status(500).json({ success: false, message: 'Failed to create weekly settlement summary' });
+  }
+};
+
+exports.uploadLabReceipt = async (req, res) => {
+  try {
+    const { laboratoryReceiptFileUrl } = req.body;
+    const { id } = req.params;
+
+    if (!laboratoryReceiptFileUrl) {
+      return res.status(400).json({ success: false, message: 'Receipt URL is required' });
+    }
+
+    const Laboratory = require('../models/Laboratory');
+    const lab = await Laboratory.findOne({ userId: req.user.id });
+    if (!lab) {
+      return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
+    }
+
+    const LabWeeklySettlement = require('../models/LabWeeklySettlement');
+    const settlement = await LabWeeklySettlement.findOne({ _id: id, laboratoryId: lab._id });
+    if (!settlement) {
+      return res.status(404).json({ success: false, message: 'Weekly settlement not found' });
+    }
+
+    if (settlement.status !== 'pending_payment') {
+      return res.status(400).json({ success: false, message: 'Settlement is not in pending payment state' });
+    }
+
+    settlement.laboratoryReceiptFileUrl = laboratoryReceiptFileUrl;
+    settlement.laboratoryPaidAt = new Date();
+    settlement.status = 'pending_admin_verification';
+    settlement.rejectionReason = null;
+    await settlement.save();
+
+    await logAction({
+      userId: req.user.id,
+      action: 'LAB_RECEIPT_UPLOADED',
+      entityId: settlement._id,
+      entityModel: 'LabWeeklySettlement',
+      details: { laboratoryReceiptFileUrl }
+    });
+
+    res.json({ success: true, message: 'Payment receipt uploaded successfully', data: settlement });
+  } catch (error) {
+    console.error('[UPLOAD_LAB_RECEIPT_ERROR]', error);
+    res.status(500).json({ success: false, message: 'Failed to upload receipt' });
+  }
+};
+
+exports.listLabSettlements = async (req, res) => {
+  try {
+    const Laboratory = require('../models/Laboratory');
+    const lab = await Laboratory.findOne({ userId: req.user.id });
+    if (!lab) {
+      return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
+    }
+
+    const LabWeeklySettlement = require('../models/LabWeeklySettlement');
+    const settlements = await LabWeeklySettlement.find({ laboratoryId: lab._id })
+      .populate('labInvestigationIds')
+      .populate({
+        path: 'consultantPayouts.consultantId',
+        populate: { path: 'userId', select: 'name payoutAccount' }
+      })
+      .sort({ createdAt: -1 });
+
+    const results = settlements.map(s => {
+      const doc = s.toObject();
+      if (doc.consultantPayouts) {
+        doc.consultantPayouts = doc.consultantPayouts.map(p => {
+          delete p.amountPaisa;
+          delete p.commissionPercentage;
+          return p;
+        });
+      }
+      return doc;
+    });
+
+    res.json({ success: true, data: results });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to list settlements' });
+  }
+};
+
+exports.adminListLabSettlements = async (req, res) => {
+  try {
+    const LabWeeklySettlement = require('../models/LabWeeklySettlement');
+    const settlements = await LabWeeklySettlement.find()
+      .populate('laboratoryId', 'laboratoryName deductionPercentage')
+      .populate('labInvestigationIds')
+      .populate({
+        path: 'consultantPayouts.consultantId',
+        populate: { path: 'userId', select: 'name payoutAccount' }
+      })
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: settlements });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch settlements' });
+  }
+};
+
+exports.adminVerifyLabReceipt = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, rejectionReason } = req.body;
+
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'Action must be approve or reject' });
+    }
+
+    const LabWeeklySettlement = require('../models/LabWeeklySettlement');
+    const settlement = await LabWeeklySettlement.findById(id);
+    if (!settlement) {
+      return res.status(404).json({ success: false, message: 'Settlement not found' });
+    }
+
+    if (!['pending_admin_verification', 'pending_payment'].includes(settlement.status)) {
+      return res.status(400).json({ success: false, message: 'Settlement is not in a verifiable state' });
+    }
+
+    if (action === 'approve') {
+      settlement.status = 'paid_pending_consultant_payout';
+      settlement.adminVerifiedAt = new Date();
+      settlement.adminVerifierId = req.user.id;
+    } else {
+      if (!rejectionReason) {
+        return res.status(400).json({ success: false, message: 'Rejection reason is required' });
+      }
+      settlement.status = 'pending_payment';
+      settlement.rejectionReason = rejectionReason;
+      settlement.laboratoryReceiptFileUrl = null;
+    }
+
+    await settlement.save();
+
+    await logAction({
+      userId: req.user.id,
+      action: action === 'approve' ? 'ADMIN_LAB_SETTLEMENT_APPROVED' : 'ADMIN_LAB_SETTLEMENT_REJECTED',
+      entityId: settlement._id,
+      entityModel: 'LabWeeklySettlement',
+      details: { rejectionReason }
+    });
+
+    res.json({ success: true, message: `Settlement successfully ${action}d`, data: settlement });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to process verification' });
+  }
+};
+
+exports.adminUploadLabConsultantPayout = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { consultantId, payoutReceiptFileUrl } = req.body;
+
+    if (!consultantId || !payoutReceiptFileUrl) {
+      return res.status(400).json({ success: false, message: 'Consultant ID and payout receipt URL are required' });
+    }
+
+    const LabWeeklySettlement = require('../models/LabWeeklySettlement');
+    const settlement = await LabWeeklySettlement.findById(id);
+    if (!settlement) {
+      return res.status(404).json({ success: false, message: 'Settlement not found' });
+    }
+
+    if (!['paid_pending_consultant_payout', 'paid_pending_consultant_verification'].includes(settlement.status)) {
+      return res.status(400).json({ success: false, message: 'Invalid settlement status for payouts' });
+    }
+
+    const payoutIndex = settlement.consultantPayouts.findIndex(p => p.consultantId.toString() === consultantId);
+    if (payoutIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Consultant not associated with this settlement' });
+    }
+
+    settlement.consultantPayouts[payoutIndex].payoutReceiptFileUrl = payoutReceiptFileUrl;
+    settlement.consultantPayouts[payoutIndex].paidAt = new Date();
+    settlement.consultantPayouts[payoutIndex].status = 'pending_verification';
+    settlement.status = 'paid_pending_consultant_verification';
+    await settlement.save();
+
+    await logAction({
+      userId: req.user.id,
+      action: 'ADMIN_LAB_CONSULTANT_PAYOUT_UPLOADED',
+      entityId: settlement._id,
+      entityModel: 'LabWeeklySettlement',
+      details: { consultantId, payoutReceiptFileUrl }
+    });
+
+    res.json({ success: true, message: 'Consultant payout receipt uploaded successfully', data: settlement });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to upload payout proof' });
+  }
+};
+
+exports.consultantListLabPayouts = async (req, res) => {
+  try {
+    const consultant = await Consultant.findOne({ userId: req.user.id });
+    if (!consultant) {
+      return res.status(404).json({ success: false, message: 'Consultant profile not found' });
+    }
+
+    const LabWeeklySettlement = require('../models/LabWeeklySettlement');
+    const settlements = await LabWeeklySettlement.find({
+      'consultantPayouts.consultantId': consultant._id
+    })
+    .populate('laboratoryId', 'laboratoryName')
+    .sort({ createdAt: -1 });
+
+    const payoutsList = settlements.map(s => {
+      const myPayout = s.consultantPayouts.find(p => p.consultantId.toString() === consultant._id.toString());
+      return {
+        settlementId: s._id,
+        billingPeriodStart: s.billingPeriodStart,
+        billingPeriodEnd: s.billingPeriodEnd,
+        laboratoryName: s.laboratoryId?.laboratoryName || 'Unknown Laboratory',
+        myPayoutId: myPayout._id,
+        amountPaisa: myPayout.amountPaisa,
+        commissionPercentage: myPayout.commissionPercentage,
+        payoutReceiptFileUrl: myPayout.payoutReceiptFileUrl,
+        paidAt: myPayout.paidAt,
+        status: myPayout.status,
+        verifiedAt: myPayout.verifiedAt,
+        masterStatus: s.status
+      };
+    });
+
+    res.json({ success: true, data: payoutsList });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to list payouts' });
+  }
+};
+
+exports.consultantVerifyLabPayout = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const consultant = await Consultant.findOne({ userId: req.user.id });
+
+    if (!consultant) {
+      return res.status(404).json({ success: false, message: 'Consultant profile not found' });
+    }
+
+    const LabWeeklySettlement = require('../models/LabWeeklySettlement');
+    const settlement = await LabWeeklySettlement.findById(id);
+    if (!settlement) {
+      return res.status(404).json({ success: false, message: 'Settlement not found' });
+    }
+
+    const payoutIndex = settlement.consultantPayouts.findIndex(p => p.consultantId.toString() === consultant._id.toString());
+    if (payoutIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Consultant not associated with this settlement' });
+    }
+
+    if (settlement.consultantPayouts[payoutIndex].status !== 'pending_verification') {
+      return res.status(400).json({ success: false, message: 'Payout is not in pending verification state' });
+    }
+
+    settlement.consultantPayouts[payoutIndex].status = 'verified';
+    settlement.consultantPayouts[payoutIndex].verifiedAt = new Date();
+
+    const amt = settlement.consultantPayouts[payoutIndex].amountPaisa;
+    await Payout.updateMany(
+      { labWeeklySettlementId: settlement._id, consultantId: consultant._id },
+      { $set: { status: 'paid' } }
+    );
+
+    consultant.walletBalance = (consultant.walletBalance || 0) + amt;
+    consultant.totalEarnings = (consultant.totalEarnings || 0) + amt;
+    consultant.monthlyEarnings = (consultant.monthlyEarnings || 0) + amt;
+    await consultant.save();
+
+    const allVerified = settlement.consultantPayouts.every(p => p.status === 'verified');
+    if (allVerified) {
+      settlement.status = 'completed';
+    }
+
+    await settlement.save();
+
+    await logAction({
+      userId: req.user.id,
+      action: 'CONSULTANT_LAB_PAYOUT_VERIFIED',
+      entityId: settlement._id,
+      entityModel: 'LabWeeklySettlement',
+      details: { amountPaisa: amt }
+    });
+
+    res.json({ success: true, message: 'Lab payout verified successfully!', data: settlement });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to verify payout' });
+  }
+};

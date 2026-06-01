@@ -5,47 +5,39 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Eye, EyeOff, FileCheck } from 'lucide-react';
 import api from '../utils/api';
 
-const WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burns', 'Maternity', 'Psychiatric', 'Cardiac'];
-
-const DEPT_OPTIONS = [
-  'Internal Medicine',
-  'Cardiology',
-  'Orthopedics',
-  'Neurology',
-  'Gastroenterology',
-  'General Surgery',
-  'Pediatrics',
-  'Psychiatry',
-  'Gynae/Obs',
+const LAB_DEPT_OPTIONS = [
+  'Biochemistry',
+  'Haematology',
+  'Microbiology',
+  'Histopathology',
+  'Immunology',
+  'Molecular Biology',
   'Radiology',
-  'Anesthesiology',
-  'Pathology',
+  'Serology',
+  'Cytology',
+  'Toxicology',
+  'Clinical Pathology',
+  'Genetics',
 ];
 
-const defaultBeds = () =>
-  WARDS.map((ward) => ({
-    ward,
-    totalBeds: ward === 'General' ? 20 : ward === 'ICU' ? 6 : 0,
-    availableBeds: ward === 'General' ? 10 : ward === 'ICU' ? 2 : 0,
-  }));
-
-const HospitalRegister = () => {
+const LaboratoryRegister = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     password: '',
-    hospitalName: '',
-    registrationNumber: '',
+    laboratoryName: '',
+    licenseNumber: '',
     representativeCnic: '',
     address: '',
-    role: 'hospital',
+    city: 'Karachi',
+    area: '',
+    role: 'laboratory',
     lat: '24.8607',
     lng: '67.0099',
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [departments, setDepartments] = useState(['Internal Medicine']);
-  const [bedsInventory, setBedsInventory] = useState(defaultBeds);
+  const [departments, setDepartments] = useState(['Biochemistry']);
   const [registrationDocuments, setRegistrationDocuments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const { register, isLoading } = useAuth();
@@ -59,6 +51,7 @@ const HospitalRegister = () => {
       const uploadData = new FormData();
       uploadData.append('file', file);
       const res = await api.post('/upload', uploadData, {
+        // Let Axios handle the boundary automatically
         // headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data.success) {
@@ -87,22 +80,13 @@ const HospitalRegister = () => {
     );
   };
 
-  const updateBed = (ward, field, raw) => {
-    const n = raw === '' ? '' : Number(raw);
-    setBedsInventory((prev) =>
-      prev.map((row) =>
-        row.ward === ward ? { ...row, [field]: n === '' ? '' : n } : row
-      )
-    );
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (departments.length === 0) {
       toast.error('Please select at least one department.');
       return;
     }
-    if (!registrationDocuments.find(d => d.name === 'SHCC License')) {
+    if (!registrationDocuments.find((d) => d.name === 'SHCC License')) {
       toast.error('Please upload your SHCC License for verification.');
       return;
     }
@@ -119,9 +103,6 @@ const HospitalRegister = () => {
       return toast.error('Please enter a valid email address');
     }
     const phoneClean = formData.phone.replace(/[\s\-()]/g, '');
-    const phoneRegex = /^((\+92)|(0092)|0)?3\d{9}$/;
-    // Wait, hospital phone number can also be landline (e.g. 021-3456789).
-    // Let's support both mobile and landline for hospital: /^((\+92)|(0092)|0)?(3\d{9}|\d{2,3}\d{7,8})$/
     const hospitalPhoneRegex = /^((\+92)|(0092)|0)?(3\d{9}|(21|42|51|91|81|61|22|71)\d{7})$/;
     if (!hospitalPhoneRegex.test(phoneClean)) {
       return toast.error('Please enter a valid Pakistani phone/landline number');
@@ -129,16 +110,11 @@ const HospitalRegister = () => {
     if (formData.password.length < 8) {
       return toast.error('Password must be at least 8 characters long');
     }
-    const bedsPayload = bedsInventory.map((row) => ({
-      ward: row.ward,
-      totalBeds: Number(row.totalBeds),
-      availableBeds: Number(row.availableBeds),
-    }));
+
     const payload = {
       ...formData,
       phone: phoneClean,
       departments,
-      bedsInventory: bedsPayload,
       registrationDocuments,
       location: {
         lat: parseFloat(formData.lat),
@@ -150,26 +126,26 @@ const HospitalRegister = () => {
 
     const result = await register(payload);
     if (result.success) {
-      toast.success(result.message || 'Hospital registered! A verification code was sent to your WhatsApp.', { duration: 6000, icon: '📱' });
+      toast.success(result.message || 'Laboratory registered! A verification code was sent to your WhatsApp.', { duration: 6000, icon: '📱' });
       navigate('/verify-phone', { state: { phone: phoneClean } });
     } else {
       toast.error(result.message || 'Registration failed');
     }
   };
 
-  const inputClass = "w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm text-sm";
+  const inputClass = "w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 outline-none transition-all shadow-sm text-sm dark:bg-slate-800 dark:border-slate-700 dark:text-white";
 
   return (
     <div className="w-full">
       <div className="mb-6">
-        <Link to="/register" className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors mb-4">
+        <Link to="/register" className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-violet-600 transition-colors mb-4">
           <ArrowLeft size={16} className="mr-1" /> Back to roles
         </Link>
         <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-          Hospital Registration
+          Laboratory Registration
         </h2>
         <p className="mt-2 text-sm text-slate-600">
-          Onboard your facility — departments, beds, and location are required for referrals.
+          Onboard your diagnostic facility — departments and location are required for referrals.
         </p>
       </div>
 
@@ -182,16 +158,16 @@ const HospitalRegister = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Hospital Name</label>
-            <input name="hospitalName" type="text" required value={formData.hospitalName}
-              onChange={handleChange} className={inputClass} placeholder="City General Hospital" />
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Laboratory Name</label>
+            <input name="laboratoryName" type="text" required value={formData.laboratoryName}
+              onChange={handleChange} className={inputClass} placeholder="City Diagnostic Lab" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Registration Number</label>
-              <input name="registrationNumber" type="text" required value={formData.registrationNumber}
-                onChange={handleChange} className={inputClass} placeholder="H-12345" />
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">License Number</label>
+              <input name="licenseNumber" type="text" required value={formData.licenseNumber}
+                onChange={handleChange} className={inputClass} placeholder="LAB-12345" />
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Admin Full Name</label>
@@ -211,30 +187,42 @@ const HospitalRegister = () => {
               className={inputClass}
               placeholder="42101-XXXXXXX-X"
             />
-            <p className="text-xs text-slate-400 mt-1">CNIC of the authorized hospital administrator.</p>
+            <p className="text-xs text-slate-400 mt-1">CNIC of the authorized laboratory representative.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">City</label>
+              <input name="city" type="text" required value={formData.city}
+                onChange={handleChange} className={inputClass} placeholder="Karachi" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Area</label>
+              <input name="area" type="text" value={formData.area}
+                onChange={handleChange} className={inputClass} placeholder="Gulshan-e-Iqbal" />
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Hospital Address</label>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Full Address</label>
             <input name="address" type="text" required value={formData.address}
-              onChange={handleChange} className={inputClass} placeholder="Main Road, Karachi" />
+              onChange={handleChange} className={inputClass} placeholder="Plot 123, Main Boulevard, Karachi" />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Departments Served</label>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Departments / Sections</label>
             <div className="flex flex-wrap gap-2">
-              {DEPT_OPTIONS.map((dept) => (
+              {LAB_DEPT_OPTIONS.map((dept) => (
                 <button key={dept} type="button" onClick={() => toggleDepartment(dept)}
-                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                    departments.includes(dept)
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400 hover:text-blue-600'
-                  }`}>
+                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-all ${departments.includes(dept)
+                      ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-violet-400 hover:text-violet-600'
+                    }`}>
                   {dept}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-400 mt-2">Select all departments your hospital accepts for referrals.</p>
+            <p className="text-xs text-slate-400 mt-2">Select all sections your laboratory operates.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -251,56 +239,14 @@ const HospitalRegister = () => {
           </div>
         </div>
 
-        {/* Section 2: Bed Inventory */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-1">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Bed Inventory</h3>
-            <div className="flex-1 h-px bg-slate-100"></div>
-          </div>
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="text-left px-4 py-3 font-semibold">Ward</th>
-                  <th className="text-left px-4 py-3 font-semibold">Total Beds</th>
-                  <th className="text-left px-4 py-3 font-semibold">Available</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bedsInventory.map((row) => (
-                  <tr key={row.ward} className="border-t border-slate-100">
-                    <td className="px-4 py-3 font-semibold text-slate-700">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold ${
-                        row.ward === 'ICU' || row.ward === 'NICU' || row.ward === 'PICU'
-                          ? 'bg-red-50 text-red-600'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}>{row.ward}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <input type="number" min={0} required value={row.totalBeds}
-                        onChange={(e) => updateBed(row.ward, 'totalBeds', e.target.value)}
-                        className="w-24 px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input type="number" min={0} required value={row.availableBeds}
-                        onChange={(e) => updateBed(row.ward, 'availableBeds', e.target.value)}
-                        className="w-24 px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Section 3: Supporting Documents */}
+        {/* Section 2: Supporting Documents */}
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-1">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Verification Documents</h3>
             <div className="flex-1 h-px bg-slate-100"></div>
           </div>
-          <div className="bg-teal-50 rounded-2xl p-5 border border-teal-100 space-y-4">
-            <p className="text-xs text-teal-800 font-medium">
+          <div className="bg-violet-50 rounded-2xl p-5 border border-violet-100 space-y-4">
+            <p className="text-xs text-violet-800 font-medium">
               Upload SHCC license, CNIC copy of the representative, and optional rate list. All are reviewed during admin approval.
             </p>
 
@@ -317,12 +263,11 @@ const HospitalRegister = () => {
                     disabled={isUploading}
                   />
                   <div
-                    className={`flex items-center justify-between p-4 bg-white rounded-xl border-2 border-dashed transition-all ${
-                      uploaded ? 'border-emerald-500 bg-emerald-50' : 'border-teal-200 group-hover:border-teal-400'
-                    }`}
+                    className={`flex items-center justify-between p-4 bg-white rounded-xl border-2 border-dashed transition-all ${uploaded ? 'border-emerald-500 bg-emerald-50' : 'border-violet-200 group-hover:border-violet-400'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${uploaded ? 'bg-emerald-100 text-emerald-600' : 'bg-teal-100 text-teal-600'}`}>
+                      <div className={`p-2 rounded-lg ${uploaded ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'}`}>
                         <FileCheck className="w-5 h-5" />
                       </div>
                       <div>
@@ -340,12 +285,12 @@ const HospitalRegister = () => {
             })}
 
             {isUploading && (
-              <p className="text-xs text-center text-teal-700 font-semibold animate-pulse">Uploading document…</p>
+              <p className="text-xs text-center text-violet-700 font-semibold animate-pulse">Uploading document…</p>
             )}
           </div>
         </div>
 
-        {/* Section 4: Account Credentials */}
+        {/* Section 3: Account Credentials */}
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-1">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Account Credentials</h3>
@@ -355,14 +300,14 @@ const HospitalRegister = () => {
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email Address</label>
             <input name="email" type="email" required value={formData.email}
-              onChange={handleChange} className={inputClass} placeholder="admin@hospital.com" />
+              onChange={handleChange} className={inputClass} placeholder="admin@laboratory.com" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number</label>
               <input name="phone" type="tel" required value={formData.phone}
-                onChange={handleChange} className={inputClass} placeholder="021-3456789" />
+                onChange={handleChange} className={inputClass} placeholder="0300-1234567" />
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
@@ -382,18 +327,17 @@ const HospitalRegister = () => {
         </div>
 
         <button type="submit" disabled={isLoading || departments.length === 0}
-          className="w-full py-3.5 px-4 border border-transparent rounded-xl shadow-md hover:shadow-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70">
-          {isLoading ? 'Processing...' : 'Register Hospital'}
+          className="w-full py-3.5 px-4 border border-transparent rounded-xl shadow-md hover:shadow-lg text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 transition-all disabled:opacity-70">
+          {isLoading ? 'Processing...' : 'Register Laboratory'}
         </button>
       </form>
 
       <div className="mt-8 text-center text-sm">
         <span className="text-slate-600">Already have an account? </span>
-        <Link to="/login" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">Sign in</Link>
+        <Link to="/login" className="font-bold text-violet-600 hover:text-violet-500 transition-colors">Sign in</Link>
       </div>
     </div>
   );
 };
 
-export default HospitalRegister;
-
+export default LaboratoryRegister;

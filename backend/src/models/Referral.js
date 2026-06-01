@@ -55,6 +55,8 @@ const ReferralSchema = new mongoose.Schema(
     budgetBracket: { type: String, enum: ['5k-10k', '10k-50k', '50k-1lac', '1lac-3lac', '3lac+'] },
     // Hospital & Status
     targetHospitalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hospital' },
+    targetLaboratoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Laboratory' },
+    referralType: { type: String, enum: ['hospital', 'laboratory'], default: 'hospital' },
     /** Refer to a specific doctor (Q4) */
     targetDoctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'HospitalDoctor' },
     /** Top hospitals from scoring at submission time (escalation order). */

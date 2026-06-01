@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CareBridge — Laboratory Module Documentation</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #060D18;
+  --surf:     #0B1525;
+  --surf2:    #101E32;
+  --surf3:    #162840;
+  --border:   rgba(255,255,255,0.06);
+  --border2:  rgba(255,255,255,0.12);
+
+  --teal:     #0D9488;
+  --teal2:    #14B8A6;
+  --teal3:    #2DD4BF;
+  --teal4:    #99F6E4;
+  --cyan:     #06B6D4;
+  --cyan2:    #22D3EE;
+  --green:    #10B981;
+  --green2:   #34D399;
+  --amber:    #F59E0B;
+  --amber2:   #FCD34D;
+  --red:      #EF4444;
+  --red2:     #F87171;
+  --blue:     #3B82F6;
+  --blue2:    #60A5FA;
+  --purple:   #8B5CF6;
+  --purple2:  #A78BFA;
+  --orange:   #F97316;
+  --orange2:  #FB923C;
+
+  --text:     #DFF0EC;
+  --muted:    #6A9E98;
+  --faint:    #2A4A48;
+  --white:    #ffffff;
+
+  --glow-teal: 0 0 40px rgba(20,184,166,0.18);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Plus Jakarta Sans',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.75;
+  font-size:15px;
+}
+
+/* ── HERO ── */
+.hero{
+  position:relative;
+  overflow:hidden;
+  padding:80px 40px 110px;
+  text-align:center;
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(20,184,166,0.22) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 40%, rgba(6,182,212,0.14) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(16,185,129,0.10) 0%, transparent 45%),
+    var(--surf);
+}
+.hero-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(20,184,166,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,184,166,0.07) 1px, transparent 1px);
+  background-size:44px 44px;
+  mask-image:radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 100%);
+}
+.hero::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--teal2),var(--cyan2),transparent);
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(20,184,166,0.10);
+  border:1px solid rgba(20,184,166,0.30);
+  color:var(--teal3);
+  font-family:'Fira Code',monospace;font-size:11px;letter-spacing:1.8px;
+  padding:6px 18px;border-radius:100px;margin-bottom:26px;position:relative;
+}
+.live-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--green2);box-shadow:0 0 8px var(--green2);
+  animation:blink 2s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+.hero h1{
+  font-size:clamp(28px,5.5vw,56px);font-weight:800;line-height:1.1;
+  color:#fff;margin-bottom:16px;position:relative;
+}
+.hero h1 .t1{color:var(--teal3);}
+.hero h1 .t2{color:var(--cyan2);}
+.hero p{
+  color:var(--muted);max-width:600px;margin:0 auto 44px;
+  font-size:16px;position:relative;
+}
+.hero-stats{
+  display:flex;justify-content:center;flex-wrap:wrap;gap:12px;position:relative;
+}
+.hstat{
+  background:rgba(20,184,166,0.08);
+  border:1px solid rgba(20,184,166,0.22);
+  border-radius:12px;padding:12px 22px;text-align:center;
+}
+.hstat .n{
+  font-family:'Fira Code',monospace;font-size:20px;font-weight:700;
+  color:var(--teal3);
+}
+.hstat .l{font-size:11px;color:var(--muted);margin-top:2px;letter-spacing:.5px;}
+
+/* ── NAV ── */
+.nav{
+  position:sticky;top:0;z-index:200;
+  background:rgba(6,13,24,0.88);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:2px;
+  padding:0 24px;overflow-x:auto;scrollbar-width:none;
+}
+.nav::-webkit-scrollbar{display:none;}
+.nav-item{
+  display:flex;align-items:center;gap:6px;
+  padding:13px 14px;font-size:12.5px;font-weight:600;
+  color:var(--muted);text-decoration:none;white-space:nowrap;
+  border-bottom:2px solid transparent;transition:all .2s;
+}
+.nav-item:hover{color:var(--teal3);}
+.nav-item.active{color:var(--teal3);border-bottom-color:var(--teal2);}
+
+/* ── WRAPPER ── */
+.page{max-width:1100px;margin:0 auto;padding:56px 24px 100px;}
+
+/* ── INTRO BANNER ── */
+.intro-banner{
+  background:linear-gradient(135deg,rgba(20,184,166,0.10),rgba(6,182,212,0.06));
+  border:1px solid rgba(20,184,166,0.22);
+  border-radius:18px;padding:30px 36px;margin-bottom:44px;
+  display:flex;gap:20px;align-items:flex-start;
+}
+.intro-banner .ib-icon{font-size:34px;flex-shrink:0;margin-top:2px;}
+.intro-banner h3{font-size:17px;font-weight:800;color:var(--teal3);margin-bottom:8px;}
+.intro-banner p{color:var(--muted);font-size:14px;margin:0;}
+
+/* ── CARDS ── */
+.card{
+  background:var(--surf);border:1px solid var(--border);
+  border-radius:20px;margin-bottom:36px;overflow:hidden;
+  animation:fadeUp .5s ease both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.card:nth-child(1){animation-delay:.05s}
+.card:nth-child(2){animation-delay:.10s}
+.card:nth-child(3){animation-delay:.15s}
+.card:nth-child(4){animation-delay:.20s}
+.card:nth-child(5){animation-delay:.25s}
+.card:nth-child(6){animation-delay:.30s}
+.card:hover{border-color:var(--border2);}
+
+.card-header{
+  display:flex;align-items:center;gap:16px;
+  padding:24px 30px;border-bottom:1px solid var(--border);
+  position:relative;overflow:hidden;
+}
+.card-header::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(20,184,166,0.07),transparent);
+}
+.ch-icon{
+  width:48px;height:48px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;position:relative;z-index:1;
+}
+.card-header h2{font-size:19px;font-weight:800;color:#fff;position:relative;z-index:1;}
+.card-header p{font-size:12.5px;color:var(--muted);margin-top:2px;position:relative;z-index:1;}
+.card-num{
+  margin-left:auto;font-family:'Fira Code',monospace;font-size:10.5px;
+  color:var(--faint);background:var(--surf3);border:1px solid var(--border);
+  padding:4px 10px;border-radius:6px;flex-shrink:0;position:relative;z-index:1;
+}
+.card-body{padding:30px;}
+.card-body p{color:var(--muted);margin-bottom:14px;font-size:14.5px;line-height:1.8;}
+.card-body strong{color:var(--text);font-weight:600;}
+
+/* ── SECTION LABEL ── */
+.slabel{
+  display:flex;align-items:center;gap:10px;
+  font-size:10.5px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:var(--muted);
+  margin:28px 0 14px;
+}
+.slabel::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── CALLOUT ── */
+.callout{
+  border-radius:12px;padding:16px 20px;margin:16px 0;
+  display:flex;gap:12px;align-items:flex-start;font-size:14px;
+}
+.callout-icon{font-size:19px;flex-shrink:0;margin-top:1px;}
+.callout p{margin:0;}
+.c-teal{background:rgba(20,184,166,0.09);border:1px solid rgba(20,184,166,0.22);}
+.c-teal p{color:var(--teal4);}
+.c-amber{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.22);}
+.c-amber p{color:var(--amber2);}
+.c-red{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.22);}
+.c-red p{color:var(--red2);}
+.c-green{background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.22);}
+.c-green p{color:var(--green2);}
+.c-blue{background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.22);}
+.c-blue p{color:var(--blue2);}
+
+/* ── TABLE ── */
+.tbl{
+  width:100%;border-collapse:collapse;margin:16px 0;
+  border-radius:14px;overflow:hidden;border:1px solid var(--border);
+}
+.tbl th{
+  background:var(--surf3);color:var(--muted);
+  font-size:11.5px;font-weight:700;letter-spacing:.8px;
+  text-transform:uppercase;padding:12px 16px;text-align:left;
+  border-bottom:1px solid var(--border2);
+}
+.tbl td{
+  padding:12px 16px;font-size:13.5px;color:var(--text);
+  border-bottom:1px solid var(--border);vertical-align:middle;
+}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(20,184,166,0.03);}
+
+/* badges */
+.b{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;border-radius:6px;
+  font-family:'Fira Code',monospace;font-size:11px;font-weight:500;
+}
+.b-teal  {background:rgba(20,184,166,0.13);color:var(--teal3);border:1px solid rgba(20,184,166,0.25);}
+.b-green {background:rgba(16,185,129,0.12);color:#6EE7B7;border:1px solid rgba(16,185,129,0.25);}
+.b-amber {background:rgba(245,158,11,0.12);color:var(--amber2);border:1px solid rgba(245,158,11,0.25);}
+.b-red   {background:rgba(239,68,68,0.12);color:var(--red2);border:1px solid rgba(239,68,68,0.25);}
+.b-blue  {background:rgba(59,130,246,0.12);color:var(--blue2);border:1px solid rgba(59,130,246,0.25);}
+.b-purple{background:rgba(139,92,246,0.12);color:var(--purple2);border:1px solid rgba(139,92,246,0.25);}
+.b-cyan  {background:rgba(6,182,212,0.12);color:var(--cyan2);border:1px solid rgba(6,182,212,0.25);}
+.b-gray  {background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border2);}
+.b-orange{background:rgba(249,115,22,0.12);color:var(--orange2);border:1px solid rgba(249,115,22,0.25);}
+
+/* ── VERTICAL FLOW ── */
+.vflow{margin:16px 0;}
+.vs{display:flex;gap:18px;padding-bottom:26px;position:relative;}
+.vs:not(:last-child)::before{
+  content:'';position:absolute;left:19px;top:44px;bottom:0;width:2px;
+  background:linear-gradient(to bottom,rgba(20,184,166,0.25),rgba(20,184,166,0.03));
+}
+.vs-icon{
+  width:40px;height:40px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex-shrink:0;position:relative;z-index:1;
+  border:1px solid rgba(20,184,166,0.20);
+}
+.vs-body{flex:1;padding-top:5px;}
+.vs-body h4{font-size:15px;font-weight:700;color:#fff;margin-bottom:4px;}
+.vs-body p{font-size:13.5px;color:var(--muted);margin:0;line-height:1.65;}
+.vs-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.vs-tag{
+  font-family:'Fira Code',monospace;font-size:10.5px;
+  padding:2px 8px;border-radius:5px;
+  background:var(--surf3);color:var(--muted);border:1px solid var(--border2);
+}
+
+/* ── HORIZONTAL FLOW ── */
+.hflow{display:flex;gap:0;flex-wrap:wrap;row-gap:16px;margin:16px 0;}
+.hs{
+  flex:1;min-width:100px;display:flex;flex-direction:column;
+  align-items:center;text-align:center;position:relative;padding:0 6px;
+}
+.hs:not(:last-child)::after{
+  content:'→';position:absolute;right:-8px;top:22px;
+  color:var(--teal);font-size:16px;font-weight:900;
+}
+.hs-num{
+  width:42px;height:42px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:800;margin-bottom:10px;
+  font-family:'Fira Code',monospace;flex-shrink:0;
+}
+.hs-box{
+  background:var(--surf2);border:1px solid var(--border2);
+  border-radius:12px;padding:12px 10px;width:100%;
+}
+.hs-box .ico{font-size:18px;margin-bottom:5px;}
+.hs-box .lbl{font-size:12px;font-weight:700;color:var(--text);line-height:1.3;}
+.hs-box .sub{font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.3;}
+
+/* ── STATUS PIPELINE ── */
+.pipeline{
+  display:flex;gap:0;overflow-x:auto;padding:20px 0;margin:10px 0;
+  scrollbar-width:none;
+}
+.pipeline::-webkit-scrollbar{display:none;}
+.pip{flex:1;min-width:80px;text-align:center;position:relative;padding:0 4px;}
+.pip:not(:last-child)::after{
+  content:'';position:absolute;top:22px;right:-2px;
+  width:4px;height:2px;background:var(--border2);
+}
+.pip-dot{
+  width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;margin:0 auto 8px;border:2px solid;
+}
+.pip-lbl{font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.3;}
+.pip-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* ── FEATURE GRID ── */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin:16px 0;}
+.fc{
+  background:var(--surf2);border:1px solid var(--border);
+  border-radius:14px;padding:18px;transition:.2s;
+}
+.fc:hover{border-color:rgba(20,184,166,0.30);transform:translateY(-2px);}
+.fc .f-ico{font-size:22px;margin-bottom:10px;}
+.fc h4{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:5px;}
+.fc p{font-size:12.5px;color:var(--muted);margin:0;line-height:1.55;}
+
+/* ── SECTION GRID (two col) ── */
+.two-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:16px 0;}
+.info-box{
+  background:var(--surf2);border:1px solid var(--border);
+  border-radius:14px;padding:20px;
+}
+.info-box h4{font-size:14px;font-weight:700;color:var(--teal3);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.info-box ul{list-style:none;display:flex;flex-direction:column;gap:7px;}
+.info-box ul li{
+  font-size:13px;color:var(--muted);
+  padding-left:16px;position:relative;line-height:1.5;
+}
+.info-box ul li::before{
+  content:'›';position:absolute;left:0;color:var(--teal2);font-weight:700;
+}
+
+/* ── NOTIFICATION CARDS ── */
+.notif-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:16px 0;}
+.notif-card{border-radius:14px;padding:18px;border:1px solid;}
+.notif-card .n-ico{font-size:24px;margin-bottom:8px;}
+.notif-card h4{font-size:14px;font-weight:700;margin-bottom:5px;}
+.notif-card p{font-size:12.5px;margin:0;line-height:1.5;}
+.n-wa  {background:rgba(37,211,102,0.07);border-color:rgba(37,211,102,0.25);}
+.n-wa  h4{color:#4ADE80;} .n-wa  p{color:#86EFAC;}
+.n-pop {background:rgba(59,130,246,0.07);border-color:rgba(59,130,246,0.25);}
+.n-pop h4{color:var(--blue2);}  .n-pop p{color:#93C5FD;}
+.n-ton {background:rgba(245,158,11,0.07);border-color:rgba(245,158,11,0.25);}
+.n-ton h4{color:var(--amber2);} .n-ton p{color:#FCD34D;}
+
+/* ── UX CHIPS ── */
+.ux-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin:14px 0;}
+.ux-chip{
+  background:var(--surf2);border:1px solid var(--border);
+  border-radius:12px;padding:16px;
+}
+.ux-chip .u-ico{font-size:22px;margin-bottom:8px;}
+.ux-chip h4{font-size:13px;font-weight:700;color:var(--teal3);margin-bottom:5px;}
+.ux-chip p{font-size:12px;color:var(--muted);margin:0;line-height:1.5;}
+
+/* ── STATUS CARDS ── */
+.status-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin:16px 0;}
+.status-card{border-radius:12px;padding:16px;border:1px solid;display:flex;gap:12px;align-items:flex-start;}
+.status-card .sc-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.status-card h5{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.status-card p{font-size:12px;color:var(--muted);margin:0;line-height:1.45;}
+
+/* ── DEPARTMENT GRID ── */
+.dept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin:16px 0;}
+.dept-card{
+  background:var(--surf2);border:1px solid var(--border);
+  border-radius:12px;padding:14px;text-align:center;
+  transition:.2s;
+}
+.dept-card:hover{border-color:rgba(20,184,166,0.25);}
+.dept-card .d-ico{font-size:24px;margin-bottom:8px;}
+.dept-card h5{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.dept-card p{font-size:11.5px;color:var(--muted);line-height:1.4;}
+
+/* ── REF CODE PILL ── */
+.ref-pill{
+  display:inline-block;
+  background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);
+  color:var(--amber2);font-family:'Fira Code',monospace;font-size:12px;
+  padding:3px 10px;border-radius:6px;margin:0 3px;
+}
+
+/* ── TOC ── */
+.toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:10px;margin-bottom:44px;}
+.toc-item{
+  background:var(--surf);border:1px solid var(--border);
+  border-radius:12px;padding:13px 16px;text-decoration:none;
+  display:flex;align-items:center;gap:10px;transition:.2s;
+}
+.toc-item:hover{border-color:rgba(20,184,166,0.3);background:var(--surf2);}
+.ti-num{
+  font-family:'Fira Code',monospace;font-size:10px;color:var(--muted);
+  background:var(--surf3);padding:2px 7px;border-radius:5px;flex-shrink:0;
+}
+.ti-text{font-size:12.5px;font-weight:600;color:var(--text);line-height:1.3;}
+
+/* ── FOOTER ── */
+footer{
+  background:var(--surf);border-top:1px solid var(--border);
+  text-align:center;padding:28px 20px;color:var(--muted);font-size:13px;
+}
+footer strong{color:var(--text);}
+
+@media(max-width:600px){
+  .card-body,.card-header{padding:20px 16px;}
+  .hero{padding:56px 20px 80px;}
+  .hs:not(:last-child)::after{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- ─── HERO ─── -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-badge"><span class="live-dot"></span>CAREBRIDGE HEALTH · LAB MODULE</div>
+  <h1><span class="t1">Laboratory</span><br><span class="t2">Module</span> Documentation</h1>
+  <p>Complete operational reference for diagnostic laboratories, pathology units, imaging centers, and collection facilities connected to the CareBridge Health network.</p>
+  <div class="hero-stats">
+    <div class="hstat"><div class="n">6</div><div class="l">Sample Stages</div></div>
+    <div class="hstat"><div class="n">Ref Code</div><div class="l">Access Gate</div></div>
+    <div class="hstat"><div class="n">Real-Time</div><div class="l">Result Delivery</div></div>
+    <div class="hstat"><div class="n">Zero</div><div class="l">Duplicate Records</div></div>
+    <div class="hstat"><div class="n">STAT</div><div class="l">Emergency Priority</div></div>
+  </div>
+</div>
+
+<!-- ─── STICKY NAV ─── -->
+<nav class="nav">
+  <a class="nav-item active" href="#overview">Overview</a>
+  <a class="nav-item" href="#refcode">Ref Code Access</a>
+  <a class="nav-item" href="#notifications">Notifications</a>
+  <a class="nav-item" href="#workflow">Sample Workflow</a>
+  <a class="nav-item" href="#departments">Departments</a>
+  <a class="nav-item" href="#statuses">Sample Statuses</a>
+  <a class="nav-item" href="#reports">Report Upload</a>
+  <a class="nav-item" href="#consultant">Consultant Linking</a>
+  <a class="nav-item" href="#ux">UX Design</a>
+  <a class="nav-item" href="#dashboard">Dashboard Panels</a>
+  <a class="nav-item" href="#audit">Audit & Logs</a>
+</nav>
+
+<div class="page">
+
+  <!-- TOC -->
+  <div class="toc-grid">
+    <a class="toc-item" href="#overview"><span class="ti-num">§1</span><span class="ti-text">Product Vision & Overview</span></a>
+    <a class="toc-item" href="#refcode"><span class="ti-num">§2</span><span class="ti-text">Referral Code Access Control</span></a>
+    <a class="toc-item" href="#notifications"><span class="ti-num">§3</span><span class="ti-text">Notification System</span></a>
+    <a class="toc-item" href="#workflow"><span class="ti-num">§4</span><span class="ti-text">Sample Tracking Workflow</span></a>
+    <a class="toc-item" href="#departments"><span class="ti-num">§5</span><span class="ti-text">Lab Departments</span></a>
+    <a class="toc-item" href="#statuses"><span class="ti-num">§6</span><span class="ti-text">Sample Status States</span></a>
+    <a class="toc-item" href="#reports"><span class="ti-num">§7</span><span class="ti-text">Report Upload & Delivery</span></a>
+    <a class="toc-item" href="#consultant"><span class="ti-num">§8</span><span class="ti-text">Consultant Linking Flow</span></a>
+    <a class="toc-item" href="#ux"><span class="ti-num">§9</span><span class="ti-text">UX Design Principles</span></a>
+    <a class="toc-item" href="#dashboard"><span class="ti-num">§10</span><span class="ti-text">Dashboard Panels</span></a>
+    <a class="toc-item" href="#audit"><span class="ti-num">§11</span><span class="ti-text">Audit & Compliance</span></a>
+  </div>
+
+  <!-- INTRO BANNER -->
+  <div class="intro-banner">
+    <div class="ib-icon">🔬</div>
+    <div>
+      <h3>CareBridge Laboratory Module — Operational Bridge Between Clinician & Diagnostics</h3>
+      <p>The Laboratory module connects diagnostic facilities to the CareBridge Health network through a single Referral Code architecture. Labs access complete patient history, receive investigation orders, process samples, and deliver validated results — all without re-entering patient data or creating duplicate records. The system is designed to be fast, technician-friendly, and operationally precise.</p>
+    </div>
+  </div>
+
+  <!-- ─────────── §1 OVERVIEW ─────────── -->
+  <div id="overview" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(20,184,166,0.15)">🏥</div>
+      <div>
+        <h2>§1 — Product Vision & Overview</h2>
+        <p>Purpose, scope, and operational goals of the Laboratory module</p>
+      </div>
+      <div class="card-num">MODULE 01</div>
+    </div>
+    <div class="card-body">
+      <p>The CareBridge Laboratory Dashboard is built for <strong>diagnostic laboratories, pathology labs, imaging centers, collection facilities, and specialized testing environments</strong>. It bridges the gap between clinical referrals and diagnostic delivery — ensuring every investigation ordered is tracked, processed, and reported within committed turnaround times.</p>
+
+      <div class="callout c-teal">
+        <span class="callout-icon">🎯</span>
+        <p>The laboratory dashboard is not a standalone system. It is a <strong>connected operational node</strong> within the CareBridge ecosystem — every sample, report, and alert it generates is automatically linked to the patient's Referral Code and reflected on the Consultant and Hospital dashboards in real time.</p>
+      </div>
+
+      <div class="slabel">Module Scope</div>
+      <div class="two-col">
+        <div class="info-box">
+          <h4>🔬 Facility Types Supported</h4>
+          <ul>
+            <li>Diagnostic pathology laboratories</li>
+            <li>Clinical biochemistry labs</li>
+            <li>Haematology & immunology labs</li>
+            <li>Radiology & imaging centers</li>
+            <li>Microbiology & culture labs</li>
+            <li>Sample collection facilities</li>
+            <li>Histopathology & cytology units</li>
+            <li>Molecular diagnostics centers</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <h4>⚡ Core Capabilities</h4>
+          <ul>
+            <li>Referral Code–gated patient access</li>
+            <li>Zero duplicate patient registration</li>
+            <li>6-stage sample tracking pipeline</li>
+            <li>STAT emergency sample prioritization</li>
+            <li>Digital report upload & PDF generation</li>
+            <li>Critical value escalation alerts</li>
+            <li>Real-time consultant notification</li>
+            <li>Full audit trail & compliance logging</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="slabel">Platform Connectivity</div>
+      <div class="fgrid">
+        <div class="fc">
+          <div class="f-ico">🔑</div>
+          <h4>Referral Code Identity</h4>
+          <p>Every lab action links to the patient's universal Referral Code — reports, alerts, and TAT data automatically update the shared patient record.</p>
+        </div>
+        <div class="fc">
+          <div class="f-ico">👨‍⚕️</div>
+          <h4>Consultant Visibility</h4>
+          <p>Results uploaded in the lab module are instantly visible on the referring consultant's dashboard and trigger automatic push notifications.</p>
+        </div>
+        <div class="fc">
+          <div class="f-ico">🏨</div>
+          <h4>Hospital Coordination</h4>
+          <p>Hospital staff can see lab status updates on admitted patients — bed management and treatment planning informed by live diagnostic progress.</p>
+        </div>
+        <div class="fc">
+          <div class="f-ico">🛡️</div>
+          <h4>Super Admin Oversight</h4>
+          <p>Super Admin has full read access to all lab module records, uploads, and TAT performance data for governance and compliance review.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── §2 REF CODE ACCESS ─────────── -->
+  <div id="refcode" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(245,158,11,0.15)">🔑</div>
+      <div>
+        <h2>§2 — Referral Code Access Control</h2>
+        <p>Patient data is completely gated behind the unique Referral Code</p>
+      </div>
+      <div class="card-num">MODULE 02</div>
+    </div>
+    <div class="card-body">
+      <p>Patient details are <strong>not visible to any laboratory</strong> until the unique Referral Code is entered. Only after entering the code will all linked patient details — added by the consultant — become accessible to lab staff.</p>
+
+      <div class="callout c-amber">
+        <span class="callout-icon">⚠️</span>
+        <p><strong>Access Control Rule:</strong> No patient name, diagnosis, or clinical history is searchable or visible in the lab module without prior code entry. This protects patient privacy and ensures only authorized, referred labs access clinical data.</p>
+      </div>
+
+      <div class="slabel">Referral Code Access Flow</div>
+      <div class="hflow">
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(245,158,11,0.13);color:var(--amber2);border:2px solid rgba(245,158,11,0.3)">01</div>
+          <div class="hs-box"><div class="ico">📋</div><div class="lbl">Order / Referral Received</div><div class="sub">From consultant, hospital, or walk-in with code</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(245,158,11,0.13);color:var(--amber2);border:2px solid rgba(245,158,11,0.3)">02</div>
+          <div class="hs-box"><div class="ico">⌨️</div><div class="lbl">Staff Enters Referral Code</div><div class="sub"><span class="ref-pill">REF-XXXXX</span> input</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(245,158,11,0.13);color:var(--amber2);border:2px solid rgba(245,158,11,0.3)">03</div>
+          <div class="hs-box"><div class="ico">✅</div><div class="lbl">System Validates Code</div><div class="sub">Checks code exists & is active</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(245,158,11,0.13);color:var(--amber2);border:2px solid rgba(245,158,11,0.3)">04</div>
+          <div class="hs-box"><div class="ico">🔓</div><div class="lbl">Patient Record Unlocked</div><div class="sub">Full profile, history & reports visible</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(245,158,11,0.13);color:var(--amber2);border:2px solid rgba(245,158,11,0.3)">05</div>
+          <div class="hs-box"><div class="ico">🧪</div><div class="lbl">Sample Registered</div><div class="sub">Linked to same Ref Code</div></div>
+        </div>
+      </div>
+
+      <div class="slabel">What Unlocks After Code Entry</div>
+      <table class="tbl">
+        <tr><th>Data Field</th><th>Visible After Code Entry</th><th>Editable by Lab</th></tr>
+        <tr><td>👤 Patient Name & Demographics</td><td><span class="b b-green">✓ Yes</span></td><td><span class="b b-gray">Read Only</span></td></tr>
+        <tr><td>🩺 Consultant Diagnosis & Notes</td><td><span class="b b-green">✓ Yes</span></td><td><span class="b b-gray">Read Only</span></td></tr>
+        <tr><td>📋 Ordered Investigations</td><td><span class="b b-green">✓ Yes</span></td><td><span class="b b-teal">Lab Can Update Status</span></td></tr>
+        <tr><td>📁 Previously Uploaded Reports</td><td><span class="b b-green">✓ Yes</span></td><td><span class="b b-gray">Read Only</span></td></tr>
+        <tr><td>🏥 Hospital Admission Notes</td><td><span class="b b-green">✓ Yes</span></td><td><span class="b b-gray">Read Only</span></td></tr>
+        <tr><td>⚠️ Emergency Level / Urgency</td><td><span class="b b-green">✓ Yes</span></td><td><span class="b b-gray">Read Only</span></td></tr>
+        <tr><td>🔬 New Lab Reports & Findings</td><td><span class="b b-green">✓ Yes</span></td><td><span class="b b-teal">Lab Uploads Here</span></td></tr>
+        <tr><td>📊 TAT Timers & Progress</td><td><span class="b b-green">✓ Yes</span></td><td><span class="b b-teal">Lab Updates Stages</span></td></tr>
+      </table>
+
+      <div class="callout c-blue">
+        <span class="callout-icon">🔒</span>
+        <p>An <strong>invalid or expired Referral Code</strong> returns a generic "Code not found" error — no partial patient information is ever revealed. All access attempts are logged with timestamp and lab user ID for audit purposes.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── §3 NOTIFICATIONS ─────────── -->
+  <div id="notifications" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(34,197,94,0.15)">🔔</div>
+      <div>
+        <h2>§3 — Laboratory Notification System</h2>
+        <p>Multi-channel real-time alerts for incoming referrals and investigation orders</p>
+      </div>
+      <div class="card-num">MODULE 03</div>
+    </div>
+    <div class="card-body">
+      <p>When a consultant sends an investigation referral to a laboratory, the lab receives <strong>three simultaneous notification channels</strong> to ensure no order is missed — especially for emergency and STAT cases.</p>
+
+      <div class="notif-row">
+        <div class="notif-card n-wa">
+          <div class="n-ico">💬</div>
+          <h4>WhatsApp Notification</h4>
+          <p>Automatic WhatsApp message sent to the lab's registered number. Contains patient Referral Code, investigation type, urgency level, and consultant name. Delivered instantly on referral creation.</p>
+        </div>
+        <div class="notif-card n-pop">
+          <div class="n-ico">🖥️</div>
+          <h4>In-App Popup Alert</h4>
+          <p>Real-time popup on the Lab Dashboard showing investigation order details, urgency flag, TAT expectation, and quick-action buttons (Accept / Acknowledge / Route to Section).</p>
+        </div>
+        <div class="notif-card n-ton">
+          <div class="n-ico">🔊</div>
+          <h4>Notification Tone</h4>
+          <p>Audible alert plays on the lab dashboard for new incoming orders — a distinct louder tone activates for STAT / Emergency investigations to prompt immediate action.</p>
+        </div>
+      </div>
+
+      <div class="slabel">Notification Trigger Map</div>
+      <table class="tbl">
+        <tr><th>Trigger Event</th><th>WhatsApp</th><th>In-App Popup</th><th>Sound Tone</th><th>Priority</th></tr>
+        <tr><td>📋 New Investigation Order (Routine)</td><td><span class="b b-green">✓</span></td><td><span class="b b-green">✓</span></td><td><span class="b b-gray">Standard</span></td><td><span class="b b-teal">Normal</span></td></tr>
+        <tr><td>⚡ New Investigation Order (Urgent)</td><td><span class="b b-green">✓</span></td><td><span class="b b-green">✓</span></td><td><span class="b b-amber">Alert Tone</span></td><td><span class="b b-amber">High</span></td></tr>
+        <tr><td>🚨 STAT / Emergency Order</td><td><span class="b b-green">✓</span></td><td><span class="b b-green">✓</span></td><td><span class="b b-red">Loud Tone</span></td><td><span class="b b-red">Critical</span></td></tr>
+        <tr><td>🔄 Sample Resend / Correction</td><td><span class="b b-green">✓</span></td><td><span class="b b-green">✓</span></td><td><span class="b b-gray">Standard</span></td><td><span class="b b-teal">Normal</span></td></tr>
+        <tr><td>💬 Consultant Message / Query</td><td><span class="b b-green">✓</span></td><td><span class="b b-green">✓</span></td><td><span class="b b-gray">Standard</span></td><td><span class="b b-teal">Normal</span></td></tr>
+      </table>
+
+      <div class="callout c-teal">
+        <span class="callout-icon">📲</span>
+        <p>The <strong>Referral Code</strong> is always included in the WhatsApp notification so lab staff can immediately enter the code and access the full investigation request without any other communication needed.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── §4 SAMPLE WORKFLOW ─────────── -->
+  <div id="workflow" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(20,184,166,0.15)">⚗️</div>
+      <div>
+        <h2>§4 — Sample Tracking Workflow</h2>
+        <p>Complete 6-stage sample journey from order receipt to result delivery</p>
+      </div>
+      <div class="card-num">MODULE 04</div>
+    </div>
+    <div class="card-body">
+      <p>The workflow guides lab staff through every stage of diagnostic operations. Each stage updates the patient's centralized record in real time. <strong>Emergency STAT samples skip standard queues</strong> and are automatically elevated to priority processing.</p>
+
+      <div class="slabel">Full Sample Journey</div>
+      <div class="vflow">
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(20,184,166,0.15)">📥</div>
+          <div class="vs-body">
+            <h4>Stage 1 — Order / Referral Received</h4>
+            <p>Investigation request arrives via CareBridge referral, walk-in with Referral Code, or hospital order. System displays order details: tests required, urgency level, consultant name, and patient summary. STAT orders are automatically flagged with a red priority banner and notification tone.</p>
+            <div class="vs-tags"><span class="vs-tag">notification_sent</span><span class="vs-tag">sla_timer_starts</span><span class="vs-tag">stat_flag</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(20,184,166,0.15)">🔑</div>
+          <div class="vs-body">
+            <h4>Stage 2 — Referral Code Entry & Patient Registration</h4>
+            <p>Lab staff enter the Referral Code. Full patient profile, consultant diagnosis, investigation instructions, and previous reports are loaded instantly — no re-entry of patient demographics required. New walk-in patients without a code are registered fresh and a new Referral Code is generated.</p>
+            <div class="vs-tags"><span class="vs-tag">code_gate</span><span class="vs-tag">no_duplicate</span><span class="vs-tag">history_loaded</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(20,184,166,0.15)">🩸</div>
+          <div class="vs-body">
+            <h4>Stage 3 — Sample Collection</h4>
+            <p>Sample collected from patient by phlebotomist or collection staff. Barcode label generated and printed — linked to the patient's Referral Code and specific test order. Collection timestamp recorded. TAT countdown activates from this exact moment. Multiple samples for the same patient grouped under one Referral Code.</p>
+            <div class="vs-tags"><span class="vs-tag">barcode_generated</span><span class="vs-tag">tat_activated</span><span class="vs-tag">collector_id_logged</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(20,184,166,0.15)">⚙️</div>
+          <div class="vs-body">
+            <h4>Stage 4 — Sample Processing</h4>
+            <p>Sample routed to the relevant laboratory section (biochemistry, haematology, microbiology, radiology, etc.) based on the investigation type. Technician updates sample status on receipt. STAT samples automatically bypass standard queue and go to immediate processing. TAT timer visible on every technician's workbench view.</p>
+            <div class="vs-tags"><span class="vs-tag">section_routing</span><span class="vs-tag">stat_bypass_queue</span><span class="vs-tag">tat_visible</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(20,184,166,0.15)">🔍</div>
+          <div class="vs-body">
+            <h4>Stage 5 — Quality Review & Validation</h4>
+            <p>Senior technician or pathologist validates the results. Abnormal or critical values trigger an immediate escalation alert to the requesting consultant — push notification sent instantly. QC-failed samples automatically trigger a resample request with the reason logged. Validation is a two-person sign-off for critical investigations.</p>
+            <div class="vs-tags"><span class="vs-tag">senior_validation</span><span class="vs-tag">critical_value_alert</span><span class="vs-tag">qc_failure_log</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(20,184,166,0.15)">📤</div>
+          <div class="vs-body">
+            <h4>Stage 6 — Report Upload & Delivery</h4>
+            <p>Validated report uploaded digitally against the Referral Code. PDF report auto-generated and attached to the patient's centralized record. Consultant receives instant push notification with report summary and direct access link. Hospital staff see report status update on the admitted patient's panel. TAT completion time logged for performance tracking.</p>
+            <div class="vs-tags"><span class="vs-tag">pdf_generated</span><span class="vs-tag">consultant_notified</span><span class="vs-tag">tat_closed</span><span class="vs-tag">audit_trail</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SAMPLE PIPELINE VISUAL -->
+      <div class="slabel">Sample Journey at a Glance</div>
+      <div class="pipeline">
+        <div class="pip">
+          <div class="pip-dot" style="background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.4);color:var(--blue2)">📥</div>
+          <div class="pip-lbl">Order Received</div><div class="pip-sub">Notified</div>
+        </div>
+        <div class="pip">
+          <div class="pip-dot" style="background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.4);color:var(--amber2)">🔑</div>
+          <div class="pip-lbl">Code Entry</div><div class="pip-sub">Patient Loaded</div>
+        </div>
+        <div class="pip">
+          <div class="pip-dot" style="background:rgba(249,115,22,0.15);border-color:rgba(249,115,22,0.4);color:var(--orange2)">🩸</div>
+          <div class="pip-lbl">Collection</div><div class="pip-sub">TAT Starts</div>
+        </div>
+        <div class="pip">
+          <div class="pip-dot" style="background:rgba(6,182,212,0.15);border-color:rgba(6,182,212,0.4);color:var(--cyan2)">⚙️</div>
+          <div class="pip-lbl">Processing</div><div class="pip-sub">In Section</div>
+        </div>
+        <div class="pip">
+          <div class="pip-dot" style="background:rgba(139,92,246,0.15);border-color:rgba(139,92,246,0.4);color:var(--purple2)">🔍</div>
+          <div class="pip-lbl">Validation</div><div class="pip-sub">QC Review</div>
+        </div>
+        <div class="pip">
+          <div class="pip-dot" style="background:rgba(16,185,129,0.15);border-color:rgba(16,185,129,0.4);color:var(--green2)">📤</div>
+          <div class="pip-lbl">Uploaded</div><div class="pip-sub">TAT Closed</div>
+        </div>
+        <div class="pip">
+          <div class="pip-dot" style="background:rgba(20,184,166,0.15);border-color:rgba(20,184,166,0.4);color:var(--teal3)">📲</div>
+          <div class="pip-lbl">Consultant Notified</div><div class="pip-sub">Complete</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── §5 DEPARTMENTS ─────────── -->
+  <div id="departments" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(6,182,212,0.15)">🏛️</div>
+      <div>
+        <h2>§5 — Laboratory Departments & Sections</h2>
+        <p>Sample routing across clinical and diagnostic sections</p>
+      </div>
+      <div class="card-num">MODULE 05</div>
+    </div>
+    <div class="card-body">
+      <p>CareBridge supports multi-section laboratory environments. Each sample is <strong>automatically routed</strong> to the correct section based on the investigation type defined in the consultant's order. All sections share the same Referral Code patient identity.</p>
+
+      <div class="dept-grid">
+        <div class="dept-card">
+          <div class="d-ico">🧪</div>
+          <h5>Biochemistry</h5>
+          <p>LFTs, RFTs, lipid profiles, glucose, HbA1c, hormones</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">🩸</div>
+          <h5>Haematology</h5>
+          <p>CBC, coagulation, blood group, ESR, blood films</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">🦠</div>
+          <h5>Microbiology</h5>
+          <p>Culture & sensitivity, blood cultures, swabs, CSF</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">🧫</div>
+          <h5>Histopathology</h5>
+          <p>Biopsy processing, tissue sections, frozen sections</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">🔬</div>
+          <h5>Cytology</h5>
+          <p>FNAC, PAP smears, sputum cytology, body fluids</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">🧬</div>
+          <h5>Molecular Diagnostics</h5>
+          <p>PCR, genotyping, infectious disease panels, NGS</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">🩻</div>
+          <h5>Radiology / Imaging</h5>
+          <p>X-ray, ultrasound, CT scan, MRI, Doppler</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">💉</div>
+          <h5>Serology / Immunology</h5>
+          <p>Widal, VDRL, RA factor, ANA, viral serology</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">🩺</div>
+          <h5>Urine Analysis</h5>
+          <p>Urine R/E, culture, 24hr collections, drug screening</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">🔋</div>
+          <h5>Toxicology</h5>
+          <p>Drug levels, heavy metals, therapeutic drug monitoring</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">📡</div>
+          <h5>ECG / Cardiology</h5>
+          <p>12-lead ECG, Holter monitoring, cardiac biomarkers</p>
+        </div>
+        <div class="dept-card">
+          <div class="d-ico">🧒</div>
+          <h5>Sample Collection</h5>
+          <p>Phlebotomy, specimen handling, chain of custody</p>
+        </div>
+      </div>
+
+      <div class="callout c-teal">
+        <span class="callout-icon">⚡</span>
+        <p>When a consultant orders multiple investigations across different sections (e.g., CBC + LFT + Ultrasound), all three samples are registered under the <strong>same Referral Code</strong> and processed in parallel. Results from all sections merge into one patient report card.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── §6 SAMPLE STATUSES ─────────── -->
+  <div id="statuses" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(139,92,246,0.15)">📊</div>
+      <div>
+        <h2>§6 — Sample Status States</h2>
+        <p>Real-time sample tracking states and required actions</p>
+      </div>
+      <div class="card-num">MODULE 06</div>
+    </div>
+    <div class="card-body">
+      <p>Every sample has a clearly defined status visible to lab staff, the requesting consultant, and the hospital dashboard. <strong>Status transitions trigger automatic notifications</strong> to relevant parties.</p>
+
+      <div class="status-grid">
+        <div class="status-card" style="background:rgba(59,130,246,0.07);border-color:rgba(59,130,246,0.22)">
+          <div class="sc-dot" style="background:var(--blue2);box-shadow:0 0 6px var(--blue2)"></div>
+          <div><h5 style="color:var(--blue2)">🔵 Order Received</h5><p>Investigation request logged. Awaiting code entry and sample collection. TAT pending.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(245,158,11,0.07);border-color:rgba(245,158,11,0.22)">
+          <div class="sc-dot" style="background:var(--amber2);box-shadow:0 0 6px var(--amber2)"></div>
+          <div><h5 style="color:var(--amber2)">🟡 Awaiting Collection</h5><p>Code entered, patient registered. Phlebotomist dispatched. Sample not yet collected.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(249,115,22,0.07);border-color:rgba(249,115,22,0.22)">
+          <div class="sc-dot" style="background:var(--orange2);box-shadow:0 0 6px var(--orange2)"></div>
+          <div><h5 style="color:var(--orange2)">🟠 Collected</h5><p>Sample collected and barcoded. TAT timer active. Awaiting transport to section.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(6,182,212,0.07);border-color:rgba(6,182,212,0.22)">
+          <div class="sc-dot" style="background:var(--cyan2);box-shadow:0 0 6px var(--cyan2)"></div>
+          <div><h5 style="color:var(--cyan2)">🔵 In Processing</h5><p>Sample received in section. Analysis underway. TAT countdown visible to all.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(139,92,246,0.07);border-color:rgba(139,92,246,0.22)">
+          <div class="sc-dot" style="background:var(--purple2);box-shadow:0 0 6px var(--purple2)"></div>
+          <div><h5 style="color:var(--purple2)">🟣 Awaiting Validation</h5><p>Analysis complete. Awaiting senior technician or pathologist sign-off.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(16,185,129,0.07);border-color:rgba(16,185,129,0.22)">
+          <div class="sc-dot" style="background:var(--green2);box-shadow:0 0 6px var(--green2)"></div>
+          <div><h5 style="color:var(--green2)">🟢 Completed</h5><p>Report validated, uploaded, and delivered. Consultant notified. TAT record closed.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(239,68,68,0.07);border-color:rgba(239,68,68,0.22)">
+          <div class="sc-dot" style="background:var(--red2);box-shadow:0 0 6px var(--red2);animation:blink 1s infinite"></div>
+          <div><h5 style="color:var(--red2)">🔴 Critical Value</h5><p>Panic value detected. Consultant immediately notified via push + escalation log. Urgent action required.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(255,255,255,0.04);border-color:var(--border2)">
+          <div class="sc-dot" style="background:var(--muted)"></div>
+          <div><h5 style="color:var(--muted)">⚪ QC Failed / Resample</h5><p>Quality control failed. New sample required. Reason logged. Consultant and collection team notified.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(245,158,11,0.07);border-color:rgba(245,158,11,0.22)">
+          <div class="sc-dot" style="background:var(--amber2);animation:blink 1s infinite"></div>
+          <div><h5 style="color:var(--amber2)">⚡ STAT Priority</h5><p>Emergency order. Bypasses all standard queues. All staff alerted. TAT measured in minutes, not hours.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(6,182,212,0.07);border-color:rgba(6,182,212,0.22)">
+          <div class="sc-dot" style="background:var(--cyan2)"></div>
+          <div><h5 style="color:var(--cyan2)">🔄 Repeat / Add-On</h5><p>Consultant added a new test to existing sample. Registered under same Ref Code. No re-collection needed.</p></div>
+        </div>
+      </div>
+
+      <div class="slabel">Status Transition Rules</div>
+      <table class="tbl">
+        <tr><th>From Status</th><th>To Status</th><th>Trigger</th><th>Who Updates</th></tr>
+        <tr><td>Order Received</td><td>Awaiting Collection</td><td>Code entered & patient loaded</td><td>Lab Staff</td></tr>
+        <tr><td>Awaiting Collection</td><td>Collected</td><td>Sample collected & barcoded</td><td>Phlebotomist</td></tr>
+        <tr><td>Collected</td><td>In Processing</td><td>Section receives & confirms sample</td><td>Technician</td></tr>
+        <tr><td>In Processing</td><td>Awaiting Validation</td><td>Analysis result entered</td><td>Technician</td></tr>
+        <tr><td>Awaiting Validation</td><td>Completed</td><td>Senior sign-off & upload</td><td>Pathologist / Senior Tech</td></tr>
+        <tr><td>Any Stage</td><td>QC Failed</td><td>Sample rejected by QC check</td><td>System / Technician</td></tr>
+        <tr><td>Any Stage</td><td>Critical Value</td><td>Panic value detected in result</td><td>System Auto-Flag</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ─────────── §7 REPORT UPLOAD ─────────── -->
+  <div id="reports" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(16,185,129,0.15)">📤</div>
+      <div>
+        <h2>§7 — Report Upload & Digital Delivery</h2>
+        <p>Validated result upload, PDF generation, and consultant notification</p>
+      </div>
+      <div class="card-num">MODULE 07</div>
+    </div>
+    <div class="card-body">
+      <p>Once validated, results are uploaded <strong>directly against the Referral Code</strong>. The system auto-generates a PDF report, attaches it to the patient's centralized record, and notifies the referring consultant instantly.</p>
+
+      <div class="slabel">Upload & Delivery Flow</div>
+      <div class="hflow">
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(16,185,129,0.13);color:var(--green2);border:2px solid rgba(16,185,129,0.3)">01</div>
+          <div class="hs-box"><div class="ico">✅</div><div class="lbl">Validation Sign-Off</div><div class="sub">Senior validates result</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(16,185,129,0.13);color:var(--green2);border:2px solid rgba(16,185,129,0.3)">02</div>
+          <div class="hs-box"><div class="ico">📤</div><div class="lbl">Upload Against Ref Code</div><div class="sub">Report linked to patient</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(16,185,129,0.13);color:var(--green2);border:2px solid rgba(16,185,129,0.3)">03</div>
+          <div class="hs-box"><div class="ico">📄</div><div class="lbl">PDF Auto-Generated</div><div class="sub">Branded report created</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(16,185,129,0.13);color:var(--green2);border:2px solid rgba(16,185,129,0.3)">04</div>
+          <div class="hs-box"><div class="ico">🗂️</div><div class="lbl">Record Updated</div><div class="sub">Patient history synced</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(16,185,129,0.13);color:var(--green2);border:2px solid rgba(16,185,129,0.3)">05</div>
+          <div class="hs-box"><div class="ico">📲</div><div class="lbl">Consultant Notified</div><div class="sub">Push + in-app alert</div></div>
+        </div>
+      </div>
+
+      <div class="slabel">Upload Types Supported</div>
+      <table class="tbl">
+        <tr><th>Upload Type</th><th>Examples</th><th>Format</th><th>Auto-Notify Consultant</th></tr>
+        <tr><td>📋 Lab Reports</td><td>CBC, LFT, RFT, HbA1c, cultures</td><td>PDF / Structured data</td><td><span class="b b-green">✓ Yes</span></td></tr>
+        <tr><td>🩻 Imaging Scans</td><td>X-ray, CT, MRI, Ultrasound images</td><td>DICOM / JPEG / PDF</td><td><span class="b b-green">✓ Yes</span></td></tr>
+        <tr><td>📝 Pathology Findings</td><td>Biopsy, histology, cytology reports</td><td>PDF / Word</td><td><span class="b b-green">✓ Yes</span></td></tr>
+        <tr><td>🚨 Critical Value Alerts</td><td>Panic values, urgent abnormals</td><td>In-app alert + note</td><td><span class="b b-red">Immediate Push</span></td></tr>
+        <tr><td>🔁 Repeat / Corrected Reports</td><td>Amended results, rerun tests</td><td>PDF</td><td><span class="b b-amber">Correction Flag</span></td></tr>
+      </table>
+
+      <div class="callout c-red">
+        <span class="callout-icon">🚨</span>
+        <p><strong>Critical Value Protocol:</strong> When a panic/critical value is detected, the system triggers an <strong>immediate push notification</strong> to the consultant — separate from the standard report notification — with a clear "ACTION REQUIRED" flag. The escalation event is permanently logged in the audit trail.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── §8 CONSULTANT LINKING ─────────── -->
+  <div id="consultant" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(59,130,246,0.15)">🔗</div>
+      <div>
+        <h2>§8 — Consultant Linking & Patient Visibility</h2>
+        <p>Auto-linking patients to consultants and real-time tracking</p>
+      </div>
+      <div class="card-num">MODULE 08</div>
+    </div>
+    <div class="card-body">
+      <p>Laboratories connected with CareBridge can register patients under consultant referral identities. When lab staff select a consultant who exists in the CareBridge network, <strong>the patient automatically links to that consultant's profile</strong> — giving them instant visibility of lab activity.</p>
+
+      <div class="slabel">Consultant Linking Process</div>
+      <div class="vflow">
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(59,130,246,0.15)">📋</div>
+          <div class="vs-body">
+            <h4>1. Referral / Walk-In Arrives at Lab</h4>
+            <p>Patient arrives with Referral Code from consultant or is a walk-in requesting investigations. If consultant-referred, the code carries the consultant's linked identity automatically.</p>
+          </div>
+        </div>
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(59,130,246,0.15)">🔍</div>
+          <div class="vs-body">
+            <h4>2. Consultant Identity Confirmed</h4>
+            <p>Lab staff enter the Referral Code — the referring consultant's name, specialization, and contact details appear in the patient record. For walk-ins, staff can optionally search and select a consultant from the CareBridge network.</p>
+            <div class="vs-tags"><span class="vs-tag">auto_loaded_via_refcode</span><span class="vs-tag">network_search</span></div>
+          </div>
+        </div>
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(59,130,246,0.15)">🔗</div>
+          <div class="vs-body">
+            <h4>3. Auto-Link Activated</h4>
+            <p>Patient sample, investigation order, and all future uploads are automatically associated with the consultant's patient list. No manual linking needed — the Referral Code handles the association.</p>
+            <div class="vs-tags"><span class="vs-tag">auto_link</span><span class="vs-tag">consultant_patient_list</span></div>
+          </div>
+        </div>
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(59,130,246,0.15)">📡</div>
+          <div class="vs-body">
+            <h4>4. Real-Time Visibility Granted</h4>
+            <p>Consultant's dashboard immediately shows the patient has arrived at the linked lab. Sample collection, processing stage, and TAT progress are all visible to the consultant in real time — no need to call or follow up.</p>
+            <div class="vs-tags"><span class="vs-tag">live_status_update</span><span class="vs-tag">consultant_dashboard</span></div>
+          </div>
+        </div>
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(59,130,246,0.15)">📲</div>
+          <div class="vs-body">
+            <h4>5. Report Delivery to Consultant</h4>
+            <p>When results are validated and uploaded, the consultant receives instant push notification with the report attached. Critical values trigger an immediate escalation alert regardless of time of day.</p>
+            <div class="vs-tags"><span class="vs-tag">push_notification</span><span class="vs-tag">report_access_link</span><span class="vs-tag">critical_escalation</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── §9 UX DESIGN ─────────── -->
+  <div id="ux" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(20,184,166,0.15)">🎨</div>
+      <div>
+        <h2>§9 — UX Design Principles</h2>
+        <p>Human-centered design for high-volume, fast-paced diagnostic workflows</p>
+      </div>
+      <div class="card-num">MODULE 09</div>
+    </div>
+    <div class="card-body">
+      <p>The laboratory dashboard must feel <strong>operationally smooth, technician-friendly, and optimized for high-volume workflows</strong>. Lab technicians work under time pressure, with multiple samples in progress simultaneously. The interface must minimize cognitive load and physical interaction time.</p>
+
+      <div class="ux-grid">
+        <div class="ux-chip">
+          <div class="u-ico">⌨️</div>
+          <h4>Minimal Typing</h4>
+          <p>Pre-populated fields from the Referral Code. Barcode scan registers samples. Quick-select for test panels instead of manual entry.</p>
+        </div>
+        <div class="ux-chip">
+          <div class="u-ico">⏱️</div>
+          <h4>TAT Always Visible</h4>
+          <p>Turnaround time timer displayed prominently on every sample card. Color changes from green → amber → red as deadline approaches.</p>
+        </div>
+        <div class="ux-chip">
+          <div class="u-ico">🚨</div>
+          <h4>STAT Visual Priority</h4>
+          <p>Emergency orders use distinct red banner, pulsing icon, and audible tone. Never lost in a standard work queue.</p>
+        </div>
+        <div class="ux-chip">
+          <div class="u-ico">📱</div>
+          <h4>Mobile-Accessible</h4>
+          <p>Collection staff and on-call technicians can update sample status from mobile — large buttons, simple status updates.</p>
+        </div>
+        <div class="ux-chip">
+          <div class="u-ico">🔍</div>
+          <h4>Instant Search</h4>
+          <p>Referral Code search returns full patient record in under 1 second. No multi-field search needed — one code finds everything.</p>
+        </div>
+        <div class="ux-chip">
+          <div class="u-ico">📊</div>
+          <h4>Workbench View</h4>
+          <p>Technician sees only their section's pending samples. Reduces noise, increases focus on relevant work queue.</p>
+        </div>
+        <div class="ux-chip">
+          <div class="u-ico">🎯</div>
+          <h4>One-Click Upload</h4>
+          <p>Report upload requires minimal steps — select file, confirm patient match, one-click submit. PDF generated automatically.</p>
+        </div>
+        <div class="ux-chip">
+          <div class="u-ico">📡</div>
+          <h4>Real-Time Dashboard</h4>
+          <p>No page refresh needed. New orders appear live. Status updates propagate instantly across all connected user sessions.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── §10 DASHBOARD PANELS ─────────── -->
+  <div id="dashboard" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(20,184,166,0.15)">🖥️</div>
+      <div>
+        <h2>§10 — Laboratory Dashboard Panels</h2>
+        <p>Widget-by-widget breakdown of the lab module interface</p>
+      </div>
+      <div class="card-num">MODULE 10</div>
+    </div>
+    <div class="card-body">
+      <p>The laboratory dashboard presents <strong>role-specific operational views</strong> for reception staff, section technicians, senior pathologists, and lab managers. Each user sees a tailored workbench without unnecessary information overload.</p>
+
+      <div class="slabel">Main Dashboard Widgets</div>
+      <table class="tbl">
+        <tr><th>Dashboard Widget</th><th>Information Displayed</th><th>Update Frequency</th><th>Priority</th></tr>
+        <tr><td>🚨 STAT / Emergency Queue</td><td>All active STAT orders with TAT countdown</td><td>Live / Instant</td><td><span class="b b-red">Critical</span></td></tr>
+        <tr><td>📋 Pending Orders Queue</td><td>All incoming investigation orders by section</td><td>Live / Instant</td><td><span class="b b-red">Critical</span></td></tr>
+        <tr><td>⏱️ TAT Tracker</td><td>Per-sample TAT with colour-coded urgency</td><td>Live / Ticking</td><td><span class="b b-amber">High</span></td></tr>
+        <tr><td>⚙️ In-Processing Board</td><td>Samples currently in each section</td><td>Every 2 min</td><td><span class="b b-amber">High</span></td></tr>
+        <tr><td>🔍 Awaiting Validation</td><td>Completed analysis pending senior sign-off</td><td>Live / Instant</td><td><span class="b b-amber">High</span></td></tr>
+        <tr><td>✅ Completed Today</td><td>Reports dispatched with TAT performance</td><td>Hourly</td><td><span class="b b-teal">Standard</span></td></tr>
+        <tr><td>🚨 Critical Value Alerts</td><td>Active panic value cases requiring action</td><td>Live / Instant</td><td><span class="b b-red">Critical</span></td></tr>
+        <tr><td>📊 TAT Performance Summary</td><td>Section-wise average TAT vs. target</td><td>Daily</td><td><span class="b b-teal">Standard</span></td></tr>
+        <tr><td>🔔 Notifications Centre</td><td>System messages, add-on orders, queries</td><td>Live / Instant</td><td><span class="b b-teal">Standard</span></td></tr>
+      </table>
+
+      <div class="slabel">Section-Specific Workbench Views</div>
+      <div class="two-col">
+        <div class="info-box">
+          <h4>👩‍🔬 Technician Workbench</h4>
+          <ul>
+            <li>Only my section's pending samples shown</li>
+            <li>Barcode scan to update sample status</li>
+            <li>Result entry form with reference ranges</li>
+            <li>Flag critical / abnormal values inline</li>
+            <li>TAT timer per sample with alert threshold</li>
+            <li>Quick upload for validated reports</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <h4>🧑‍⚕️ Pathologist / Senior View</h4>
+          <ul>
+            <li>Validation queue for all sections</li>
+            <li>Before/after comparison for amended reports</li>
+            <li>Critical value override & escalation tool</li>
+            <li>Cross-section report correlation view</li>
+            <li>Batch sign-off for routine results</li>
+            <li>Addendum / comment capability on reports</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <h4>🗂️ Lab Manager View</h4>
+          <ul>
+            <li>Full sample load across all sections</li>
+            <li>TAT compliance report per section</li>
+            <li>Staff workload distribution dashboard</li>
+            <li>QC failure rate and trend analysis</li>
+            <li>Pending report backlog visibility</li>
+            <li>Export performance data to Excel / PDF</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <h4>🚪 Reception / Front Desk</h4>
+          <ul>
+            <li>Referral Code entry and patient loading</li>
+            <li>Walk-in registration with new Ref Code</li>
+            <li>Sample collection request dispatch</li>
+            <li>Patient status communication portal</li>
+            <li>Report collection & dispatch log</li>
+            <li>Insurance / billing information capture</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────── §11 AUDIT ─────────── -->
+  <div id="audit" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(239,68,68,0.15)">📜</div>
+      <div>
+        <h2>§11 — Audit Trail & Compliance</h2>
+        <p>Immutable logging, access control records, and compliance export</p>
+      </div>
+      <div class="card-num">MODULE 11</div>
+    </div>
+    <div class="card-body">
+      <p>The lab module maintains a <strong>complete, tamper-proof audit trail</strong> of all actions — from code entry to report delivery. Every access, upload, status change, and critical alert is permanently logged for compliance, accountability, and patient safety.</p>
+
+      <div class="slabel">Events Logged in Lab Audit Trail</div>
+      <table class="tbl">
+        <tr><th>Event</th><th>Data Captured</th><th>Accessible By</th></tr>
+        <tr><td>🔑 Referral Code Entry</td><td>User ID, timestamp, IP, code entered, result (valid/invalid)</td><td>Super Admin</td></tr>
+        <tr><td>🩸 Sample Collection</td><td>Collector ID, barcode, patient Ref Code, collection time</td><td>Lab Manager, Admin</td></tr>
+        <tr><td>⚙️ Status Transitions</td><td>Each stage change with user, timestamp, and section</td><td>Lab Manager, Admin</td></tr>
+        <tr><td>📤 Report Upload</td><td>Uploader ID, file name, upload time, Ref Code, report type</td><td>All authorized roles</td></tr>
+        <tr><td>🔍 Validation Sign-Off</td><td>Pathologist ID, validation time, result values, flags</td><td>Lab Manager, Admin</td></tr>
+        <tr><td>🚨 Critical Value Alert</td><td>Alert trigger, value, notified consultant, escalation time</td><td>Super Admin, Lab Manager</td></tr>
+        <tr><td>✏️ Report Amendment</td><td>Original vs amended values, amendment reason, authorizer</td><td>Super Admin only</td></tr>
+        <tr><td>🔐 Access Logs</td><td>All login, session, and record-access events</td><td>Super Admin</td></tr>
+      </table>
+
+      <div class="callout c-teal">
+        <span class="callout-icon">📊</span>
+        <p>Lab managers can <strong>export audit logs in Excel format</strong> for operational review and TAT performance analysis. Compliance PDF reports are available for regulatory submissions and accreditation documentation.</p>
+      </div>
+
+      <div class="slabel">Compliance Coverage</div>
+      <table class="tbl">
+        <tr><th>Requirement</th><th>Coverage</th><th>Status</th></tr>
+        <tr><td>Patient Data Privacy</td><td>Referral Code gate — zero access without valid code</td><td><span class="b b-green">✓ Covered</span></td></tr>
+        <tr><td>Chain of Custody</td><td>Barcode linked to collector ID + timestamp at each stage</td><td><span class="b b-green">✓ Covered</span></td></tr>
+        <tr><td>Report Integrity</td><td>Locked after upload; amendments require Super Admin</td><td><span class="b b-green">✓ Covered</span></td></tr>
+        <tr><td>Critical Value Response</td><td>Auto-alert with escalation log and consultant acknowledgement</td><td><span class="b b-green">✓ Covered</span></td></tr>
+        <tr><td>QC Documentation</td><td>QC failure reasons logged, resample requests tracked</td><td><span class="b b-green">✓ Covered</span></td></tr>
+        <tr><td>TAT Compliance</td><td>Per-sample TAT tracked and reportable by section/test</td><td><span class="b b-green">✓ Covered</span></td></tr>
+        <tr><td>Regulatory Export</td><td>Excel + PDF audit export on demand for lab managers & admin</td><td><span class="b b-green">✓ Covered</span></td></tr>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <strong>CareBridge Health</strong> · Laboratory Module Documentation · Version 1.0 · May 2026<br>
+  Confidential — For authorized personnel and development teams only
+</footer>
+
+<script>
+const ids = ['overview','refcode','notifications','workflow','departments','statuses','reports','consultant','ux','dashboard','audit'];
+const navs = document.querySelectorAll('.nav-item');
+function upNav(){
+  let cur=ids[0];
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el && window.scrollY >= el.offsetTop-120) cur=id;
+  });
+  navs.forEach(n=>n.classList.toggle('active', n.getAttribute('href')==='#'+cur));
+}
+window.addEventListener('scroll',upNav,{passive:true});
+upNav();
+</script>
+</body>
+</html>
