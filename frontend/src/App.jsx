@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { io } from 'socket.io-client';
 import { AuthProvider, useAuth } from './features/auth/AuthContext';
 import { BrandingProvider } from './context/BrandingContext';
+import { SocketProvider, useSocket } from './context/SocketContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { Toaster } from 'react-hot-toast';
-import { SOCKET_URL } from './config';
 import AuthLayout from './layouts/AuthLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
@@ -57,61 +57,48 @@ const RoleGuard = ({ children, roles }) => {
   return children;
 };
 
-/** Global Socket Listener to invalidate TanStack queries on real-time events */
+/**
+ * Global real-time listener. Uses the single shared socket and refreshes every
+ * active TanStack query whenever a domain event or notification arrives, so all
+ * dashboards (every role) stay live without a page refresh.
+ */
+const REALTIME_EVENTS = [
+  'notification',
+  'NEW_REFERRAL',
+  'STATUS_UPDATE',
+  'REFERRAL_ESCALATED',
+  'BED_UPDATE',
+  'NEW_CLINICAL_NOTE',
+  'lab_status_update',
+  'lab_critical_value',
+  'lab_report_ready',
+];
+
 const SocketListener = () => {
-  const { token, user } = useAuth();
+  const socket = useSocket();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!token || !user) return undefined;
+    if (!socket) return undefined;
 
-    const socket = io(SOCKET_URL, { transports: ['websocket'] });
+    // Collapse bursts of events into a single refetch and only refresh the
+    // queries currently on screen — avoids hammering the backend.
+    let timer = null;
+    const scheduleRefresh = () => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        queryClient.invalidateQueries({ refetchType: 'active' });
+      }, 500);
+    };
 
-    if (user.role === 'hospital') {
-      socket.emit('join_hospital', { token });
-      socket.on('NEW_REFERRAL', () => {
-        queryClient.invalidateQueries({ queryKey: ['inbox'] });
-        queryClient.invalidateQueries({ queryKey: ['pipeline'] });
-      });
-      socket.on('REFERRAL_ESCALATED', () => {
-        queryClient.invalidateQueries({ queryKey: ['inbox'] });
-        queryClient.invalidateQueries({ queryKey: ['pipeline'] });
-      });
-      socket.on('STATUS_UPDATE', () => {
-        queryClient.invalidateQueries({ queryKey: ['inbox'] });
-        queryClient.invalidateQueries({ queryKey: ['admissions'] });
-        queryClient.invalidateQueries({ queryKey: ['pipeline'] });
-      });
-      socket.on('BED_UPDATE', () => {
-        queryClient.invalidateQueries({ queryKey: ['beds'] });
-      });
-    }
+    REALTIME_EVENTS.forEach((evt) => socket.on(evt, scheduleRefresh));
 
-    if (user.role === 'consultant') {
-      socket.emit('join_consultant', { token });
-      socket.on('STATUS_UPDATE', () => {
-        queryClient.invalidateQueries({ queryKey: ['referrals'] });
-        queryClient.invalidateQueries({ queryKey: ['earnings'] });
-      });
-      socket.on('REFERRAL_ESCALATED', () => {
-        queryClient.invalidateQueries({ queryKey: ['referrals'] });
-      });
-    }
-
-    if (user.role === 'laboratory') {
-      socket.emit('join_laboratory', { token });
-      socket.on('NEW_REFERRAL', () => {
-        queryClient.invalidateQueries({ queryKey: ['lab-investigations'] });
-        queryClient.invalidateQueries({ queryKey: ['lab-investigations-all'] });
-      });
-      socket.on('STATUS_UPDATE', () => {
-        queryClient.invalidateQueries({ queryKey: ['lab-investigations'] });
-        queryClient.invalidateQueries({ queryKey: ['lab-investigations-all'] });
-      });
-    }
-
-    return () => socket.disconnect();
-  }, [token, user, queryClient]);
+    return () => {
+      if (timer) clearTimeout(timer);
+      REALTIME_EVENTS.forEach((evt) => socket.off(evt, scheduleRefresh));
+    };
+  }, [socket, queryClient]);
 
   return null;
 };
@@ -122,6 +109,8 @@ function App() {
   return (
     <AuthProvider>
       <BrandingProvider>
+      <SocketProvider>
+      <NotificationProvider>
       <SocketListener />
       <Toaster position="top-right" />
       <Router>
@@ -180,6 +169,8 @@ function App() {
           </Route>
         </Routes>
       </Router>
+      </NotificationProvider>
+      </SocketProvider>
       </BrandingProvider>
     </AuthProvider>
   );

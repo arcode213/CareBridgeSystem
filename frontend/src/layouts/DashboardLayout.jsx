@@ -5,6 +5,7 @@ import { useAuth } from '../features/auth/AuthContext';
 import { useBranding } from '../context/BrandingContext';
 import BrandLogo from '../components/BrandLogo';
 import BrandNavLink from '../components/BrandNavLink';
+import NotificationBell from '../components/NotificationBell';
 import { Sun, Moon } from 'lucide-react';
 import api from '../utils/api';
 
@@ -36,7 +37,9 @@ const DashboardLayout = () => {
     }
   }, [isDarkMode]);
 
-  // Notification Counters using React Query (Refreshes every 15s)
+  // Sidebar badge counters. Kept fresh in real time by the global socket
+  // listener (invalidates these queries on events); the slow interval is just
+  // a safety-net fallback so we don't poll the backend aggressively.
   const { data: inboxData } = useQuery({
     queryKey: ['hospital-inbox-count'],
     queryFn: async () => {
@@ -44,7 +47,7 @@ const DashboardLayout = () => {
       return res.data.data || [];
     },
     enabled: !!user && user.role === 'hospital',
-    refetchInterval: 15000,
+    refetchInterval: 120000,
   });
 
   const { data: pendingApprovalsData } = useQuery({
@@ -54,7 +57,7 @@ const DashboardLayout = () => {
       return res.data.data || [];
     },
     enabled: !!user && user.role === 'admin',
-    refetchInterval: 15000,
+    refetchInterval: 120000,
   });
 
   const inboxCount = inboxData?.length || 0;
@@ -74,7 +77,8 @@ const DashboardLayout = () => {
       {/* Mobile top nav */}
       <header className="md:hidden sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-3 flex items-center justify-between dark:bg-slate-900 dark:border-slate-800 transition-colors">
         <BrandLogo size="sm" className="text-base" />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <NotificationBell />
           <button
             type="button"
             onClick={() => setIsDarkMode(!isDarkMode)}
@@ -162,8 +166,9 @@ const DashboardLayout = () => {
 
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 bg-white border-r border-slate-200 flex-col dark:bg-slate-900 dark:border-slate-800 transition-colors h-screen sticky top-0">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 transition-colors">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 transition-colors flex items-center justify-between gap-2">
           <BrandLogo size="md" className="text-xl" />
+          <NotificationBell align="left" />
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">

@@ -8,8 +8,60 @@
  */
 
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const { sendNotificationEmail } = require('../utils/emailService');
 const { sendWhatsApp } = require('../utils/whatsappService');
+const { emitToUser } = require('../socket');
+
+// Human-readable titles for the in-app notification bell.
+const NOTIFICATION_TITLES = {
+  LOGIN_ALERT: 'New login detected',
+  PASSWORD_CHANGED: 'Password changed',
+  NEW_REFERRAL: 'New referral received',
+  REFERRAL_ACCEPTED: 'Referral accepted',
+  REFERRAL_REJECTED: 'Referral declined',
+  REFERRAL_ESCALATED: 'Referral escalated',
+  ADMISSION_CREATED: 'Patient admitted',
+  BILL_GENERATED: 'Bill generated',
+  SETTLEMENT_CREATED: 'New weekly settlement',
+  HOSPITAL_RECEIPT_UPLOADED: 'Payment receipt uploaded',
+  SETTLEMENT_VERIFIED: 'Settlement verified',
+  SETTLEMENT_REJECTED: 'Receipt rejected',
+  CONSULTANT_PAYOUT_UPLOADED: 'Payout sent',
+  PAYOUT_VERIFIED: 'Payout confirmed',
+  ACCOUNT_APPROVED: 'Account approved',
+  ACCOUNT_SUSPENDED: 'Account suspended',
+  NEW_REGISTRATION: 'New registration — approval needed',
+  LAB_ORDER_RECEIVED: 'New lab order',
+  LAB_STATUS_UPDATE: 'Lab status update',
+  LAB_CRITICAL_VALUE: 'Critical lab value',
+  LAB_REPORT_READY: 'Lab report ready',
+  ADMIN_BROADCAST: 'Platform notice',
+};
+
+/**
+ * Persist an in-app notification and push it to the user's browser in
+ * real time. Keeps only safe, lightweight context in `data` (no PII).
+ */
+const persistAndPush = async ({ userId, role, type, message, data = {} }) => {
+  if (!userId) return;
+  try {
+    const { email, phone, name, ...context } = data;
+    const title = NOTIFICATION_TITLES[type] || 'CareBridge Notification';
+    const notif = await Notification.create({ userId, role, type, title, message, data: context });
+    emitToUser(userId, 'notification', {
+      _id: notif._id,
+      type,
+      title,
+      message,
+      data: context,
+      read: false,
+      createdAt: notif.createdAt,
+    });
+  } catch (err) {
+    console.error('[NOTIFICATION] persist/push error:', err.message);
+  }
+};
 
 const notifyAllAdmins = async (type, message, extraData = {}) => {
   const admins = await User.find({ role: 'admin', status: 'active' })
@@ -151,6 +203,11 @@ const buildWhatsAppBody = (type, name, message, data = {}) => {
       (data.reportUrl ? `Report Link: ${data.reportUrl}\n\n` : '') +
       `Please check your dashboard to view the full report.`,
 
+    NEW_REGISTRATION: () =>
+      `🆕 *CareBridge Health* — New Registration\n\n${greeting}` +
+      `A new *${data.registrantRole || 'user'}* (${data.registrantName || ''}) has registered and is awaiting approval.\n\n` +
+      `Log in to the Approvals dashboard to review.`,
+
     // Generic / Admin broadcast
     ADMIN_BROADCAST: () =>
       `📢 *CareBridge Health* — Platform Notice\n\n${greeting}${message}`,
@@ -170,22 +227,35 @@ exports.sendAlert = async ({ userId, role, type, message, data = {} }) => {
 
   const results = {};
 
+  // All three channels run concurrently — the in-app push (fast, local) is no
+  // longer blocked behind the slow WhatsApp/email HTTP calls.
+  const tasks = [
+    persistAndPush({ userId, role, type, message, data }),
+  ];
+
   // 1. WhatsApp (primary channel)
   if (data.phone) {
     const body = buildWhatsAppBody(type, data.name, message, data);
-    results.whatsapp = await sendWhatsApp(data.phone, body);
+    tasks.push(
+      sendWhatsApp(data.phone, body)
+        .then((r) => { results.whatsapp = r; })
+        .catch((err) => { results.whatsapp = { success: false, error: err.message }; })
+    );
   }
 
   // 2. Email (secondary / audit trail)
   if (data.email) {
-    try {
-      results.email = await sendNotificationEmail(type, role, data, message);
-    } catch (err) {
-      console.error('[NOTIFICATION] Email error:', err.message);
-      results.email = { success: false, error: err.message };
-    }
+    tasks.push(
+      sendNotificationEmail(type, role, data, message)
+        .then((r) => { results.email = r; })
+        .catch((err) => {
+          console.error('[NOTIFICATION] Email error:', err.message);
+          results.email = { success: false, error: err.message };
+        })
+    );
   }
 
+  await Promise.allSettled(tasks);
   return results;
 };
 
@@ -268,6 +338,14 @@ exports.notifySettlementCreated = async (settlement, hospital) => {
 };
 
 exports.notifyAllAdmins = notifyAllAdmins;
+
+exports.notifyNewRegistration = async (user) => {
+  return notifyAllAdmins(
+    'NEW_REGISTRATION',
+    `New ${user.role} registration from ${user.name} awaiting approval`,
+    { registrantName: user.name, registrantRole: user.role }
+  );
+};
 
 exports.notifyReceiptUploaded = async (adminUser, hospitalName) => {
   return exports.sendAlert({

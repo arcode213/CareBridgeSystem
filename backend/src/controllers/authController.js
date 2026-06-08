@@ -310,6 +310,11 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Alert admins so the pending approval surfaces in real time.
+    notificationService.notifyNewRegistration(user).catch((err) =>
+      console.error('New registration admin notification failed:', err.message)
+    );
+
     res.status(201).json({
       success: true,
       message: 'Registration successful. We sent a verification code to your WhatsApp and a verification link to your email.',

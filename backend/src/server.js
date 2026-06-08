@@ -15,6 +15,7 @@ const Hospital = require('./models/Hospital');
 const Consultant = require('./models/Consultant');
 const { processReferralEscalations } = require('./jobs/referralEscalation');
 const { ensurePlatformData } = require('./bootstrap/ensurePlatformData');
+const { setIO } = require('./socket');
 
 // Load env vars
 dotenv.config();
@@ -30,6 +31,8 @@ const io = new Server(server, {
 });
 
 app.set('io', io);
+// Expose io to services/jobs that don't have access to `req`.
+setIO(io);
 
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
@@ -46,6 +49,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const settlementRoutes = require('./routes/settlementRoutes');
 const laboratoryRoutes = require('./routes/laboratoryRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 app.use('/v1/auth', authRoutes);
 app.use('/v1/referrals', referralRoutes);
@@ -56,6 +60,7 @@ app.use('/v1/upload', uploadRoutes);
 app.use('/v1/profile', profileRoutes);
 app.use('/v1/settlements', settlementRoutes);
 app.use('/v1/laboratory', laboratoryRoutes);
+app.use('/v1/notifications', notificationRoutes);
 
 // Static uploads
 app.use('/uploads', express.static('uploads'));
@@ -67,6 +72,20 @@ app.get('/', (req, res) => {
 
 // Socket.io — role rooms for targeted events
 io.on('connection', (socket) => {
+  // Generic join: any authenticated user joins their personal + role rooms.
+  // Powers in-app notifications and global real-time data refresh.
+  socket.on('join', ({ token } = {}) => {
+    try {
+      if (!token || !process.env.JWT_SECRET) return;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (!decoded?.id) return;
+      socket.join(`user:${decoded.id}`);
+      if (decoded.role) socket.join(`role:${decoded.role}`);
+    } catch (e) {
+      console.warn('join:', e.message);
+    }
+  });
+
   socket.on('join_hospital', async ({ token } = {}) => {
     try {
       if (!token || !process.env.JWT_SECRET) return;
