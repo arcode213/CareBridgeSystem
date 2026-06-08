@@ -183,19 +183,14 @@ exports.getNearestLaboratories = async (req, res) => {
 
 exports.createReferral = async (req, res) => {
   try {
-    const { patientName, cnic, guardianName, guardianCnic, phone, referralType = 'hospital' } = req.body;
+    const { patientName, cnic, phone, referralType = 'hospital' } = req.body;
     if (!patientName) {
       return res.status(400).json({ success: false, message: 'Patient Name is required' });
     }
+    // CNIC is optional — validate format only when provided
     const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
-    if (!cnic || !cnicRegex.test(cnic)) {
+    if (cnic && !cnicRegex.test(cnic)) {
       return res.status(400).json({ success: false, message: 'Patient CNIC must be in the format XXXXX-XXXXXXX-X' });
-    }
-    if (!guardianName) {
-      return res.status(400).json({ success: false, message: 'Guardian Name is required' });
-    }
-    if (!guardianCnic || !cnicRegex.test(guardianCnic)) {
-      return res.status(400).json({ success: false, message: 'Guardian CNIC must be in the format XXXXX-XXXXXXX-X' });
     }
     const phoneClean = phone ? phone.replace(/[\s\-()]/g, '') : '';
     const phoneRegex = /^((\+92)|(0092)|0)?3\d{9}$/;
@@ -250,7 +245,7 @@ exports.createReferral = async (req, res) => {
         area: req.body.area,
         cnic: req.body.cnic,
         guardianName: req.body.guardianName,
-        guardianCnic: req.body.guardianCnic,
+        guardianRelation: req.body.guardianRelation,
         urgency,
         symptomsText: req.body.symptoms ?? req.body.symptomsText,
         summaryNotes: req.body.summaryNotes,
@@ -294,7 +289,7 @@ exports.createReferral = async (req, res) => {
       });
 
       // Send lab referral WhatsApp notification
-      notificationService.notifyNewReferral(referral, targetOwner).catch((err) =>
+      notificationService.notifyLabOrderReceived(targetOwner, referral).catch((err) =>
         console.error('Laboratory new referral WhatsApp notification failed:', err.message)
       );
 
@@ -408,7 +403,7 @@ exports.createReferral = async (req, res) => {
       area: req.body.area,
       cnic: req.body.cnic,
       guardianName: req.body.guardianName,
-      guardianCnic: req.body.guardianCnic,
+      guardianRelation: req.body.guardianRelation,
       urgency,
       symptomsText: req.body.symptoms ?? req.body.symptomsText,
       summaryNotes: req.body.summaryNotes,
@@ -923,9 +918,9 @@ exports.updateReferralByConsultant = async (req, res) => {
     // Only allow updating clinical/patient fields — NOT status, hospital, or scoring
     const allowedFields = [
       'patientName', 'age', 'gender', 'phone', 'area', 'cnic',
-      'guardianName', 'guardianCnic', 'urgency', 'symptomsText',
+      'guardianName', 'guardianRelation', 'urgency', 'symptomsText',
       'summaryNotes', 'department', 'diagnosisText', 'notes',
-      'attachments', 'budgetBracket', 'budgetMin', 'budgetMax',
+      'attachments',
     ];
 
     const updates = {};
@@ -939,9 +934,6 @@ exports.updateReferralByConsultant = async (req, res) => {
     const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
     if (updates.cnic && !cnicRegex.test(updates.cnic)) {
       return res.status(400).json({ success: false, message: 'Patient CNIC must be in the format XXXXX-XXXXXXX-X' });
-    }
-    if (updates.guardianCnic && !cnicRegex.test(updates.guardianCnic)) {
-      return res.status(400).json({ success: false, message: 'Guardian CNIC must be in the format XXXXX-XXXXXXX-X' });
     }
     if (updates.urgency && !['emergency', 'urgent', 'routine'].includes(updates.urgency)) {
       return res.status(400).json({ success: false, message: 'Invalid urgency value' });
@@ -962,6 +954,68 @@ exports.updateReferralByConsultant = async (req, res) => {
   } catch (error) {
     console.error('updateReferralByConsultant error:', error);
     res.status(500).json({ success: false, message: 'Failed to update referral' });
+  }
+};
+
+/**
+ * GET /referrals/my-lab-referrals
+ * Returns all lab referrals created by the logged-in consultant,
+ * enriched with the latest LabInvestigation status for each.
+ */
+exports.getMyLabReferrals = async (req, res) => {
+  try {
+    const consultant = await Consultant.findOne({ userId: req.user.id });
+    if (!consultant) {
+      return res.status(404).json({ success: false, message: 'Consultant profile not found' });
+    }
+
+    const referrals = await Referral.find({
+      consultantId: consultant._id,
+      referralType: 'laboratory',
+    })
+      .populate('targetLaboratoryId', 'laboratoryName city area address departments rating')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const referralIds = referrals.map((r) => r._id);
+    const LabInvestigation = require('../models/LabInvestigation');
+    const investigations = await LabInvestigation.find({ referralId: { $in: referralIds } })
+      .populate('laboratoryId', 'laboratoryName')
+      .lean();
+
+    const invByReferral = new Map();
+    for (const inv of investigations) {
+      invByReferral.set(inv.referralId.toString(), inv);
+    }
+
+    const data = referrals.map((r) => ({
+      ...r,
+      investigation: invByReferral.get(r._id.toString()) || null,
+    }));
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('getMyLabReferrals error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching lab referrals' });
+  }
+};
+
+/**
+ * GET /referrals/available-laboratories
+ * Returns all active & verified laboratories available for referral.
+ */
+exports.getAvailableLaboratories = async (req, res) => {
+  try {
+    const Laboratory = require('../models/Laboratory');
+    const labs = await Laboratory.find({ isActive: true, isRegistrationVerified: true })
+      .select('laboratoryName city area address departments rating avgResponseTime ratePackages location')
+      .sort({ rating: -1 })
+      .lean();
+
+    res.json({ success: true, data: labs });
+  } catch (error) {
+    console.error('getAvailableLaboratories error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching laboratories' });
   }
 };
 

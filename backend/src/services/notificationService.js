@@ -129,6 +129,28 @@ const buildWhatsAppBody = (type, name, message, data = {}) => {
       `Your account has been suspended.\n\n` +
       `Please contact platform support for more information.`,
 
+    // Lab Notifications
+    LAB_ORDER_RECEIVED: () =>
+      `🔬 *CareBridge Health* — New Lab Order\n\n${greeting}` +
+      `You have received a new lab order for patient *${data.patientName || 'Unknown'}* (Ref: ${data.referralCode || ''}).\n\n` +
+      `Please check your dashboard for details.`,
+
+    LAB_STATUS_UPDATE: () =>
+      `🧪 *CareBridge Health* — Lab Status Update\n\n${greeting}` +
+      `The lab investigation for patient *${data.patientName || 'Unknown'}* (Ref: ${data.referralCode || ''}) is now: *${data.status || ''}*.\n\n` +
+      `You can track the progress on your dashboard.`,
+
+    LAB_CRITICAL_VALUE: () =>
+      `🚨 *CRITICAL VALUE DETECTED*\n\n${greeting}` +
+      `A panic value was detected in the lab investigation for patient *${data.patientName || 'Unknown'}* (Ref: ${data.referralCode || ''}).\n\n` +
+      `Urgent action is required! Please review the results immediately.`,
+
+    LAB_REPORT_READY: () =>
+      `📄 *CareBridge Health* — Lab Report Ready\n\n${greeting}` +
+      `The lab report for patient *${data.patientName || 'Unknown'}* (Ref: ${data.referralCode || ''}) has been uploaded successfully.\n\n` +
+      (data.reportUrl ? `Report Link: ${data.reportUrl}\n\n` : '') +
+      `Please check your dashboard to view the full report.`,
+
     // Generic / Admin broadcast
     ADMIN_BROADCAST: () =>
       `📢 *CareBridge Health* — Platform Notice\n\n${greeting}${message}`,
@@ -309,5 +331,71 @@ exports.notifyPasswordChanged = async (user) => {
     type: 'PASSWORD_CHANGED',
     message: `Your password was successfully changed.`,
     data: { email: user.email, phone: user.phone, name: user.name },
+  });
+};
+
+exports.notifyLabOrderReceived = async (labUser, referral) => {
+  return exports.sendAlert({
+    userId: labUser._id,
+    role: 'laboratory',
+    type: 'LAB_ORDER_RECEIVED',
+    message: `New lab order received for ${referral.patientName}`,
+    data: {
+      email: labUser.email,
+      phone: labUser.phone,
+      name: labUser.name,
+      patientName: referral.patientName,
+      referralCode: referral.referralCode,
+    },
+  });
+};
+
+exports.notifyLabStatusUpdate = async (consultantUser, referral, statusStr) => {
+  return exports.sendAlert({
+    userId: consultantUser._id,
+    role: 'consultant',
+    type: 'LAB_STATUS_UPDATE',
+    message: `Lab status updated to ${statusStr} for ${referral.patientName}`,
+    data: {
+      email: consultantUser.email,
+      phone: consultantUser.phone,
+      name: consultantUser.name,
+      patientName: referral.patientName,
+      referralCode: referral.referralCode,
+      status: statusStr,
+    },
+  });
+};
+
+exports.notifyLabCriticalValue = async (consultantUser, referral) => {
+  return exports.sendAlert({
+    userId: consultantUser._id,
+    role: 'consultant',
+    type: 'LAB_CRITICAL_VALUE',
+    message: `CRITICAL VALUE detected for ${referral.patientName}`,
+    data: {
+      email: consultantUser.email,
+      phone: consultantUser.phone,
+      name: consultantUser.name,
+      patientName: referral.patientName,
+      referralCode: referral.referralCode,
+    },
+  });
+};
+
+exports.notifyLabReportReady = async (consultantUser, referral, reportUrl) => {
+  return exports.sendAlert({
+    userId: consultantUser._id,
+    role: 'consultant',
+    type: 'LAB_REPORT_READY',
+    message: `Lab report ready for ${referral.patientName}`,
+    data: {
+      email: consultantUser.email,
+      phone: consultantUser.phone,
+      name: consultantUser.name,
+      patientName: referral.patientName,
+      referralCode: referral.referralCode,
+      reportUrl,
+    },
   });
 };

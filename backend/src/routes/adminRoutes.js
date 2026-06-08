@@ -45,6 +45,7 @@ router.get('/beds', adminController.listAllBeds);
 router.patch('/beds/:hospitalId', adminController.adminUpdateHospitalBeds);
 router.get('/admissions', adminController.listAllAdmissions);
 router.get('/audit-logs', adminController.listAuditLogs);
+router.get('/audit-logs/laboratory/export', adminController.exportLaboratoryAuditLogs);
 
 // WhatsApp messaging (admin)
 router.get('/whatsapp/status', whatsappController.getWhatsAppStatus);

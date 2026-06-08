@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardList, AlertCircle, RefreshCw, Search } from 'lucide-react';
+import { ClipboardList, AlertCircle, RefreshCw, Search, Download } from 'lucide-react';
 import api from '../../utils/api';
 import Loader from '../../components/Loader';
+import toast from 'react-hot-toast';
 
 const AdminAudit = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,6 +52,24 @@ const AdminAudit = () => {
     return 'text-slate-600 bg-slate-100';
   };
 
+  const handleExportLabAudit = async () => {
+    try {
+      const toastId = toast.loading('Exporting laboratory logs...');
+      const res = await api.get('/admin/audit-logs/laboratory/export', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'laboratory-audit-logs.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      toast.success('Export successful', { id: toastId });
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to export laboratory audit logs');
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -62,15 +81,25 @@ const AdminAudit = () => {
           <p className="text-slate-500 text-sm mt-1">Immutable record of system changes and administrative overrides.</p>
         </div>
         
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search action, user, or entity..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={handleExportLabAudit}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-sm font-semibold transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Export Lab Logs
+          </button>
+          
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search action, user, or entity..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
       </div>
 

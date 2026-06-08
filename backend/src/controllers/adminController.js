@@ -484,7 +484,43 @@ exports.listAllBeds = async (req, res) => {
       .lean();
     res.json({ success: true, data: hospitals });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Failed to fetch beds' });
+    console.error('listAllBeds error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching beds' });
+  }
+};
+
+exports.exportLaboratoryAuditLogs = async (req, res) => {
+  try {
+    const AuditLog = require('../models/AuditLog');
+    const logs = await AuditLog.find({
+      entityModel: { $in: ['LabInvestigation', 'Laboratory'] }
+    })
+      .populate('actorId', 'name role email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const csvLines = [
+      'Timestamp,Actor Name,Actor Role,Action,Entity Model,Entity ID,Details'
+    ];
+
+    logs.forEach((log) => {
+      const timestamp = new Date(log.createdAt).toISOString();
+      const actorName = log.actorId ? `"${log.actorId.name}"` : 'System';
+      const actorRole = log.actorId ? log.actorId.role : 'N/A';
+      const action = `"${log.action}"`;
+      const entityModel = `"${log.entityModel}"`;
+      const entityId = `"${log.entityId}"`;
+      const details = log.details ? `"${JSON.stringify(log.details).replace(/"/g, '""')}"` : '""';
+
+      csvLines.push(`${timestamp},${actorName},${actorRole},${action},${entityModel},${entityId},${details}`);
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=laboratory-audit-logs.csv');
+    return res.send(csvLines.join('\n'));
+  } catch (error) {
+    console.error('Export Lab Audit Logs error:', error);
+    res.status(500).json({ success: false, message: 'Error exporting audit logs' });
   }
 };
 
@@ -784,10 +820,8 @@ exports.updateReferralFull = async (req, res) => {
 
     const updates = { ...req.body };
     
-    // Encrypt CNIC fields if they are updated
-    const { encrypt } = require('../utils/crypto');
-    if (updates.cnic) updates.cnic = encrypt(updates.cnic);
-    if (updates.guardianCnic) updates.guardianCnic = encrypt(updates.guardianCnic);
+    // Drop guardianCnic if a stale client still sends it (field removed from schema)
+    delete updates.guardianCnic;
 
     Object.assign(referral, updates);
     await referral.save();
@@ -849,7 +883,7 @@ exports.deleteReferral = async (req, res) => {
 exports.listAllAdmissions = async (req, res) => {
   try {
     const admissions = await Admission.find()
-      .populate('referralId', 'referralCode patientName urgency status department cnic guardianName guardianCnic phone')
+      .populate('referralId', 'referralCode patientName urgency status department cnic guardianName guardianRelation phone')
       .populate('consultantId', 'pmdcNumber specialty clinicName')
       .populate('hospitalId', 'hospitalName city area')
       .populate('treatingDoctorId', 'name specialty')

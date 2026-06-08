@@ -18,11 +18,8 @@ const ReferralSchema = new mongoose.Schema(
       get: decrypt 
     }, 
     guardianName: { type: String },
-    guardianCnic: { 
-      type: String, 
-      set: encrypt, 
-      get: decrypt 
-    },
+    /** Relation of the named person to the patient: S/O, D/O, W/O */
+    guardianRelation: { type: String, enum: ['S/O', 'D/O', 'W/O'], default: 'S/O' },
     // Clinical Info
     urgency: { type: String, enum: ['emergency', 'urgent', 'routine'], required: true },
     symptomsText: { type: String },

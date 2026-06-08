@@ -139,7 +139,7 @@ const HospitalEmergencyCenter = () => {
               </div>
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Guardian</p>
-                <p className="text-sm font-bold text-slate-800">{selected.guardianName}</p>
+                <p className="text-sm font-bold text-slate-800">{[selected.guardianRelation, selected.guardianName].filter(Boolean).join(' ') || '—'}</p>
               </div>
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Referred By</p>

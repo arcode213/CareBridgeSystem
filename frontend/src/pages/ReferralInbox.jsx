@@ -158,8 +158,7 @@ const ReferralInbox = () => {
                     <Field label="Age / Gender"   value={`${referral.age}y · ${referral.gender}`} />
                     <Field label="Phone"          value={referral.phone} />
                     <Field label="Patient CNIC"   value={referral.cnic} />
-                    <Field label="Guardian"       value={referral.guardianName} />
-                    <Field label="Guardian CNIC"  value={referral.guardianCnic} />
+                    <Field label="Guardian"       value={[referral.guardianRelation, referral.guardianName].filter(Boolean).join(' ')} />
                     <Field label="Area"           value={referral.area} />
                     <Field label="Department"     value={referral.department} />
                   </div>

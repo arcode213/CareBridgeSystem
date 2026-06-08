@@ -4,7 +4,7 @@ import api from '../utils/api';
 import { SOCKET_URL } from '../config';
 import DetailModal from '../components/DetailModal';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
-import { FileText, User, Clock, Activity, Pencil, X } from 'lucide-react';
+import { FileText, User, Clock, Activity, Pencil, X, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
 
@@ -88,8 +88,8 @@ const ReferralsList = () => {
       phone: ref.phone || '',
       area: ref.area || '',
       cnic: ref.cnic || '',
+      guardianRelation: ref.guardianRelation || 'S/O',
       guardianName: ref.guardianName || '',
-      guardianCnic: ref.guardianCnic || '',
       urgency: ref.urgency || 'routine',
       department: ref.department || '',
       symptomsText: ref.symptomsText || '',
@@ -265,6 +265,17 @@ const ReferralsList = () => {
                 )}
               </div>
 
+              {/* Rejection reason from hospital */}
+              {selected.status === 'rejected' && selected.rejectionReason && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50">
+                  <XCircle size={18} className="text-red-500 dark:text-red-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-[11px] font-bold text-red-500 dark:text-red-400 uppercase tracking-wider mb-0.5">Reason for Rejection</p>
+                    <p className="text-sm text-red-700 dark:text-red-300">{selected.rejectionReason}</p>
+                  </div>
+                </div>
+              )}
+
               {isEditing && (
                 <div className="border border-blue-200 rounded-2xl p-4 bg-blue-50/30 space-y-3">
                   <div className="flex items-center justify-between">
@@ -283,8 +294,12 @@ const ReferralsList = () => {
                     </select>
                     <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Phone" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
                     <input className="rounded-lg border px-3 py-2 text-sm col-span-2" placeholder="Patient CNIC" value={editForm.cnic} onChange={(e) => setEditForm({ ...editForm, cnic: e.target.value })} />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Guardian name" value={editForm.guardianName} onChange={(e) => setEditForm({ ...editForm, guardianName: e.target.value })} />
-                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Guardian CNIC" value={editForm.guardianCnic} onChange={(e) => setEditForm({ ...editForm, guardianCnic: e.target.value })} />
+                    <select className="rounded-lg border px-3 py-2 text-sm" value={editForm.guardianRelation} onChange={(e) => setEditForm({ ...editForm, guardianRelation: e.target.value })}>
+                      <option value="S/O">S/O (Son of)</option>
+                      <option value="D/O">D/O (Daughter of)</option>
+                      <option value="W/O">W/O (Wife of)</option>
+                    </select>
+                    <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Father / Husband name" value={editForm.guardianName} onChange={(e) => setEditForm({ ...editForm, guardianName: e.target.value })} />
                     <select className="rounded-lg border px-3 py-2 text-sm" value={editForm.urgency} onChange={(e) => setEditForm({ ...editForm, urgency: e.target.value })}>
                       <option value="emergency">Emergency</option>
                       <option value="urgent">Urgent</option>
@@ -314,8 +329,7 @@ const ReferralsList = () => {
                   <Field label="Gender"         value={selected.gender} />
                   <Field label="Phone"          value={selected.phone} />
                   <Field label="Patient CNIC"   value={selected.cnic} />
-                  <Field label="Guardian"       value={selected.guardianName} />
-                  <Field label="Guardian CNIC"  value={selected.guardianCnic} />
+                  <Field label="Guardian"       value={[selected.guardianRelation, selected.guardianName].filter(Boolean).join(' ')} />
                   <Field label="Area / Locality" value={selected.area} />
                 </div>
               </div>

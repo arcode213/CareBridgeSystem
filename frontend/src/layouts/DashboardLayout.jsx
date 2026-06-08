@@ -100,6 +100,7 @@ const DashboardLayout = () => {
             <NavLink to="/dashboard" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Home</NavLink>
             <NavLink to="/referrals/new" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>New</NavLink>
             <NavLink to="/referrals" className={({ isActive }) => mobileNavClass(isActive || location.pathname === '/referrals/new')} style={({ isActive }) => mobileNavStyle(isActive || location.pathname === '/referrals/new')}>List</NavLink>
+            <NavLink to="/lab-referrals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-violet-600 text-white' : 'text-violet-600 dark:text-violet-400'}`}>🔬 Lab</NavLink>
             <NavLink to="/earnings" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Earn</NavLink>
             <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
@@ -171,6 +172,18 @@ const DashboardLayout = () => {
               <BrandNavLink to="/dashboard"><span>Dashboard</span></BrandNavLink>
               <BrandNavLink to="/referrals/new" end><span>New referral</span></BrandNavLink>
               <BrandNavLink to="/referrals" end><span>My referrals</span></BrandNavLink>
+              <NavLink
+                to="/lab-referrals"
+                className={({ isActive }) =>
+                  `flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-violet-600 text-white shadow-md shadow-violet-600/20'
+                      : 'text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/20'
+                  }`
+                }
+              >
+                <span>🔬 Lab Referrals</span>
+              </NavLink>
               <BrandNavLink to="/earnings"><span>Earnings</span></BrandNavLink>
               <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>

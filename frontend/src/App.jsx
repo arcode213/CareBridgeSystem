@@ -18,6 +18,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import ConsultantDashboard from './pages/ConsultantDashboard';
 import SmartIntakeForm from './pages/SmartIntakeForm';
 import ReferralsList from './pages/ReferralsList';
+import ConsultantLabReferrals from './pages/ConsultantLabReferrals';
 import HospitalDashboard from './pages/HospitalDashboard';
 import ReferralInbox from './pages/ReferralInbox';
 import HospitalReferrals from './pages/HospitalReferrals';
@@ -145,6 +146,7 @@ function App() {
             <Route path="/referrals/new" element={<RoleGuard roles={['consultant']}><SmartIntakeForm /></RoleGuard>} />
             <Route path="/referrals" element={<RoleGuard roles={['consultant']}><ReferralsList /></RoleGuard>} />
             <Route path="/earnings" element={<RoleGuard roles={['consultant']}><ConsultantEarnings /></RoleGuard>} />
+            <Route path="/lab-referrals" element={<RoleGuard roles={['consultant']}><ConsultantLabReferrals /></RoleGuard>} />
 
             <Route path="/hospital/dashboard" element={<RoleGuard roles={['hospital']}><HospitalDashboard /></RoleGuard>} />
             <Route path="/hospital/inbox" element={<RoleGuard roles={['hospital']}><ReferralInbox /></RoleGuard>} />

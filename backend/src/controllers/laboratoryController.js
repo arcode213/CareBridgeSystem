@@ -7,6 +7,8 @@ const Consultant = require('../models/Consultant');
 const Payout = require('../models/Payout');
 const { logAction } = require('../utils/logger');
 const notificationService = require('../services/notificationService');
+const { generateLabReportPDF } = require('../utils/pdfGenerator');
+const path = require('path');
 
 // Get own laboratory profile
 exports.getMyProfile = async (req, res) => {
@@ -141,6 +143,14 @@ exports.collectSample = async (req, res) => {
       details: { barcode }
     });
 
+    const populatedInv = await LabInvestigation.findById(investigation._id).populate('referralId');
+    const consultant = await Consultant.findById(investigation.consultantId).populate('userId');
+    if (consultant?.userId) {
+      notificationService.notifyLabStatusUpdate(consultant.userId, populatedInv.referralId, 'Collected').catch(console.error);
+      const io = req.app.get('io');
+      if (io) io.to(`consultant:${consultant._id}`).emit('lab_status_update', { investigationId: investigation._id, status: 'collected' });
+    }
+
     res.json({ success: true, message: 'Sample collection logged successfully', data: investigation });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error collecting sample' });
@@ -169,6 +179,14 @@ exports.routeSampleToSection = async (req, res) => {
     investigation.processingStartedAt = new Date();
     await investigation.save();
 
+    const populatedInv = await LabInvestigation.findById(investigation._id).populate('referralId');
+    const consultant = await Consultant.findById(investigation.consultantId).populate('userId');
+    if (consultant?.userId) {
+      notificationService.notifyLabStatusUpdate(consultant.userId, populatedInv.referralId, `In Processing (${section.trim()})`).catch(console.error);
+      const io = req.app.get('io');
+      if (io) io.to(`consultant:${consultant._id}`).emit('lab_status_update', { investigationId: investigation._id, status: 'in_processing', section: section.trim() });
+    }
+
     res.json({ success: true, message: 'Sample routed to section', data: investigation });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error routing sample' });
@@ -196,10 +214,9 @@ exports.validateResults = async (req, res) => {
       // Notify consultant
       const consultant = await Consultant.findById(investigation.consultantId).populate('userId');
       if (consultant?.userId) {
-        notificationService.sendWhatsApp(
-          consultant.userId.phone,
-          `⚠️ *QC Failed* — Sample collection failed QC check for patient ${investigation.referralId?.patientName}. Resample required. Reason: ${qcFailureReason}`
-        ).catch(console.error);
+        notificationService.notifyLabStatusUpdate(consultant.userId, investigation.referralId, 'QC Failed - Resample Required').catch(console.error);
+        const io = req.app.get('io');
+        if (io) io.to(`consultant:${consultant._id}`).emit('lab_status_update', { investigationId: investigation._id, status: 'qc_failed' });
       }
 
       return res.json({ success: true, message: 'Investigation marked as QC Failed', data: investigation });
@@ -214,10 +231,9 @@ exports.validateResults = async (req, res) => {
       // Trigger critical alerts (push + WhatsApp)
       const consultant = await Consultant.findById(investigation.consultantId).populate('userId');
       if (consultant?.userId) {
-        notificationService.sendWhatsApp(
-          consultant.userId.phone,
-          `🚨 *CRITICAL VALUE DETECTED* — Panic value detected in lab investigation for patient *${investigation.referralId?.patientName}* (Ref Code: ${investigation.referralId?.referralCode}). Urgent action required!`
-        ).catch(console.error);
+        notificationService.notifyLabCriticalValue(consultant.userId, investigation.referralId).catch(console.error);
+        const io = req.app.get('io');
+        if (io) io.to(`consultant:${consultant._id}`).emit('lab_critical_value', { investigationId: investigation._id });
       }
     } else {
       investigation.status = 'awaiting_validation';
@@ -239,10 +255,6 @@ exports.uploadReport = async (req, res) => {
     const { id } = req.params;
     const { reportFileUrl, billTotalPaisa } = req.body;
 
-    if (!reportFileUrl) {
-      return res.status(400).json({ success: false, message: 'Report File URL is required' });
-    }
-
     const lab = await Laboratory.findOne({ userId: req.user.id });
     const investigation = await LabInvestigation.findOne({ _id: id, laboratoryId: lab._id }).populate('referralId');
 
@@ -250,9 +262,22 @@ exports.uploadReport = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Investigation not found' });
     }
 
+    let finalReportUrl = reportFileUrl;
+
+    if (!finalReportUrl) {
+      if (investigation.investigations && investigation.investigations.length > 0) {
+        const filename = `report-${investigation._id}.pdf`;
+        const outputPath = path.join(__dirname, '../../uploads', filename);
+        await generateLabReportPDF(investigation, investigation.referralId, lab, outputPath);
+        finalReportUrl = `/uploads/${filename}`;
+      } else {
+        return res.status(400).json({ success: false, message: 'Report File URL is required or provide investigation results to auto-generate PDF' });
+      }
+    }
+
     const totalBill = billTotalPaisa || investigation.billTotalPaisa || 0;
 
-    investigation.reportFileUrl = reportFileUrl;
+    investigation.reportFileUrl = finalReportUrl;
     investigation.billTotalPaisa = totalBill;
     investigation.status = 'completed';
     investigation.completedAt = new Date();
@@ -296,10 +321,9 @@ exports.uploadReport = async (req, res) => {
     // Notify referring consultant
     const consultantUser = await User.findById(consultant.userId);
     if (consultantUser) {
-      notificationService.sendWhatsApp(
-        consultantUser.phone,
-        `🔬 *CareBridge Health* — Lab Report uploaded successfully for patient *${referral.patientName}* (Ref Code: ${referral.referralCode}). Report: ${reportFileUrl}`
-      ).catch(console.error);
+      notificationService.notifyLabReportReady(consultantUser, referral, finalReportUrl).catch(console.error);
+      const io = req.app.get('io');
+      if (io) io.to(`consultant:${consultant._id}`).emit('lab_report_ready', { investigationId: investigation._id, reportUrl: finalReportUrl });
     }
 
     res.json({ success: true, message: 'Lab report uploaded and investigation finalized!', data: investigation });

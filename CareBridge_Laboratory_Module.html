@@ -445,6 +445,7 @@ footer strong{color:var(--text);}
   <a class="nav-item" href="#statuses">Sample Statuses</a>
   <a class="nav-item" href="#reports">Report Upload</a>
   <a class="nav-item" href="#consultant">Consultant Linking</a>
+  <a class="nav-item" href="#consultant-referral">Create Lab Referral</a>
   <a class="nav-item" href="#ux">UX Design</a>
   <a class="nav-item" href="#dashboard">Dashboard Panels</a>
   <a class="nav-item" href="#audit">Audit & Logs</a>
@@ -462,6 +463,7 @@ footer strong{color:var(--text);}
     <a class="toc-item" href="#statuses"><span class="ti-num">§6</span><span class="ti-text">Sample Status States</span></a>
     <a class="toc-item" href="#reports"><span class="ti-num">§7</span><span class="ti-text">Report Upload & Delivery</span></a>
     <a class="toc-item" href="#consultant"><span class="ti-num">§8</span><span class="ti-text">Consultant Linking Flow</span></a>
+    <a class="toc-item" href="#consultant-referral"><span class="ti-num">§8b</span><span class="ti-text">Consultant: Create Lab Referral</span></a>
     <a class="toc-item" href="#ux"><span class="ti-num">§9</span><span class="ti-text">UX Design Principles</span></a>
     <a class="toc-item" href="#dashboard"><span class="ti-num">§10</span><span class="ti-text">Dashboard Panels</span></a>
     <a class="toc-item" href="#audit"><span class="ti-num">§11</span><span class="ti-text">Audit & Compliance</span></a>
@@ -1032,6 +1034,165 @@ footer strong{color:var(--text);}
     </div>
   </div>
 
+  <!-- ─────────── §8b CONSULTANT CREATE LAB REFERRAL ─────────── -->
+  <div id="consultant-referral" class="card">
+    <div class="card-header">
+      <div class="ch-icon" style="background:rgba(139,92,246,0.15)">🧾</div>
+      <div>
+        <h2>§8b — Consultant: Create Lab Referral for Tests</h2>
+        <p>How a consultant initiates a laboratory investigation order directly from their CareBridge dashboard</p>
+      </div>
+      <div class="card-num">MODULE 08b</div>
+    </div>
+    <div class="card-body">
+      <p>Consultants have a dedicated <strong>"Create Lab Referral"</strong> action within their CareBridge dashboard. This allows them to formally order one or more laboratory investigations for a patient and route the request — along with the patient's Referral Code — directly to a chosen laboratory registered on the CareBridge network.</p>
+
+      <div class="callout c-teal">
+        <span class="callout-icon">🎯</span>
+        <p><strong>Key Principle:</strong> When a consultant creates a lab referral, the laboratory receives the order instantly via all three notification channels (WhatsApp, in-app popup, and audio tone) and the patient's Referral Code is transmitted automatically — no phone calls or manual communication required.</p>
+      </div>
+
+      <div class="slabel">Step-by-Step: Consultant Creates a Lab Referral</div>
+      <div class="vflow">
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(139,92,246,0.15)">👤</div>
+          <div class="vs-body">
+            <h4>Step 1 — Open Patient Record</h4>
+            <p>The consultant navigates to the patient's profile from their active patient list or searches by Referral Code. The full patient history, diagnosis notes, and any previously uploaded lab reports are visible before placing the new order.</p>
+            <div class="vs-tags"><span class="vs-tag">patient_profile</span><span class="vs-tag">ref_code_loaded</span><span class="vs-tag">history_visible</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(139,92,246,0.15)">➕</div>
+          <div class="vs-body">
+            <h4>Step 2 — Click "Create Lab Referral"</h4>
+            <p>A prominent <strong>"+ Create Lab Referral"</strong> button is present on every patient's profile panel. Clicking it opens the lab referral form as a modal overlay — no page navigation required. The patient's Referral Code is pre-filled and locked.</p>
+            <div class="vs-tags"><span class="vs-tag">modal_overlay</span><span class="vs-tag">ref_code_prefilled</span><span class="vs-tag">no_navigation</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(139,92,246,0.15)">🔬</div>
+          <div class="vs-body">
+            <h4>Step 3 — Select Tests / Investigations</h4>
+            <p>Consultant selects one or more tests from the CareBridge investigation catalogue — organized by department (Biochemistry, Haematology, Microbiology, Radiology, etc.). Tests can be added individually or as pre-defined panels (e.g., <em>Full Blood Count Panel</em>, <em>Liver Function Panel</em>). A free-text field allows custom investigation instructions.</p>
+            <div class="vs-tags"><span class="vs-tag">test_catalogue</span><span class="vs-tag">panel_presets</span><span class="vs-tag">custom_instructions</span><span class="vs-tag">multi_select</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(139,92,246,0.15)">🏥</div>
+          <div class="vs-body">
+            <h4>Step 4 — Choose Laboratory</h4>
+            <p>Consultant selects the target laboratory from a searchable directory of CareBridge-registered labs. Labs can be filtered by specialty (e.g., Microbiology, Radiology), location, or facility name. If the patient has visited a lab before, it appears as a <strong>suggested lab</strong> at the top of the list. Multiple labs can be selected for multi-section orders (e.g., blood work at Lab A and imaging at Lab B).</p>
+            <div class="vs-tags"><span class="vs-tag">lab_directory</span><span class="vs-tag">filter_by_specialty</span><span class="vs-tag">suggested_lab</span><span class="vs-tag">multi_lab_support</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(139,92,246,0.15)">⚡</div>
+          <div class="vs-body">
+            <h4>Step 5 — Set Urgency Level</h4>
+            <p>The consultant assigns a priority level to the order. This controls the notification type sent to the lab and determines how the order appears in the lab's queue.</p>
+            <div class="vs-tags"><span class="vs-tag">urgency_flag</span><span class="vs-tag">stat_escalation</span><span class="vs-tag">tat_expectation_set</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(139,92,246,0.15)">📝</div>
+          <div class="vs-body">
+            <h4>Step 6 — Add Clinical Notes (Optional)</h4>
+            <p>Consultants can attach a clinical context note to the referral — provisional diagnosis, relevant history, medication that may affect results, or specific instructions to the lab technician (e.g., <em>"Fasting sample required"</em>, <em>"Patient on anticoagulants"</em>). These notes are visible to lab staff upon code entry but are <strong>read-only</strong> — labs cannot edit clinical notes.</p>
+            <div class="vs-tags"><span class="vs-tag">clinical_context</span><span class="vs-tag">read_only_for_lab</span><span class="vs-tag">fasting_flag</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(139,92,246,0.15)">📤</div>
+          <div class="vs-body">
+            <h4>Step 7 — Submit Referral</h4>
+            <p>Consultant reviews the order summary and clicks <strong>"Send Referral"</strong>. The system creates an investigation order record, attaches it to the patient's Referral Code, and dispatches the order to the selected laboratory instantly. The referral is timestamped and logged in the consultant's audit trail.</p>
+            <div class="vs-tags"><span class="vs-tag">order_created</span><span class="vs-tag">lab_notified</span><span class="vs-tag">audit_logged</span><span class="vs-tag">timestamp_recorded</span></div>
+          </div>
+        </div>
+
+        <div class="vs">
+          <div class="vs-icon" style="background:rgba(139,92,246,0.15)">📡</div>
+          <div class="vs-body">
+            <h4>Step 8 — Live Tracking on Consultant Dashboard</h4>
+            <p>After submission, the referral appears on the consultant's patient panel under <strong>"Pending Lab Orders"</strong>. The consultant can see real-time status updates (Order Received → Collected → In Processing → Completed) without any action from the lab needing to be manually communicated. When the report is ready, the consultant receives an automatic push notification.</p>
+            <div class="vs-tags"><span class="vs-tag">live_status</span><span class="vs-tag">pending_orders_panel</span><span class="vs-tag">auto_notification_on_completion</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="slabel">Lab Referral Form — Field Reference</div>
+      <table class="tbl">
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr>
+        <tr><td>🔑 Patient Referral Code</td><td>Auto-filled</td><td><span class="b b-red">Required</span></td><td>Pre-populated from patient profile. Locked — cannot be changed.</td></tr>
+        <tr><td>🔬 Investigation(s) / Tests</td><td>Multi-select catalogue</td><td><span class="b b-red">Required</span></td><td>Search by test name or select from categorized panels.</td></tr>
+        <tr><td>🏥 Laboratory</td><td>Searchable dropdown</td><td><span class="b b-red">Required</span></td><td>Lists CareBridge-registered labs. Supports multi-lab selection.</td></tr>
+        <tr><td>⚡ Urgency / Priority</td><td>Radio select</td><td><span class="b b-red">Required</span></td><td>Routine / Urgent / STAT — determines notification type sent to lab.</td></tr>
+        <tr><td>📝 Clinical Notes</td><td>Text area</td><td><span class="b b-gray">Optional</span></td><td>Provisional diagnosis, fasting instructions, medication context.</td></tr>
+        <tr><td>📅 Preferred Sample Date</td><td>Date picker</td><td><span class="b b-gray">Optional</span></td><td>If the sample collection should be scheduled for a future date.</td></tr>
+        <tr><td>📎 Attach Prior Reports</td><td>File attach from patient record</td><td><span class="b b-gray">Optional</span></td><td>Consultant can share existing reports with the lab as context.</td></tr>
+      </table>
+
+      <div class="slabel">Urgency Level Options</div>
+      <div class="status-grid">
+        <div class="status-card" style="background:rgba(20,184,166,0.07);border-color:rgba(20,184,166,0.22)">
+          <div class="sc-dot" style="background:var(--teal2)"></div>
+          <div><h5 style="color:var(--teal3)">🟢 Routine</h5><p>Standard priority. Lab processes in normal queue. Standard notification tone sent to lab.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(245,158,11,0.07);border-color:rgba(245,158,11,0.22)">
+          <div class="sc-dot" style="background:var(--amber2)"></div>
+          <div><h5 style="color:var(--amber2)">🟡 Urgent</h5><p>Elevated priority. Lab queue bumped. Alert tone sent. TAT expectation tightened automatically.</p></div>
+        </div>
+        <div class="status-card" style="background:rgba(239,68,68,0.07);border-color:rgba(239,68,68,0.22)">
+          <div class="sc-dot" style="background:var(--red2);box-shadow:0 0 6px var(--red2);animation:blink 1s infinite"></div>
+          <div><h5 style="color:var(--red2)">🔴 STAT / Emergency</h5><p>Maximum priority. Bypasses all queues. Loud alarm tone at lab. All lab staff alerted. TAT in minutes.</p></div>
+        </div>
+      </div>
+
+      <div class="callout c-blue">
+        <span class="callout-icon">🏥</span>
+        <p><strong>Multi-Lab Orders:</strong> If a consultant orders tests spanning multiple departments (e.g., blood work + imaging + culture), they can select different labs for each test group within the same referral form. Each lab receives its own targeted notification with only the investigations relevant to them — all linked under the same patient Referral Code.</p>
+      </div>
+
+      <div class="slabel">After Referral Submission — What Happens</div>
+      <div class="hflow">
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(139,92,246,0.13);color:var(--purple2);border:2px solid rgba(139,92,246,0.3)">01</div>
+          <div class="hs-box"><div class="ico">📤</div><div class="lbl">Order Sent to Lab</div><div class="sub">Instant dispatch via CareBridge network</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(139,92,246,0.13);color:var(--purple2);border:2px solid rgba(139,92,246,0.3)">02</div>
+          <div class="hs-box"><div class="ico">🔔</div><div class="lbl">Lab Notified</div><div class="sub">WhatsApp + in-app popup + audio tone</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(139,92,246,0.13);color:var(--purple2);border:2px solid rgba(139,92,246,0.3)">03</div>
+          <div class="hs-box"><div class="ico">📋</div><div class="lbl">Pending Orders Panel</div><div class="sub">Referral visible on consultant dashboard</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(139,92,246,0.13);color:var(--purple2);border:2px solid rgba(139,92,246,0.3)">04</div>
+          <div class="hs-box"><div class="ico">📡</div><div class="lbl">Live Status Tracking</div><div class="sub">Collected → Processing → Validated</div></div>
+        </div>
+        <div class="hs">
+          <div class="hs-num" style="background:rgba(139,92,246,0.13);color:var(--purple2);border:2px solid rgba(139,92,246,0.3)">05</div>
+          <div class="hs-box"><div class="ico">📲</div><div class="lbl">Report Delivered</div><div class="sub">Push notification + report access link</div></div>
+        </div>
+      </div>
+
+      <div class="callout c-green">
+        <span class="callout-icon">✅</span>
+        <p>The consultant's <strong>"Pending Lab Orders"</strong> panel on their dashboard shows every active referral, its current lab status, elapsed time since order, and the expected TAT — giving full visibility without any follow-up calls to the laboratory.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- ─────────── §9 UX DESIGN ─────────── -->
   <div id="ux" class="card">
     <div class="card-header">
@@ -1220,7 +1381,7 @@ footer strong{color:var(--text);}
 </footer>
 
 <script>
-const ids = ['overview','refcode','notifications','workflow','departments','statuses','reports','consultant','ux','dashboard','audit'];
+const ids = ['overview','refcode','notifications','workflow','departments','statuses','reports','consultant','consultant-referral','ux','dashboard','audit'];
 const navs = document.querySelectorAll('.nav-item');
 function upNav(){
   let cur=ids[0];

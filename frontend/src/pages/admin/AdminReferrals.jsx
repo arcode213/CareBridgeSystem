@@ -6,14 +6,6 @@ import api from '../../utils/api';
 import Loader from '../../components/Loader';
 import DetailModal from '../../components/DetailModal';
 
-const BUDGET_BRACKETS = [
-  { label: '5k - 10k PKR', value: '5k-10k' },
-  { label: '10k - 50k PKR', value: '10k-50k' },
-  { label: '50k - 1lac PKR', value: '50k-1lac' },
-  { label: '1lac - 3lac PKR', value: '1lac-3lac' },
-  { label: '3lac+ PKR', value: '3lac+' },
-];
-
 const AdminReferrals = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,14 +21,13 @@ const AdminReferrals = () => {
     phone: '',
     area: '',
     cnic: '',
+    guardianRelation: 'S/O',
     guardianName: '',
-    guardianCnic: '',
     urgency: 'routine',
     symptomsText: '',
     summaryNotes: '',
     department: '',
     diagnosisText: '',
-    budgetBracket: '10k-50k',
     status: 'pending',
     // Admission details
     roomNumber: '',
@@ -159,14 +150,13 @@ const AdminReferrals = () => {
       phone: ref.phone || '',
       area: ref.area || '',
       cnic: ref.cnic || '',
+      guardianRelation: ref.guardianRelation || 'S/O',
       guardianName: ref.guardianName || '',
-      guardianCnic: ref.guardianCnic || '',
       urgency: ref.urgency || 'routine',
       symptomsText: ref.symptomsText || '',
       summaryNotes: ref.summaryNotes || '',
       department: ref.department || '',
       diagnosisText: ref.diagnosisText || '',
-      budgetBracket: ref.budgetBracket || '10k-50k',
       status: ref.status || 'pending',
       // Admission overrides
       roomNumber: ref.admission?.roomNumber || '',
@@ -306,13 +296,9 @@ const AdminReferrals = () => {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Patient CNIC</span>
                     <span className="font-semibold text-slate-800">{selectedRef.cnic || '—'}</span>
                   </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Guardian Name</span>
-                    <span className="font-semibold text-slate-800">{selectedRef.guardianName || '—'}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Guardian CNIC</span>
-                    <span className="font-semibold text-slate-800">{selectedRef.guardianCnic || '—'}</span>
+                  <div className="col-span-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Guardian</span>
+                    <span className="font-semibold text-slate-800">{[selectedRef.guardianRelation, selectedRef.guardianName].filter(Boolean).join(' ') || '—'}</span>
                   </div>
                   <div className="col-span-2">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Area / Locality</span>
@@ -490,21 +476,24 @@ const AdminReferrals = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase">Guardian Name</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase">Relation</label>
+                    <select
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+                      value={editForm.guardianRelation}
+                      onChange={(e) => setEditForm({ ...editForm, guardianRelation: e.target.value })}
+                    >
+                      <option value="S/O">S/O (Son of)</option>
+                      <option value="D/O">D/O (Daughter of)</option>
+                      <option value="W/O">W/O (Wife of)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase">Father / Husband Name</label>
                     <input
-                      type="text" required
+                      type="text"
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
                       value={editForm.guardianName}
                       onChange={(e) => setEditForm({ ...editForm, guardianName: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase">Guardian CNIC</label>
-                    <input
-                      type="text" required
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                      value={editForm.guardianCnic}
-                      onChange={(e) => setEditForm({ ...editForm, guardianCnic: e.target.value })}
                     />
                   </div>
                 </div>
@@ -522,18 +511,6 @@ const AdminReferrals = () => {
                         <option value="routine">Routine</option>
                         <option value="urgent">Urgent</option>
                         <option value="emergency">Emergency</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-400 uppercase">Budget Bracket</label>
-                      <select
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
-                        value={editForm.budgetBracket}
-                        onChange={(e) => setEditForm({ ...editForm, budgetBracket: e.target.value })}
-                      >
-                        {BUDGET_BRACKETS.map(b => (
-                          <option key={b.value} value={b.value}>{b.label}</option>
-                        ))}
                       </select>
                     </div>
                     <div className="space-y-1">

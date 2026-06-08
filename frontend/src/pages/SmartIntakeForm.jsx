@@ -4,35 +4,24 @@ import { Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../utils/api';
 
-const BUDGET_BRACKETS = [
-  { label: '5k - 10k PKR', value: '5k-10k' },
-  { label: '10k - 50k PKR', value: '10k-50k' },
-  { label: '50k - 1lac PKR', value: '50k-1lac' },
-  { label: '1lac - 3lac PKR', value: '1lac-3lac' },
-  { label: '3lac+ PKR', value: '3lac+' },
-];
-
 const SmartIntakeForm = () => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     patientName: '',
     cnic: '',
+    guardianRelation: 'S/O',
     guardianName: '',
-    guardianCnic: '',
     age: '',
     gender: 'male',
     phone: '',
     symptoms: '',
     summaryNotes: '',
     urgency: 'routine',
-    budgetMax: '50000',
-    budgetBracket: '10k-50k',
     targetDoctorId: '',
     area: 'Karachi',
+    // Kept as silent defaults for distance scoring (no longer collected in the UI)
     patientLat: '24.8607',
     patientLng: '67.0011',
-    diagnosisText: '',
-    treatment: '',
     bedType: 'general',
     attachments: [],
   });
@@ -114,12 +103,10 @@ const SmartIntakeForm = () => {
   };
 
   const handleStep1Next = () => {
+    // CNIC is optional — validate format only when the consultant provides one
     const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
-    if (!cnicRegex.test(formData.cnic)) {
+    if (formData.cnic && !cnicRegex.test(formData.cnic)) {
       return toast.error('Patient CNIC must be in the format XXXXX-XXXXXXX-X');
-    }
-    if (!cnicRegex.test(formData.guardianCnic)) {
-      return toast.error('Guardian CNIC must be in the format XXXXX-XXXXXXX-X');
     }
     const phoneClean = formData.phone.replace(/[\s\-()]/g, '');
     const phoneRegex = /^((\+92)|(0092)|0)?3\d{9}$/;
@@ -148,7 +135,6 @@ const SmartIntakeForm = () => {
       const params = {
         symptoms: formData.symptoms || '',
         urgency: formData.urgency,
-        budgetMax: formData.budgetMax,
         lat: formData.patientLat,
         lng: formData.patientLng,
       };
@@ -206,16 +192,6 @@ const SmartIntakeForm = () => {
         return;
       }
 
-      // Map budget brackets to numbers (in paisa)
-      const bracketMap = {
-        '5k-10k':   { min: 500000,   max: 1000000 },
-        '10k-50k':  { min: 1000000,  max: 5000000 },
-        '50k-1lac': { min: 5000000,  max: 10000000 },
-        '1lac-3lac':{ min: 10000000, max: 30000000 },
-        '3lac+':    { min: 30000000, max: 100000000 },
-      };
-      const bracket = bracketMap[formData.budgetBracket] || bracketMap['10k-50k'];
-
       const payload = {
         ...formData,
         targetHospitalId: hospital.hospitalId,
@@ -224,9 +200,6 @@ const SmartIntakeForm = () => {
         department: dept,
         targetDoctorId: selectedDoctors[hospital.hospitalId] || undefined,
         scoringData: hospital.breakdown,
-        budgetBracket: formData.budgetBracket,
-        budgetMin: bracket.min,
-        budgetMax: bracket.max,
       };
 
       const res = await api.post('/referrals', payload);
@@ -278,27 +251,30 @@ const SmartIntakeForm = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Patient CNIC</label>
-                <input 
+                <label className="text-sm font-semibold text-gray-700">Patient CNIC <span className="text-gray-400 font-normal">(Optional)</span></label>
+                <input
                   type="text" name="cnic" value={formData.cnic} onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   placeholder="42101-XXXXXXX-X"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Guardian Name</label>
-                <input 
-                  type="text" name="guardianName" value={formData.guardianName} onChange={handleInputChange}
+                <label className="text-sm font-semibold text-gray-700">Relation</label>
+                <select
+                  name="guardianRelation" value={formData.guardianRelation} onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="Father/Guardian Name"
-                />
+                >
+                  <option value="S/O">S/O (Son of)</option>
+                  <option value="D/O">D/O (Daughter of)</option>
+                  <option value="W/O">W/O (Wife of)</option>
+                </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Guardian CNIC</label>
-                <input 
-                  type="text" name="guardianCnic" value={formData.guardianCnic} onChange={handleInputChange}
+                <label className="text-sm font-semibold text-gray-700">Father / Husband Name</label>
+                <input
+                  type="text" name="guardianName" value={formData.guardianName} onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="42101-XXXXXXX-X"
+                  placeholder="Enter father / husband name"
                 />
               </div>
               <div className="space-y-2">
@@ -332,7 +308,7 @@ const SmartIntakeForm = () => {
             <div className="flex justify-end pt-4">
               <button 
                 onClick={handleStep1Next}
-                disabled={!formData.patientName || !formData.age || !formData.phone || !formData.cnic || !formData.guardianName || !formData.guardianCnic}
+                disabled={!formData.patientName || !formData.age || !formData.phone || !formData.guardianName}
                 className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
               >
                 Next Step
@@ -352,26 +328,6 @@ const SmartIntakeForm = () => {
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all h-24"
                 placeholder="e.g. chest pain, shortness of breath, fever"
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Provisional Diagnosis</label>
-                <input 
-                  type="text" name="diagnosisText" value={formData.diagnosisText} onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="e.g. Acute Coronary Syndrome"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Recommended Treatment / Procedure</label>
-                <input 
-                  type="text" name="treatment" value={formData.treatment} onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="e.g. Angiography / PCI"
-                />
-              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
@@ -466,48 +422,13 @@ const SmartIntakeForm = () => {
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-900">Preferences & Location</h2>
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700">Estimated Budget Bracket (PKR)</label>
-              <select 
-                name="budgetBracket" value={formData.budgetBracket} onChange={handleInputChange}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              >
-                {BUDGET_BRACKETS.map(b => (
-                  <option key={b.value} value={b.value}>{b.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">Patient Area (Karachi)</label>
-              <input 
+              <input
                 type="text" name="area" value={formData.area} onChange={handleInputChange}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="e.g. Gulshan-e-Iqbal"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Patient location latitude</label>
-                <input
-                  type="text"
-                  name="patientLat"
-                  value={formData.patientLat}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="24.8607"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Patient location longitude</label>
-                <input
-                  type="text"
-                  name="patientLng"
-                  value={formData.patientLng}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="67.0011"
-                />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">Used for distance scoring; adjust if the patient is outside central Karachi.</p>
             <div className="flex justify-between pt-4">
               <button onClick={() => setStep(2)} className="text-gray-500 font-bold px-8 py-3">Back</button>
               <button onClick={getSuggestions} disabled={loading} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2">

@@ -78,22 +78,28 @@ const AdminOverview = () => {
     return <Loader message="Syncing real-time system metrics..." />;
   }
 
-  // Aggregate Bed Inventory across all hospitals
+  // Aggregate Bed Inventory across all hospitals.
+  // bedsInventory is an array of { ward, totalBeds, occupiedBeds, availableBeds }.
+  const WARD_MAP = {
+    icu: 'ICU', nicu: 'NICU', picu: 'PICU', hdu: 'HDU', general: 'General', private: 'Private',
+  };
   const aggregateBeds = {
     icu: { total: 0, occupied: 0 },
     nicu: { total: 0, occupied: 0 },
     picu: { total: 0, occupied: 0 },
     hdu: { total: 0, occupied: 0 },
     general: { total: 0, occupied: 0 },
-    emergency: { total: 0, occupied: 0 }
+    private: { total: 0, occupied: 0 },
   };
 
   bedsData.forEach(h => {
-    const inv = h.bedsInventory || {};
-    Object.keys(aggregateBeds).forEach(type => {
-      if (inv[type]) {
-        aggregateBeds[type].total += Number(inv[type].total || 0);
-        aggregateBeds[type].occupied += Number(inv[type].occupied || 0);
+    (h.bedsInventory || []).forEach(b => {
+      const key = Object.keys(WARD_MAP).find(
+        k => WARD_MAP[k].toLowerCase() === (b.ward || '').toLowerCase()
+      );
+      if (key) {
+        aggregateBeds[key].total += Number(b.totalBeds || 0);
+        aggregateBeds[key].occupied += Number(b.occupiedBeds || 0);
       }
     });
   });

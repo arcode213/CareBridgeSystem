@@ -202,18 +202,8 @@ const HospitalReferrals = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-sm">
                       <Field label="Phone Number" value={referral.phone} />
                       <Field label="Patient CNIC" value={referral.cnic} />
-                      <Field label="Guardian Name" value={referral.guardianName} />
-                      <Field label="Guardian CNIC" value={referral.guardianCnic} />
+                      <Field label="Guardian" value={[referral.guardianRelation, referral.guardianName].filter(Boolean).join(' ')} />
                       <Field label="Area / Location" value={referral.area} />
-                      <Field label="Budget Bracket" value={referral.budgetBracket} />
-                      <Field
-                        label="Min Budget (PKR)"
-                        value={referral.budgetMin != null ? referral.budgetMin.toLocaleString() : undefined}
-                      />
-                      <Field
-                        label="Max Budget (PKR)"
-                        value={referral.budgetMax != null ? referral.budgetMax.toLocaleString() : undefined}
-                      />
                     </div>
 
                     {/* Clinical Details */}

@@ -184,10 +184,6 @@ const ConsultantEarnings = () => {
                         <span className="font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{formatPkr(item.amountPaisa)}</span>
                       </div>
                       <div>
-                        <span className="text-slate-455 dark:text-slate-500 block text-[10px] font-bold uppercase tracking-wider mb-0.5">Commission Split</span>
-                        <span className="font-bold text-slate-650 dark:text-slate-450">{item.commissionPercentage}%</span>
-                      </div>
-                      <div>
                         <span className="text-slate-455 dark:text-slate-500 block text-[10px] font-bold uppercase tracking-wider mb-0.5">Workflow Status</span>
                         {item.status === 'pending_payout' && (
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-[9px] uppercase tracking-wider">
@@ -336,27 +332,6 @@ const ConsultantEarnings = () => {
                   <div>
                     <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Submitted</p>
                     <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{selected.referralId.createdAt ? new Date(selected.referralId.createdAt).toLocaleDateString('en-PK') : '—'}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {selected.totalBillPaisa != null && (
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-5 transition-colors">
-                <p className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">Your Commission Share Breakdown</p>
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-xl space-y-3 transition-colors">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">Total Billed to Patient</span>
-                    <span className="font-extrabold text-slate-800 dark:text-slate-100">{formatPkr(selected.totalBillPaisa)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">Your Commission Rate (Set by Admin)</span>
-                    <span className="font-bold text-slate-700 dark:text-slate-300">{selected.commissionPercentage || 60}%</span>
-                  </div>
-                  <div className="border-t border-dashed border-slate-200 dark:border-slate-800 my-2" />
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">Your Earned Cut</span>
-                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{formatPkr(selected.amountPaisa)}</span>
                   </div>
                 </div>
               </div>
