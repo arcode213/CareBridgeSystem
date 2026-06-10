@@ -2,11 +2,8 @@ const express = require('express');
 const router = express.Router();
 const {
   getSuggestions,
-  getNearestLaboratories,
-  getAvailableLaboratories,
   createReferral,
   getMyReferrals,
-  getMyLabReferrals,
   getHospitalInbox,
   getHospitalReferrals,
   updateReferralStatus,
@@ -24,11 +21,8 @@ router.use(protect);
 // ── Consultant ────────────────────────────────────────────────────────────────
 router.get('/hospitals/:id/doctors', authorize(['consultant', 'hospital']), getHospitalDoctors);
 router.get('/suggestions', authorize(['consultant']), getSuggestions);
-router.get('/nearest-laboratory', authorize(['consultant']), getNearestLaboratories);
-router.get('/available-laboratories', authorize(['consultant']), getAvailableLaboratories);
 router.post('/', authorize(['consultant']), createReferral);
 router.get('/mine', authorize(['consultant']), getMyReferrals);
-router.get('/my-lab-referrals', authorize(['consultant']), getMyLabReferrals);
 router.get('/earnings', authorize(['consultant']), getConsultantEarnings);
 router.post('/withdraw', authorize(['consultant']), createWithdrawalRequest);
 

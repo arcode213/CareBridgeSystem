@@ -21,7 +21,6 @@ const Login = () => {
     if (user) {
       if (user.role === 'hospital') navigate('/hospital/dashboard');
       else if (user.role === 'admin') navigate('/admin/overview');
-      else if (user.role === 'laboratory') navigate('/laboratory/dashboard');
       else navigate('/dashboard');
     }
   }, [user, navigate]);
@@ -35,8 +34,6 @@ const Login = () => {
         navigate('/hospital/dashboard');
       } else if (result.user.role === 'admin') {
         navigate('/admin/overview');
-      } else if (result.user.role === 'laboratory') {
-        navigate('/laboratory/dashboard');
       } else {
         navigate('/dashboard');
       }

@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Upload, Eye, Loader2 } from 'lucide-react';
+import { Upload, Eye, Loader2, Lock } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 
 /**
  * Upload or replace a named profile document (PMDC, CNIC, SHCC, etc.)
+ * When `locked` is true, the document is verified and can be viewed but not replaced.
  */
-const ProfileDocumentUpload = ({ docName, documents = [], onUpdated }) => {
+const ProfileDocumentUpload = ({ docName, documents = [], onUpdated, locked = false }) => {
   const [uploading, setUploading] = useState(false);
   const existing = documents.find((d) => d.name === docName);
 
@@ -45,7 +46,11 @@ const ProfileDocumentUpload = ({ docName, documents = [], onUpdated }) => {
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-slate-800">{docName}</p>
         <p className="text-xs text-slate-500 mt-0.5">
-          {existing ? 'Uploaded — replace with a new file' : 'Required — upload PDF or image'}
+          {locked
+            ? 'Verified — locked from changes'
+            : existing
+              ? 'Uploaded — replace with a new file'
+              : 'Required — upload PDF or image'}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0 ml-3">
@@ -60,13 +65,20 @@ const ProfileDocumentUpload = ({ docName, documents = [], onUpdated }) => {
             <Eye size={18} />
           </a>
         )}
-        <label className="cursor-pointer">
-          <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleUpload} disabled={uploading} />
-          <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700">
-            {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            {existing ? 'Replace' : 'Upload'}
+        {locked ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg">
+            <Lock size={14} />
+            Verified
           </span>
-        </label>
+        ) : (
+          <label className="cursor-pointer">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleUpload} disabled={uploading} />
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700">
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {existing ? 'Replace' : 'Upload'}
+            </span>
+          </label>
+        )}
       </div>
     </div>
   );

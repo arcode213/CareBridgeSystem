@@ -104,7 +104,6 @@ const DashboardLayout = () => {
             <NavLink to="/dashboard" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Home</NavLink>
             <NavLink to="/referrals/new" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>New</NavLink>
             <NavLink to="/referrals" className={({ isActive }) => mobileNavClass(isActive || location.pathname === '/referrals/new')} style={({ isActive }) => mobileNavStyle(isActive || location.pathname === '/referrals/new')}>List</NavLink>
-            <NavLink to="/lab-referrals" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-violet-600 text-white' : 'text-violet-600 dark:text-violet-400'}`}>🔬 Lab</NavLink>
             <NavLink to="/earnings" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Earn</NavLink>
             <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
@@ -131,14 +130,6 @@ const DashboardLayout = () => {
             <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
         )}
-        {user.role === 'laboratory' && (
-          <>
-            <NavLink to="/laboratory/dashboard" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Home</NavLink>
-            <NavLink to="/laboratory/investigations" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Investigations</NavLink>
-            <NavLink to="/laboratory/settlements" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Settlements</NavLink>
-            <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
-          </>
-        )}
         {user.role === 'admin' && (
           <>
             <NavLink to="/admin/overview" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Overview</NavLink>
@@ -156,7 +147,6 @@ const DashboardLayout = () => {
             <NavLink to="/admin/hospitals" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Hospitals</NavLink>
             <NavLink to="/admin/payouts" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Payouts</NavLink>
             <NavLink to="/admin/settlements" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Settlements</NavLink>
-            <NavLink to="/admin/whatsapp" className={({ isActive }) => `whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold ${isActive ? 'bg-emerald-600 text-white' : 'text-emerald-600 dark:text-emerald-400'}`}>WhatsApp</NavLink>
             <NavLink to="/admin/settings" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Setup</NavLink>
             <NavLink to="/admin/audit" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Audit</NavLink>
             <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
@@ -177,18 +167,6 @@ const DashboardLayout = () => {
               <BrandNavLink to="/dashboard"><span>Dashboard</span></BrandNavLink>
               <BrandNavLink to="/referrals/new" end><span>New referral</span></BrandNavLink>
               <BrandNavLink to="/referrals" end><span>My referrals</span></BrandNavLink>
-              <NavLink
-                to="/lab-referrals"
-                className={({ isActive }) =>
-                  `flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                    isActive
-                      ? 'bg-violet-600 text-white shadow-md shadow-violet-600/20'
-                      : 'text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/20'
-                  }`
-                }
-              >
-                <span>🔬 Lab Referrals</span>
-              </NavLink>
               <BrandNavLink to="/earnings"><span>Earnings</span></BrandNavLink>
               <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>
@@ -221,15 +199,6 @@ const DashboardLayout = () => {
             </>
           )}
 
-          {user.role === 'laboratory' && (
-            <>
-              <BrandNavLink to="/laboratory/dashboard"><span>Dashboard</span></BrandNavLink>
-              <BrandNavLink to="/laboratory/investigations"><span>Investigations</span></BrandNavLink>
-              <BrandNavLink to="/laboratory/settlements"><span>Weekly Settlements</span></BrandNavLink>
-              <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
-            </>
-          )}
-
           {user.role === 'admin' && (
             <>
               <BrandNavLink to="/admin/overview"><span>Overview</span></BrandNavLink>
@@ -249,18 +218,6 @@ const DashboardLayout = () => {
               <BrandNavLink to="/admin/hospitals"><span>Hospitals</span></BrandNavLink>
               <BrandNavLink to="/admin/payouts"><span>Payouts</span></BrandNavLink>
               <BrandNavLink to="/admin/settlements"><span>Settlements Queue</span></BrandNavLink>
-              <NavLink
-                to="/admin/whatsapp"
-                className={({ isActive }) =>
-                  `flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                    isActive
-                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
-                      : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/20'
-                  }`
-                }
-              >
-                <span>📱 WhatsApp</span>
-              </NavLink>
               <BrandNavLink to="/admin/scoring"><span>Scoring weights</span></BrandNavLink>
               <BrandNavLink to="/admin/departments"><span>Departments</span></BrandNavLink>
               <BrandNavLink to="/admin/settings"><span>Settings</span></BrandNavLink>

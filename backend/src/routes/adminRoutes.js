@@ -15,7 +15,6 @@ router.get('/consultants/:id/patients', adminController.getConsultantPatients);
 router.get('/hospitals/:id/patients', adminController.getHospitalPatients);
 router.post('/consultants/:id/commission', adminController.adminUpdateConsultantCommission);
 router.post('/hospitals/:id/deduction', adminController.adminUpdateHospitalDeduction);
-router.post('/laboratories/:id/deduction', adminController.adminUpdateLaboratoryDeduction);
 router.patch('/hospitals/:id', adminController.adminUpdateHospital);
 router.get('/hospitals/:id/doctors', adminController.adminListHospitalDoctors);
 router.post('/hospitals/:id/doctors', adminController.adminAddHospitalDoctor);
@@ -45,7 +44,7 @@ router.get('/beds', adminController.listAllBeds);
 router.patch('/beds/:hospitalId', adminController.adminUpdateHospitalBeds);
 router.get('/admissions', adminController.listAllAdmissions);
 router.get('/audit-logs', adminController.listAuditLogs);
-router.get('/audit-logs/laboratory/export', adminController.exportLaboratoryAuditLogs);
+router.get('/audit-logs/export', adminController.exportAuditLogs);
 
 // WhatsApp messaging (admin)
 router.get('/whatsapp/status', whatsappController.getWhatsAppStatus);

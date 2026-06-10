@@ -32,10 +32,6 @@ const NOTIFICATION_TITLES = {
   ACCOUNT_APPROVED: 'Account approved',
   ACCOUNT_SUSPENDED: 'Account suspended',
   NEW_REGISTRATION: 'New registration — approval needed',
-  LAB_ORDER_RECEIVED: 'New lab order',
-  LAB_STATUS_UPDATE: 'Lab status update',
-  LAB_CRITICAL_VALUE: 'Critical lab value',
-  LAB_REPORT_READY: 'Lab report ready',
   ADMIN_BROADCAST: 'Platform notice',
 };
 
@@ -180,28 +176,6 @@ const buildWhatsAppBody = (type, name, message, data = {}) => {
       `⚠️ *CareBridge Health* — Account Suspended\n\n${greeting}` +
       `Your account has been suspended.\n\n` +
       `Please contact platform support for more information.`,
-
-    // Lab Notifications
-    LAB_ORDER_RECEIVED: () =>
-      `🔬 *CareBridge Health* — New Lab Order\n\n${greeting}` +
-      `You have received a new lab order for patient *${data.patientName || 'Unknown'}* (Ref: ${data.referralCode || ''}).\n\n` +
-      `Please check your dashboard for details.`,
-
-    LAB_STATUS_UPDATE: () =>
-      `🧪 *CareBridge Health* — Lab Status Update\n\n${greeting}` +
-      `The lab investigation for patient *${data.patientName || 'Unknown'}* (Ref: ${data.referralCode || ''}) is now: *${data.status || ''}*.\n\n` +
-      `You can track the progress on your dashboard.`,
-
-    LAB_CRITICAL_VALUE: () =>
-      `🚨 *CRITICAL VALUE DETECTED*\n\n${greeting}` +
-      `A panic value was detected in the lab investigation for patient *${data.patientName || 'Unknown'}* (Ref: ${data.referralCode || ''}).\n\n` +
-      `Urgent action is required! Please review the results immediately.`,
-
-    LAB_REPORT_READY: () =>
-      `📄 *CareBridge Health* — Lab Report Ready\n\n${greeting}` +
-      `The lab report for patient *${data.patientName || 'Unknown'}* (Ref: ${data.referralCode || ''}) has been uploaded successfully.\n\n` +
-      (data.reportUrl ? `Report Link: ${data.reportUrl}\n\n` : '') +
-      `Please check your dashboard to view the full report.`,
 
     NEW_REGISTRATION: () =>
       `🆕 *CareBridge Health* — New Registration\n\n${greeting}` +
@@ -412,68 +386,3 @@ exports.notifyPasswordChanged = async (user) => {
   });
 };
 
-exports.notifyLabOrderReceived = async (labUser, referral) => {
-  return exports.sendAlert({
-    userId: labUser._id,
-    role: 'laboratory',
-    type: 'LAB_ORDER_RECEIVED',
-    message: `New lab order received for ${referral.patientName}`,
-    data: {
-      email: labUser.email,
-      phone: labUser.phone,
-      name: labUser.name,
-      patientName: referral.patientName,
-      referralCode: referral.referralCode,
-    },
-  });
-};
-
-exports.notifyLabStatusUpdate = async (consultantUser, referral, statusStr) => {
-  return exports.sendAlert({
-    userId: consultantUser._id,
-    role: 'consultant',
-    type: 'LAB_STATUS_UPDATE',
-    message: `Lab status updated to ${statusStr} for ${referral.patientName}`,
-    data: {
-      email: consultantUser.email,
-      phone: consultantUser.phone,
-      name: consultantUser.name,
-      patientName: referral.patientName,
-      referralCode: referral.referralCode,
-      status: statusStr,
-    },
-  });
-};
-
-exports.notifyLabCriticalValue = async (consultantUser, referral) => {
-  return exports.sendAlert({
-    userId: consultantUser._id,
-    role: 'consultant',
-    type: 'LAB_CRITICAL_VALUE',
-    message: `CRITICAL VALUE detected for ${referral.patientName}`,
-    data: {
-      email: consultantUser.email,
-      phone: consultantUser.phone,
-      name: consultantUser.name,
-      patientName: referral.patientName,
-      referralCode: referral.referralCode,
-    },
-  });
-};
-
-exports.notifyLabReportReady = async (consultantUser, referral, reportUrl) => {
-  return exports.sendAlert({
-    userId: consultantUser._id,
-    role: 'consultant',
-    type: 'LAB_REPORT_READY',
-    message: `Lab report ready for ${referral.patientName}`,
-    data: {
-      email: consultantUser.email,
-      phone: consultantUser.phone,
-      name: consultantUser.name,
-      patientName: referral.patientName,
-      referralCode: referral.referralCode,
-      reportUrl,
-    },
-  });
-};

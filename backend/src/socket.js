@@ -6,7 +6,7 @@
  *   user:<userId>          → a single logged-in user (notifications)
  *   role:<role>            → every user of a role (broadcasts)
  *   hospital:<hospitalId>  → legacy entity rooms (kept for back-compat)
- *   consultant:<id> / laboratory:<id>
+ *   consultant:<id>
  */
 
 let ioRef = null;

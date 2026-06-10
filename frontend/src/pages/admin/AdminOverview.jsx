@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import { 
-  Building2, Users, Inbox, Wallet, Activity, ArrowRight, 
-  RefreshCw, ShieldAlert, Cpu, HeartPulse, Clock
+import {
+  Building2, Users, Inbox, Wallet, Activity, ArrowRight,
+  RefreshCw, ShieldAlert, Cpu, HeartPulse, Clock, Stethoscope
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
@@ -110,10 +110,11 @@ const AdminOverview = () => {
   }));
 
   const cards = [
-    { label: 'System users', value: data?.totalUsers || 0, icon: Users, color: 'from-blue-500 to-indigo-600', href: '/admin/consultants', desc: 'Registered consultants & staff' },
+    { label: 'Total users', value: (data?.totalConsultants || 0) + (data?.totalHospitals || 0), icon: Users, color: 'from-blue-500 to-indigo-600', desc: 'Registered consultants & hospitals' },
+    { label: 'Consultants', value: data?.totalConsultants || 0, icon: Stethoscope, color: 'from-teal-500 to-cyan-600', href: '/admin/consultants', desc: 'Accredited referring doctors' },
+    { label: 'Hospitals', value: data?.totalHospitals || 0, icon: Building2, color: 'from-emerald-500 to-teal-600', href: '/admin/hospitals', desc: 'Partner facility networks' },
     { label: 'Pending approvals', value: data?.pendingApprovals || 0, icon: Inbox, color: 'from-amber-500 to-orange-600', href: '/admin/approvals', desc: 'Awaiting credential review', urgent: (data?.pendingApprovals > 0) },
     { label: 'Total referrals', value: data?.totalReferrals || 0, icon: Activity, color: 'from-violet-500 to-fuchsia-600', href: '/admin/referrals', desc: 'Lifetime referrals created' },
-    { label: 'Active hospitals', value: data?.activeHospitals || 0, icon: Building2, color: 'from-emerald-500 to-teal-600', href: '/admin/hospitals', desc: 'Operational partner networks' },
   ];
 
   const getActionBadgeStyle = (action) => {

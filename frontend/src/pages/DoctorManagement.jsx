@@ -112,7 +112,7 @@ const DoctorManagement = () => {
                   <User size={28} strokeWidth={2.5} />
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => { setEditingDoctor(doc); setFormData({ ...doc, consultationFee: doc.consultationFee / 100 }); setShowModal(true); }} className="p-2 hover:bg-slate-50 text-slate-400 hover:text-blue-600 rounded-xl transition-colors">
+                  <button onClick={() => { setEditingDoctor(doc); setFormData({ name: doc.name || '', specialty: doc.specialty || '', pmdcNumber: doc.pmdcNumber || '', consultationFee: doc.consultationFee / 100, phone: doc.phone || '', email: doc.email || '', isAvailable: doc.isAvailable }); setShowModal(true); }} className="p-2 hover:bg-slate-50 text-slate-400 hover:text-blue-600 rounded-xl transition-colors">
                     <Edit2 size={18} />
                   </button>
                   <button onClick={() => handleDelete(doc._id)} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl transition-colors">

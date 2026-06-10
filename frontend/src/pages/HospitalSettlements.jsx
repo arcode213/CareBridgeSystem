@@ -51,19 +51,38 @@ const HospitalSettlements = () => {
     fetchData();
   }, [fetchData]);
 
+  // When a billing date range is provided, only the cases that fall within it are
+  // shown/selectable. With no range, every pending case is available for manual picking.
+  const admInRange = useCallback((adm) => {
+    if (!billingStart || !billingEnd) return true;
+    const ref = new Date(adm.completedAt || adm.updatedAt);
+    const start = new Date(billingStart); start.setHours(0, 0, 0, 0);
+    const end = new Date(billingEnd); end.setHours(23, 59, 59, 999);
+    return ref >= start && ref <= end;
+  }, [billingStart, billingEnd]);
+
+  const visibleAdmissions = pendingAdmissions.filter(admInRange);
+
+  // Selecting a date range auto-selects the cases that fall inside it.
+  useEffect(() => {
+    if (billingStart && billingEnd) {
+      setSelectedAdmissionIds(pendingAdmissions.filter(admInRange).map(a => a._id));
+    }
+  }, [billingStart, billingEnd, pendingAdmissions, admInRange]);
+
   // Handle Admission Checkbox Toggle
   const toggleAdmission = (id) => {
-    setSelectedAdmissionIds(prev => 
+    setSelectedAdmissionIds(prev =>
       prev.includes(id) ? prev.filter(aId => aId !== id) : [...prev, id]
     );
   };
 
-  // Select all pending admissions
+  // Select all currently visible admissions
   const handleSelectAll = () => {
-    if (selectedAdmissionIds.length === pendingAdmissions.length) {
+    if (selectedAdmissionIds.length === visibleAdmissions.length) {
       setSelectedAdmissionIds([]);
     } else {
-      setSelectedAdmissionIds(pendingAdmissions.map(a => a._id));
+      setSelectedAdmissionIds(visibleAdmissions.map(a => a._id));
     }
   };
 
@@ -123,9 +142,6 @@ const HospitalSettlements = () => {
   // Submit new weekly settlement
   const handleCreateSettlement = async (e) => {
     e.preventDefault();
-    if (!billingStart || !billingEnd) {
-      return toast.error('Please specify the billing period start and end dates');
-    }
     if (selectedAdmissionIds.length === 0) {
       return toast.error('Select at least one completed case to settle');
     }
@@ -133,10 +149,21 @@ const HospitalSettlements = () => {
       return toast.error('Please upload your Weekly Bill Summary document');
     }
 
+    // When no date range is chosen, derive the billing period from the selected cases.
+    let periodStart = billingStart;
+    let periodEnd = billingEnd;
+    if (!periodStart || !periodEnd) {
+      const refDates = selectedAdmissionsObjects.map(a => new Date(a.completedAt || a.updatedAt).getTime());
+      if (refDates.length) {
+        if (!periodStart) periodStart = new Date(Math.min(...refDates)).toISOString();
+        if (!periodEnd) periodEnd = new Date(Math.max(...refDates)).toISOString();
+      }
+    }
+
     try {
       const res = await api.post('/settlements', {
-        billingPeriodStart: billingStart,
-        billingPeriodEnd: billingEnd,
+        billingPeriodStart: periodStart,
+        billingPeriodEnd: periodEnd,
         admissionIds: selectedAdmissionIds,
         billSummaryFileUrl: summaryFile,
         notes
@@ -238,20 +265,18 @@ const HospitalSettlements = () => {
               {/* Date pickers */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Billing Start Date</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Billing Start Date <span className="text-slate-400 normal-case font-medium">(optional)</span></label>
                   <input
                     type="date"
-                    required
                     value={billingStart}
                     onChange={e => setBillingStart(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Billing End Date</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Billing End Date <span className="text-slate-400 normal-case font-medium">(optional)</span></label>
                   <input
                     type="date"
-                    required
                     value={billingEnd}
                     onChange={e => setBillingEnd(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-colors"
@@ -265,25 +290,27 @@ const HospitalSettlements = () => {
                   <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Select Completed Cases to Include ({selectedAdmissionIds.length} chosen)
                   </label>
-                  {pendingAdmissions.length > 0 && (
+                  {visibleAdmissions.length > 0 && (
                     <button
                       type="button"
                       onClick={handleSelectAll}
                       className="text-xs text-teal-600 dark:text-teal-400 hover:underline font-bold"
                     >
-                      {selectedAdmissionIds.length === pendingAdmissions.length ? 'Deselect All' : 'Select All Pending'}
+                      {selectedAdmissionIds.length === visibleAdmissions.length ? 'Deselect All' : 'Select All Pending'}
                     </button>
                   )}
                 </div>
 
                 <div className="border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden max-h-60 overflow-y-auto bg-slate-50/50 dark:bg-slate-950/20">
-                  {pendingAdmissions.length === 0 ? (
+                  {visibleAdmissions.length === 0 ? (
                     <div className="px-5 py-8 text-center text-xs text-slate-400 dark:text-slate-500">
-                      All discharged admissions are currently settled! No new cases pending settlement.
+                      {pendingAdmissions.length === 0
+                        ? 'All discharged admissions are currently settled! No new cases pending settlement.'
+                        : 'No completed cases fall within the selected date range. Adjust or clear the dates to see all pending cases.'}
                     </div>
                   ) : (
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {pendingAdmissions.map(adm => {
+                      {visibleAdmissions.map(adm => {
                         const isChecked = selectedAdmissionIds.includes(adm._id);
                         return (
                           <div 

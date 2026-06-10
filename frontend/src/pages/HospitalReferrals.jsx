@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Search, ChevronDown, ChevronUp, Clock, User, Phone, Shield, Calendar, CreditCard, Activity } from 'lucide-react';
+import { FileText, Search, ChevronDown, ChevronUp, Clock, User, Phone, Shield, Calendar, CreditCard } from 'lucide-react';
 import { useHospitalReferrals } from '../hooks/useReferrals';
 import api from '../utils/api';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
@@ -296,60 +296,6 @@ const HospitalReferrals = () => {
                         </div>
                       </div>
                     </div>
-
-                    {/* Laboratory Investigations */}
-                    {expandedData[referral._id]?.labInvestigations?.length > 0 && (
-                      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                          <Activity size={14} className="text-blue-600" /> Laboratory Investigations
-                        </h4>
-                        <div className="space-y-3">
-                          {expandedData[referral._id].labInvestigations.map((labInv, idx) => (
-                            <div key={idx} className="bg-violet-50/50 dark:bg-violet-900/10 border border-violet-100 dark:border-violet-800 p-4 rounded-xl">
-                              <div className="flex items-center justify-between mb-2">
-                                <div>
-                                  <p className="text-xs font-bold text-violet-800 dark:text-violet-400">{labInv.laboratoryId?.laboratoryName || 'Laboratory'}</p>
-                                  <p className="text-[10px] text-violet-600 dark:text-violet-500 uppercase tracking-wider">{labInv.section} • {labInv.status.replace('_', ' ')}</p>
-                                </div>
-                                {labInv.isStat && <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full text-[10px] font-black">STAT</span>}
-                              </div>
-                              
-                              {/* Validated Tests */}
-                              {labInv.investigations && labInv.investigations.length > 0 && (
-                                <div className="mt-3 bg-white dark:bg-slate-900 rounded-lg border border-violet-100 dark:border-violet-800 overflow-hidden">
-                                  <table className="w-full text-left text-xs">
-                                    <thead className="bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400">
-                                      <tr>
-                                        <th className="px-3 py-2 font-semibold">Test Name</th>
-                                        <th className="px-3 py-2 font-semibold">Result</th>
-                                        <th className="px-3 py-2 font-semibold">Ref Range</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-violet-50 dark:divide-violet-900/20">
-                                      {labInv.investigations.map((test, i) => (
-                                        <tr key={i}>
-                                          <td className="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">{test.testName}</td>
-                                          <td className={`px-3 py-2 font-bold ${test.isCritical ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>{test.resultValue}</td>
-                                          <td className="px-3 py-2 text-slate-500">{test.referenceRange || '—'}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-                              
-                              {labInv.reportFileUrl && (
-                                <div className="mt-3">
-                                  <a href={labInv.reportFileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-700 transition-colors">
-                                    📄 View Final Report
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Clinical Notes Timeline / Log */}
                     <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">

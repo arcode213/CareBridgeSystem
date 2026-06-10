@@ -88,36 +88,11 @@ function parseHospitalRegistration(body) {
   };
 }
 
-function parseLaboratoryRegistration(body) {
-  const departments = body.departments;
-  if (!Array.isArray(departments) || departments.length === 0) {
-    return { error: 'Select at least one department' };
-  }
-  const cleanedDepts = [...new Set(departments.map((d) => String(d).trim()).filter(Boolean))];
-  if (cleanedDepts.length === 0) {
-    return { error: 'Select at least one department' };
-  }
-
-  const lat = parseFloat(body.location?.lat ?? body.lat);
-  const lng = parseFloat(body.location?.lng ?? body.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return { error: 'Valid location latitude and longitude are required' };
-  }
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return { error: 'Latitude or longitude out of range' };
-  }
-
-  return {
-    departments: cleanedDepts,
-    location: { type: 'Point', coordinates: [lng, lat] },
-  };
-}
-
 exports.register = async (req, res) => {
   try {
     const { name, email, phone, password, role } = req.body;
 
-    if (!['consultant', 'hospital', 'laboratory'].includes(role)) {
+    if (!['consultant', 'hospital'].includes(role)) {
       return res.status(400).json({ success: false, message: 'Invalid role for registration' });
     }
 
@@ -256,54 +231,6 @@ exports.register = async (req, res) => {
         departments: parsed.departments,
         location: parsed.location,
         bedsInventory: parsed.bedsInventory,
-        ratePackages: Array.isArray(req.body.ratePackages) ? req.body.ratePackages : [],
-        registrationDocuments,
-        isActive: false,
-      });
-    } else if (role === 'laboratory') {
-      const licenseNum = String(req.body.licenseNumber || '').trim();
-      if (!licenseNum) {
-        await User.deleteOne({ _id: user._id });
-        return res.status(400).json({ success: false, message: 'Laboratory license number is required' });
-      }
-
-      const parsed = parseLaboratoryRegistration(req.body);
-      if (parsed.error) {
-        await User.deleteOne({ _id: user._id });
-        return res.status(400).json({ success: false, message: parsed.error });
-      }
-
-      const representativeCnic = String(req.body.representativeCnic || req.body.cnic || '').trim();
-      const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
-      if (!cnicRegex.test(representativeCnic)) {
-        await User.deleteOne({ _id: user._id });
-        return res.status(400).json({
-          success: false,
-          message: 'Representative CNIC must be in the format XXXXX-XXXXXXX-X',
-        });
-      }
-
-      const registrationDocuments = req.body.registrationDocuments || [];
-      if (!registrationDocuments.some((d) => d.name === 'CNIC' && d.url)) {
-        await User.deleteOne({ _id: user._id });
-        return res.status(400).json({ success: false, message: 'CNIC document upload is required' });
-      }
-      if (!registrationDocuments.some((d) => d.name === 'SHCC License' && d.url)) {
-        await User.deleteOne({ _id: user._id });
-        return res.status(400).json({ success: false, message: 'SHCC License upload is required' });
-      }
-
-      const Laboratory = require('../models/Laboratory');
-      await Laboratory.create({
-        userId: user._id,
-        laboratoryName: (req.body.laboratoryName || name).trim(),
-        licenseNumber: licenseNum,
-        representativeCnic,
-        address: req.body.address?.trim(),
-        city: req.body.city?.trim() || 'Karachi',
-        area: req.body.area?.trim(),
-        departments: parsed.departments,
-        location: parsed.location,
         ratePackages: Array.isArray(req.body.ratePackages) ? req.body.ratePackages : [],
         registrationDocuments,
         isActive: false,

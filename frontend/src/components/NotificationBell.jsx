@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 
@@ -15,15 +16,48 @@ const timeAgo = (date) => {
   return `${days}d ago`;
 };
 
+const PANEL_WIDTH = 320; // matches w-80
+
 const NotificationBell = ({ align = 'right' }) => {
   const ctx = useNotifications();
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const panelRef = useRef(null);
+
+  // Position the panel just below the bell. It is rendered through a portal to
+  // document.body, so it escapes the sidebar/header stacking contexts (sticky +
+  // backdrop-blur) that would otherwise trap it behind the dashboard cards.
+  const reposition = () => {
+    const btn = btnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const width = Math.min(PANEL_WIDTH, window.innerWidth - 16);
+    let left = align === 'left' ? rect.left : rect.right - width;
+    // Keep the panel fully inside the viewport.
+    left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+    setCoords({ top: rect.bottom + 8, left });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    reposition();
+    const onChange = () => reposition();
+    window.addEventListener('resize', onChange);
+    window.addEventListener('scroll', onChange, true);
+    return () => {
+      window.removeEventListener('resize', onChange);
+      window.removeEventListener('scroll', onChange, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return undefined;
     const onClick = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      if (btnRef.current?.contains(e.target)) return;
+      if (panelRef.current?.contains(e.target)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
@@ -33,8 +67,9 @@ const NotificationBell = ({ align = 'right' }) => {
   const { notifications, unreadCount, markRead, markAllRead } = ctx;
 
   return (
-    <div className="relative" ref={wrapRef}>
+    <div className="relative">
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="relative p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
@@ -49,11 +84,11 @@ const NotificationBell = ({ align = 'right' }) => {
         )}
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          className={`absolute mt-2 w-80 max-w-[calc(100vw-1rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden ${
-            align === 'left' ? 'left-0' : 'right-0'
-          }`}
+          ref={panelRef}
+          style={{ position: 'fixed', top: coords.top, left: coords.left, width: Math.min(PANEL_WIDTH, window.innerWidth - 16) }}
+          className="z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden"
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
             <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -103,7 +138,8 @@ const NotificationBell = ({ align = 'right' }) => {
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

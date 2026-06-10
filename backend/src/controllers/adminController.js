@@ -26,11 +26,6 @@ exports.listPendingUsers = async (req, res) => {
           base.profile = await Hospital.findOne({ userId: u._id })
             .select('hospitalName registrationNumber representativeCnic departments bedsInventory address registrationDocuments isRegistrationVerified')
             .lean();
-        } else if (u.role === 'laboratory') {
-          const Laboratory = require('../models/Laboratory');
-          base.profile = await Laboratory.findOne({ userId: u._id })
-            .select('laboratoryName licenseNumber representativeCnic departments address registrationDocuments isRegistrationVerified')
-            .lean();
         }
         return base;
       })
@@ -62,11 +57,6 @@ exports.listAllUsers = async (req, res) => {
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
             .select('hospitalName registrationNumber representativeCnic departments bedsInventory address city area deductionPercentage isActive isRegistrationVerified registrationDocuments ratePackages')
-            .lean();
-        } else if (u.role === 'laboratory') {
-          const Laboratory = require('../models/Laboratory');
-          base.profile = await Laboratory.findOne({ userId: u._id })
-            .select('laboratoryName licenseNumber representativeCnic departments address city area deductionPercentage isActive isRegistrationVerified registrationDocuments ratePackages')
             .lean();
         }
         return base;
@@ -105,16 +95,6 @@ exports.updateUserStatus = async (req, res) => {
 
     if (user.role === 'hospital') {
       await Hospital.updateOne(
-        { userId: user._id },
-        {
-          isActive: status === 'active',
-          ...(status === 'active' ? { isRegistrationVerified: true } : { isRegistrationVerified: false }),
-        }
-      );
-    }
-    if (user.role === 'laboratory') {
-      const Laboratory = require('../models/Laboratory');
-      await Laboratory.updateOne(
         { userId: user._id },
         {
           isActive: status === 'active',
@@ -161,11 +141,13 @@ exports.updateUserStatus = async (req, res) => {
 
 exports.getPlatformAnalytics = async (req, res) => {
   try {
-    const [users, referrals, hospitals, admissions] = await Promise.all([
+    const [users, referrals, hospitals, admissions, consultantCount, hospitalCount] = await Promise.all([
       User.countDocuments(),
       Referral.countDocuments(),
       Hospital.countDocuments({ isActive: true }),
       Admission.countDocuments({ status: 'billed' }),
+      Consultant.countDocuments(),
+      Hospital.countDocuments(),
     ]);
     const pendingUsers = await User.countDocuments({ status: 'pending' });
     const revenueAgg = await Admission.aggregate([
@@ -193,6 +175,8 @@ exports.getPlatformAnalytics = async (req, res) => {
       success: true,
       data: {
         totalUsers: users,
+        totalConsultants: consultantCount,
+        totalHospitals: hospitalCount,
         pendingApprovals: pendingUsers,
         totalReferrals: referrals,
         activeHospitals: hospitals,
@@ -489,37 +473,43 @@ exports.listAllBeds = async (req, res) => {
   }
 };
 
-exports.exportLaboratoryAuditLogs = async (req, res) => {
+exports.exportAuditLogs = async (req, res) => {
   try {
-    const AuditLog = require('../models/AuditLog');
-    const logs = await AuditLog.find({
-      entityModel: { $in: ['LabInvestigation', 'Laboratory'] }
-    })
+    const logs = await AuditLog.find()
       .populate('actorId', 'name role email')
       .sort({ createdAt: -1 })
       .lean();
 
+    // Wrap every field in quotes and escape embedded quotes so commas, newlines
+    // and JSON details never break the CSV columns.
+    const csvField = (val) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+
     const csvLines = [
-      'Timestamp,Actor Name,Actor Role,Action,Entity Model,Entity ID,Details'
+      ['Timestamp', 'Administrator', 'Email', 'Role', 'Action', 'Entity Model', 'Entity ID', 'IP Address', 'Details']
+        .map(csvField)
+        .join(','),
     ];
 
     logs.forEach((log) => {
-      const timestamp = new Date(log.createdAt).toISOString();
-      const actorName = log.actorId ? `"${log.actorId.name}"` : 'System';
-      const actorRole = log.actorId ? log.actorId.role : 'N/A';
-      const action = `"${log.action}"`;
-      const entityModel = `"${log.entityModel}"`;
-      const entityId = `"${log.entityId}"`;
-      const details = log.details ? `"${JSON.stringify(log.details).replace(/"/g, '""')}"` : '""';
-
-      csvLines.push(`${timestamp},${actorName},${actorRole},${action},${entityModel},${entityId},${details}`);
+      csvLines.push([
+        new Date(log.createdAt).toISOString(),
+        log.actorId?.name || 'System',
+        log.actorId?.email || 'N/A',
+        log.actorId?.role || 'N/A',
+        log.action || '',
+        log.entityModel || '',
+        log.entityId || '',
+        log.ipAddress || '',
+        log.details ? JSON.stringify(log.details) : '',
+      ].map(csvField).join(','));
     });
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=laboratory-audit-logs.csv');
-    return res.send(csvLines.join('\n'));
+    // Prepend a UTF-8 BOM so Excel opens the file with correct encoding.
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=audit-logs.csv');
+    return res.send('﻿' + csvLines.join('\r\n'));
   } catch (error) {
-    console.error('Export Lab Audit Logs error:', error);
+    console.error('Export Audit Logs error:', error);
     res.status(500).json({ success: false, message: 'Error exporting audit logs' });
   }
 };
@@ -772,43 +762,6 @@ exports.adminUpdateHospitalDeduction = async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ success: false, message: 'Failed to update deduction percentage' });
-  }
-};
-
-exports.adminUpdateLaboratoryDeduction = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { deductionPercentage } = req.body;
-
-    if (deductionPercentage == null || isNaN(deductionPercentage) || deductionPercentage < 0 || deductionPercentage > 100) {
-      return res.status(400).json({ success: false, message: 'Valid deduction percentage (0-100) is required' });
-    }
-
-    const Laboratory = require('../models/Laboratory');
-    let lab = await Laboratory.findOne({ userId: id });
-    if (!lab) {
-      lab = await Laboratory.findById(id);
-    }
-
-    if (!lab) {
-      return res.status(404).json({ success: false, message: 'Laboratory not found' });
-    }
-
-    lab.deductionPercentage = Number(deductionPercentage);
-    await lab.save();
-
-    await logAction({
-      req,
-      action: 'ADMIN_UPDATE_LABORATORY_DEDUCTION',
-      entityId: lab._id,
-      entityModel: 'Laboratory',
-      details: { deductionPercentage }
-    });
-
-    res.json({ success: true, message: 'Laboratory deduction percentage updated successfully', data: lab });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ success: false, message: 'Failed to update laboratory deduction percentage' });
   }
 };
 

@@ -484,11 +484,13 @@ const ProfileSettings = () => {
                       docName="PMDC Certificate"
                       documents={data.profile.verificationDocuments}
                       onUpdated={refreshDocuments}
+                      locked={!!data.profile.isVerified}
                     />
                     <ProfileDocumentUpload
                       docName="CNIC"
                       documents={data.profile.verificationDocuments}
                       onUpdated={refreshDocuments}
+                      locked={!!data.profile.isVerified}
                     />
                   </div>
                 </div>
@@ -626,78 +628,6 @@ const ProfileSettings = () => {
                           onChange={(e) => setData({
                             ...data,
                             profile: { ...data.profile, address: e.target.value }
-                          })}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Hospital JazzCash Credentials */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                    <ShieldCheck size={16} className="text-emerald-600" />
-                    Merchant Payment Gateway (JazzCash)
-                  </div>
-                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
-                    <p className="text-xs text-slate-500 leading-relaxed bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
-                      Configure your individual Merchant account credentials to receive patient payments directly.
-                    </p>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Merchant ID</label>
-                        <input 
-                          type="text"
-                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
-                          placeholder="e.g. MC12345"
-                          value={data.profile.paymentGatewayCredentials?.merchantId || ''}
-                          onChange={(e) => setData({
-                            ...data,
-                            profile: {
-                              ...data.profile,
-                              paymentGatewayCredentials: {
-                                ...data.profile.paymentGatewayCredentials,
-                                merchantId: e.target.value
-                              }
-                            }
-                          })}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Password</label>
-                        <input 
-                          type="password"
-                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
-                          placeholder="••••••••"
-                          value={data.profile.paymentGatewayCredentials?.password || ''}
-                          onChange={(e) => setData({
-                            ...data,
-                            profile: {
-                              ...data.profile,
-                              paymentGatewayCredentials: {
-                                ...data.profile.paymentGatewayCredentials,
-                                password: e.target.value
-                              }
-                            }
-                          })}
-                        />
-                      </div>
-                      <div className="space-y-1 sm:col-span-2">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Integrity Salt</label>
-                        <input 
-                          type="text"
-                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-mono text-xs"
-                          placeholder="32-character salt provided by JazzCash"
-                          value={data.profile.paymentGatewayCredentials?.integritySalt || ''}
-                          onChange={(e) => setData({
-                            ...data,
-                            profile: {
-                              ...data.profile,
-                              paymentGatewayCredentials: {
-                                ...data.profile.paymentGatewayCredentials,
-                                integritySalt: e.target.value
-                              }
-                            }
                           })}
                         />
                       </div>
