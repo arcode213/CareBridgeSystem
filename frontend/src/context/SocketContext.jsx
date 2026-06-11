@@ -31,6 +31,7 @@ export const SocketProvider = ({ children }) => {
       // Legacy entity rooms kept for back-compat with existing emitters.
       if (user.role === 'hospital') s.emit('join_hospital', { token });
       if (user.role === 'consultant') s.emit('join_consultant', { token });
+      if (user.role === 'laboratory') s.emit('join_laboratory', { token });
     };
 
     s.on('connect', joinRooms);

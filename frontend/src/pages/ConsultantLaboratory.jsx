@@ -1,0 +1,433 @@
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  FlaskConical, Plus, Trash2, MapPin, Percent, FileText, RefreshCw, Wallet, CheckCircle2, Send,
+} from 'lucide-react';
+import api from '../utils/api';
+import { formatPkr } from '../utils/formatPkr';
+import toast from 'react-hot-toast';
+import Loader from '../components/Loader';
+import LabReferralDetailModal from '../components/LabReferralDetailModal';
+
+const TABS = [
+  { key: 'new', label: 'New Referral' },
+  { key: 'mine', label: 'My Referrals' },
+  { key: 'earnings', label: 'Lab Earnings' },
+];
+
+const STATUS_BADGE = {
+  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
+  accepted: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400',
+  reported: 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400',
+  closed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
+  rejected: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400',
+};
+
+const inputClass =
+  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-sky-500 outline-none';
+
+// ── New referral form ──────────────────────────────────────────────────────────
+const NewReferral = ({ onCreated }) => {
+  const [patient, setPatient] = useState({ patientName: '', age: '', gender: 'male', phone: '', cnic: '', area: '', urgency: 'routine', summaryNotes: '' });
+  const [tests, setTests] = useState([{ testName: '', note: '' }]);
+  const [coords, setCoords] = useState({ lat: '24.8607', lng: '67.0099' });
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [selectedLab, setSelectedLab] = useState(null);
+  const [discount, setDiscount] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+
+  // All registered laboratories — powers the "select by name" dropdown.
+  const { data: allLabs = [], isLoading: loadingAllLabs } = useQuery({
+    queryKey: ['all-labs'],
+    queryFn: async () => (await api.get('/lab-referrals/suggestions')).data.suggestions || [],
+  });
+
+  const setField = (k, v) => setPatient((p) => ({ ...p, [k]: v }));
+  const setTest = (i, k, v) => setTests((p) => p.map((t, idx) => (idx === i ? { ...t, [k]: v } : t)));
+  const addTest = () => setTests((p) => [...p, { testName: '', note: '' }]);
+  const removeTest = (i) => setTests((p) => p.filter((_, idx) => idx !== i));
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) return toast.error('Geolocation not supported');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6) });
+        toast.success('Location detected');
+      },
+      () => toast.error('Could not detect location; enter manually')
+    );
+  };
+
+  const findNearestLabs = async () => {
+    const lat = parseFloat(coords.lat);
+    const lng = parseFloat(coords.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return toast.error('Enter valid coordinates');
+    try {
+      setLoadingSuggestions(true);
+      const res = await api.get('/lab-referrals/suggestions', { params: { lat, lng } });
+      setSuggestions(res.data.suggestions || []);
+      if ((res.data.suggestions || []).length === 0) toast('No matching active labs found', { icon: 'ℹ️' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to find labs');
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const pickLab = (lab) => {
+    setSelectedLab(lab);
+    if (discount > lab.maxConsultantDiscountPercentage) setDiscount(lab.maxConsultantDiscountPercentage);
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!selectedLab) return toast.error('Select a laboratory');
+    const cleanTests = tests.filter((t) => t.testName.trim());
+    if (cleanTests.length === 0) return toast.error('Add at least one recommended test');
+    try {
+      setSubmitting(true);
+      const res = await api.post('/lab-referrals', {
+        ...patient,
+        age: Number(patient.age),
+        recommendedTests: cleanTests,
+        targetLaboratoryId: selectedLab.laboratoryId,
+        discountPercentage: Number(discount) || 0,
+      });
+      if (res.data.success) {
+        toast.success('Lab referral created');
+        setPatient({ patientName: '', age: '', gender: 'male', phone: '', cnic: '', area: '', urgency: 'routine', summaryNotes: '' });
+        setTests([{ testName: '', note: '' }]);
+        setSelectedLab(null);
+        setSuggestions([]);
+        setDiscount(0);
+        onCreated();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create referral');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-6">
+      {/* Patient */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <h3 className="text-sm font-black text-slate-900 dark:text-slate-50">Patient Details</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <input className={inputClass} placeholder="Patient name *" value={patient.patientName} onChange={(e) => setField('patientName', e.target.value)} required />
+          <input type="number" min={0} className={inputClass} placeholder="Age *" value={patient.age} onChange={(e) => setField('age', e.target.value)} required />
+          <select className={inputClass} value={patient.gender} onChange={(e) => setField('gender', e.target.value)}>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+          <input className={inputClass} placeholder="Phone (03XXXXXXXXX) *" value={patient.phone} onChange={(e) => setField('phone', e.target.value)} required />
+          <input className={inputClass} placeholder="CNIC (optional) XXXXX-XXXXXXX-X" value={patient.cnic} onChange={(e) => setField('cnic', e.target.value)} />
+          <input className={inputClass} placeholder="Area" value={patient.area} onChange={(e) => setField('area', e.target.value)} />
+          <select className={inputClass} value={patient.urgency} onChange={(e) => setField('urgency', e.target.value)}>
+            <option value="routine">Routine</option>
+            <option value="urgent">Urgent</option>
+            <option value="emergency">Emergency</option>
+          </select>
+        </div>
+        <textarea className={`${inputClass} h-16`} placeholder="Clinical summary / notes (optional)" value={patient.summaryNotes} onChange={(e) => setField('summaryNotes', e.target.value)} />
+      </div>
+
+      {/* Tests */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+        <h3 className="text-sm font-black text-slate-900 dark:text-slate-50">Recommended Tests</h3>
+        <p className="text-xs text-slate-400">
+          {selectedLab ? 'Pick from the lab’s catalog or type a custom test.' : 'Select a lab below to load its test catalog — you can also type any test.'}
+        </p>
+        <datalist id="lab-test-options">
+          {(selectedLab?.testCatalog || []).map((t, i) => (
+            <option key={i} value={t.testName}>{formatPkr(t.price)}</option>
+          ))}
+        </datalist>
+        {tests.map((t, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input list="lab-test-options" className={inputClass} placeholder="Test name (type or pick)" value={t.testName} onChange={(e) => setTest(i, 'testName', e.target.value)} />
+            <input className={`${inputClass} flex-1`} placeholder="Note (optional)" value={t.note} onChange={(e) => setTest(i, 'note', e.target.value)} />
+            <button type="button" onClick={() => removeTest(i)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={15} /></button>
+          </div>
+        ))}
+        <button type="button" onClick={addTest} className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-700"><Plus size={14} /> Add test</button>
+      </div>
+
+      {/* Lab picker */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <h3 className="text-sm font-black text-slate-900 dark:text-slate-50">Choose Laboratory</h3>
+
+        {/* Select by name (dropdown of all registered labs) */}
+        <div>
+          <label className="block text-xs font-bold text-slate-500 mb-1">Select laboratory by name</label>
+          <select
+            className={inputClass}
+            value={allLabs.some((l) => String(l.laboratoryId) === String(selectedLab?.laboratoryId)) ? selectedLab.laboratoryId : ''}
+            onChange={(e) => {
+              const lab = allLabs.find((l) => String(l.laboratoryId) === e.target.value);
+              if (lab) pickLab(lab);
+            }}
+            disabled={loadingAllLabs}
+          >
+            <option value="">{loadingAllLabs ? 'Loading laboratories…' : 'Choose a registered laboratory…'}</option>
+            {allLabs.map((lab) => (
+              <option key={lab.laboratoryId} value={lab.laboratoryId}>
+                {lab.labName || '(Unnamed laboratory)'}{lab.area || lab.city ? ` — ${lab.area || lab.city}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Or by nearest */}
+        <div className="flex flex-wrap items-end gap-2 border-t border-slate-50 dark:border-slate-800 pt-3">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Latitude</label>
+            <input className={`${inputClass} w-32`} value={coords.lat} onChange={(e) => setCoords((c) => ({ ...c, lat: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Longitude</label>
+            <input className={`${inputClass} w-32`} value={coords.lng} onChange={(e) => setCoords((c) => ({ ...c, lng: e.target.value }))} />
+          </div>
+          <button type="button" onClick={detectLocation} className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800"><MapPin size={14} /> Detect</button>
+          <button type="button" onClick={findNearestLabs} disabled={loadingSuggestions} className="inline-flex items-center gap-1.5 px-3 py-2 border border-sky-200 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/20 rounded-lg text-xs font-bold disabled:opacity-60">
+            {loadingSuggestions ? 'Searching…' : 'Find nearest'}
+          </button>
+        </div>
+
+        {suggestions.length > 0 && (
+          <div className="space-y-2">
+            {suggestions.map((lab) => (
+              <label key={lab.laboratoryId} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${selectedLab?.laboratoryId === lab.laboratoryId ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-950/20' : 'border-slate-200 dark:border-slate-800 hover:border-sky-300'}`}>
+                <input type="radio" name="lab" checked={selectedLab?.laboratoryId === lab.laboratoryId} onChange={() => pickLab(lab)} className="text-sky-600 focus:ring-sky-500" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">{lab.labName || '(Unnamed laboratory)'}</p>
+                  <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <MapPin size={11} className="shrink-0" /> {lab.area || lab.city} • {lab.distanceKm} km • max discount {lab.maxConsultantDiscountPercentage}%
+                  </p>
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {selectedLab && (
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mb-1"><Percent size={13} /> Patient discount % (max {selectedLab.maxConsultantDiscountPercentage}%)</label>
+            <input
+              type="number"
+              min={0}
+              max={selectedLab.maxConsultantDiscountPercentage}
+              value={discount}
+              onChange={(e) => {
+                const v = Math.min(Number(e.target.value) || 0, selectedLab.maxConsultantDiscountPercentage);
+                setDiscount(v);
+              }}
+              className={`${inputClass} w-32`}
+            />
+          </div>
+        )}
+      </div>
+
+      <button type="submit" disabled={submitting || !selectedLab} className="w-full flex items-center justify-center gap-2 py-3 bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-sm rounded-xl disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 transition-all">
+        <Send size={16} /> {submitting ? 'Submitting…' : 'Create Lab Referral'}
+      </button>
+    </form>
+  );
+};
+
+// ── My referrals ────────────────────────────────────────────────────────────────
+const MyReferrals = () => {
+  const queryClient = useQueryClient();
+  const [detailId, setDetailId] = useState(null);
+  const { data: referrals = [], isLoading } = useQuery({
+    queryKey: ['my-lab-referrals'],
+    queryFn: async () => (await api.get('/lab-referrals/mine')).data.data,
+  });
+
+  const reRefer = async (id) => {
+    const lat = 24.8607, lng = 67.0099;
+    try {
+      const res = await api.get('/lab-referrals/suggestions', { params: { lat, lng } });
+      const labs = res.data.suggestions || [];
+      if (labs.length === 0) return toast.error('No alternative labs available');
+      const choice = window.prompt(
+        `Re-refer to which lab? Enter a number:\n${labs.map((l, i) => `${i + 1}. ${l.labName} (${l.distanceKm} km)`).join('\n')}`
+      );
+      const idx = Number(choice) - 1;
+      if (!labs[idx]) return;
+      await api.patch(`/lab-referrals/${id}/re-refer`, { targetLaboratoryId: labs[idx].laboratoryId });
+      toast.success('Re-referred');
+      queryClient.invalidateQueries({ queryKey: ['my-lab-referrals'] });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to re-refer');
+    }
+  };
+
+  if (isLoading) return <Loader message="Loading your lab referrals..." />;
+
+  if (referrals.length === 0)
+    return <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-10 text-center text-slate-400"><p className="text-sm font-bold">No lab referrals yet.</p></div>;
+
+  return (
+    <div className="space-y-4">
+      {referrals.map((r) => (
+        <div
+          key={r._id}
+          onClick={() => setDetailId(r._id)}
+          className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3 cursor-pointer hover:border-sky-300 dark:hover:border-sky-700 transition-colors"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <span className="font-mono text-xs font-bold text-sky-600 dark:text-sky-400">{r.referralCode}</span>
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 ml-2">{r.patientName}</span>
+            </div>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${STATUS_BADGE[r.status]}`}>{r.status}</span>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {(r.recommendedTests || []).map((t, i) => (
+              <span key={i} className="px-2 py-0.5 rounded bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 text-xs font-semibold">{t.testName}</span>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div><span className="text-slate-400 font-bold uppercase block">Lab</span><span className="font-semibold text-slate-700 dark:text-slate-300">{r.targetLaboratoryId?.labName || '—'}</span></div>
+            <div><span className="text-slate-400 font-bold uppercase block">Discount</span><span className="font-semibold">{r.discountPercentage || 0}%</span></div>
+            <div><span className="text-slate-400 font-bold uppercase block">Bill</span><span className="font-semibold tabular-nums">{r.billTotalPaisa ? formatPkr(r.billTotalPaisa) : '—'}</span></div>
+            <div><span className="text-slate-400 font-bold uppercase block">Expected Report</span><span className="font-semibold">{r.expectedReportAt ? new Date(r.expectedReportAt).toLocaleString() : '—'}</span></div>
+          </div>
+
+          {r.rejectionReason && <p className="text-xs text-red-600">Declined: {r.rejectionReason}</p>}
+
+          {r.reportFiles?.length > 0 && (
+            <div className="flex flex-wrap gap-2 border-t border-slate-50 dark:border-slate-800 pt-3">
+              {r.reportFiles.map((f, i) => (
+                <a key={i} href={f.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-100">
+                  <FileText size={13} /> {f.name || `Report ${i + 1}`}
+                </a>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <span className="text-[11px] text-slate-400">Click for full details</span>
+            {['pending', 'rejected'].includes(r.status) && (
+              <button onClick={(e) => { e.stopPropagation(); reRefer(r._id); }} className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-700"><RefreshCw size={13} /> Re-refer to another lab</button>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {detailId && <LabReferralDetailModal referralId={detailId} onClose={() => setDetailId(null)} />}
+    </div>
+  );
+};
+
+// ── Lab earnings ────────────────────────────────────────────────────────────────
+const LabEarnings = () => {
+  const queryClient = useQueryClient();
+  const { data: earnings, isLoading: l1 } = useQuery({
+    queryKey: ['lab-earnings'],
+    queryFn: async () => (await api.get('/lab-settlements/consultant/earnings')).data.data,
+  });
+  const { data: payouts = [], isLoading: l2 } = useQuery({
+    queryKey: ['lab-consultant-payouts'],
+    queryFn: async () => (await api.get('/lab-settlements/consultant')).data.data,
+  });
+
+  const verify = async (settlementId) => {
+    try {
+      await api.post(`/lab-settlements/${settlementId}/consultant-verify`);
+      toast.success('Payout confirmed');
+      queryClient.invalidateQueries({ queryKey: ['lab-consultant-payouts'] });
+      queryClient.invalidateQueries({ queryKey: ['lab-earnings'] });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to confirm');
+    }
+  };
+
+  if (l1 && l2) return <Loader message="Loading lab earnings..." />;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-slate-900 text-white rounded-2xl p-5">
+          <Wallet className="w-6 h-6 text-sky-400 mb-2" />
+          <p className="text-xs text-slate-400 font-bold uppercase">Total</p>
+          <p className="text-2xl font-black text-sky-400 tabular-nums">{formatPkr(earnings?.totalPaisa || 0)}</p>
+        </div>
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5">
+          <p className="text-xs text-slate-400 font-bold uppercase">Paid</p>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{formatPkr(earnings?.paidPaisa || 0)}</p>
+        </div>
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5">
+          <p className="text-xs text-slate-400 font-bold uppercase">Accrued (pending)</p>
+          <p className="text-2xl font-black text-amber-600 dark:text-amber-400 tabular-nums">{formatPkr(earnings?.accruedPaisa || 0)}</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-black text-slate-900 dark:text-slate-50">Settlement Payouts</h3>
+        {payouts.length === 0 ? (
+          <p className="text-sm text-slate-400">No lab settlement payouts yet.</p>
+        ) : (
+          payouts.map((p) => (
+            <div key={p.settlementId} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{p.labName}</p>
+                <p className="text-xs text-slate-500">{formatPkr(p.amountPaisa)} ({p.commissionPercentage}%) • {new Date(p.billingPeriodStart).toLocaleDateString()} → {new Date(p.billingPeriodEnd).toLocaleDateString()}</p>
+              </div>
+              {p.status === 'verified' ? (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600"><CheckCircle2 size={14} /> Received</span>
+              ) : p.status === 'pending_verification' ? (
+                <button onClick={() => verify(p.settlementId)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">Confirm received</button>
+              ) : (
+                <span className="text-xs font-bold text-slate-400">Awaiting payout</span>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ConsultantLaboratory = () => {
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState('new');
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 pb-5">
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-md">
+          <FlaskConical className="w-6 h-6" />
+        </div>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-50">Laboratory</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Refer patients for tests, track reports, and view your lab commissions.</p>
+        </div>
+      </div>
+
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl w-fit">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${tab === t.key ? 'bg-white dark:bg-slate-900 text-sky-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'new' && <NewReferral onCreated={() => { queryClient.invalidateQueries({ queryKey: ['my-lab-referrals'] }); setTab('mine'); }} />}
+      {tab === 'mine' && <MyReferrals />}
+      {tab === 'earnings' && <LabEarnings />}
+    </div>
+  );
+};
+
+export default ConsultantLaboratory;

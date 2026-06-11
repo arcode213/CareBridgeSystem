@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { UserPlus, Building2, ArrowRight } from 'lucide-react';
+import { UserPlus, Building2, FlaskConical, ArrowRight } from 'lucide-react';
 
 const Register = () => {
   return (
@@ -47,6 +47,25 @@ const Register = () => {
               </div>
             </div>
             <ArrowRight className="text-slate-300 group-hover:text-teal-500 transition-colors" />
+          </div>
+        </Link>
+
+        {/* Laboratory Card */}
+        <Link
+          to="/register/laboratory"
+          className="group block w-full p-6 bg-white border-2 border-slate-100 hover:border-sky-500 rounded-2xl transition-all shadow-sm hover:shadow-md"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-sky-50 text-sky-600 rounded-xl group-hover:bg-sky-600 group-hover:text-white transition-colors">
+                <FlaskConical size={28} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">I am a Laboratory</h3>
+                <p className="text-sm text-slate-500 mt-1">Receive test referrals, upload reports, and bill</p>
+              </div>
+            </div>
+            <ArrowRight className="text-slate-300 group-hover:text-sky-500 transition-colors" />
           </div>
         </Link>
       </div>

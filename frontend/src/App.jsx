@@ -12,6 +12,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ConsultantRegister from './pages/ConsultantRegister';
 import HospitalRegister from './pages/HospitalRegister';
+import LaboratoryRegister from './pages/LaboratoryRegister';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
@@ -41,6 +42,13 @@ import AdminSettings from './pages/admin/AdminSettings';
 import AdminReferrals from './pages/admin/AdminReferrals';
 import AdminBeds from './pages/admin/AdminBeds';
 import AdminAudit from './pages/admin/AdminAudit';
+import AdminLaboratory from './pages/admin/AdminLaboratory';
+import ConsultantLaboratory from './pages/ConsultantLaboratory';
+import LabDashboard from './pages/lab/LabDashboard';
+import LabInbox from './pages/lab/LabInbox';
+import LabReferrals from './pages/lab/LabReferrals';
+import LabSettlements from './pages/lab/LabSettlements';
+import LabTestCatalog from './pages/lab/LabTestCatalog';
 import VerifyPhone from './pages/VerifyPhone';
 const RoleGuard = ({ children, roles }) => {
   const { user, token } = useAuth();
@@ -63,6 +71,9 @@ const REALTIME_EVENTS = [
   'REFERRAL_ESCALATED',
   'BED_UPDATE',
   'NEW_CLINICAL_NOTE',
+  'NEW_LAB_REFERRAL',
+  'LAB_STATUS_UPDATE',
+  'LAB_REPORT_UPLOADED',
 ];
 
 const SocketListener = () => {
@@ -115,6 +126,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/register/consultant" element={<ConsultantRegister />} />
             <Route path="/register/hospital" element={<HospitalRegister />} />
+            <Route path="/register/laboratory" element={<LaboratoryRegister />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
           </Route>
@@ -125,6 +137,7 @@ function App() {
             <Route path="/referrals/new" element={<RoleGuard roles={['consultant']}><SmartIntakeForm /></RoleGuard>} />
             <Route path="/referrals" element={<RoleGuard roles={['consultant']}><ReferralsList /></RoleGuard>} />
             <Route path="/earnings" element={<RoleGuard roles={['consultant']}><ConsultantEarnings /></RoleGuard>} />
+            <Route path="/lab-referrals" element={<RoleGuard roles={['consultant']}><ConsultantLaboratory /></RoleGuard>} />
 
             <Route path="/hospital/dashboard" element={<RoleGuard roles={['hospital']}><HospitalDashboard /></RoleGuard>} />
             <Route path="/hospital/inbox" element={<RoleGuard roles={['hospital']}><ReferralInbox /></RoleGuard>} />
@@ -136,6 +149,12 @@ function App() {
             <Route path="/hospital/departments" element={<RoleGuard roles={['hospital']}><HospitalDepartments /></RoleGuard>} />
             <Route path="/hospital/ledger" element={<RoleGuard roles={['hospital']}><HospitalLedger /></RoleGuard>} />
             <Route path="/hospital/settlements" element={<RoleGuard roles={['hospital']}><HospitalSettlements /></RoleGuard>} />
+
+            <Route path="/lab/dashboard" element={<RoleGuard roles={['laboratory']}><LabDashboard /></RoleGuard>} />
+            <Route path="/lab/inbox" element={<RoleGuard roles={['laboratory']}><LabInbox /></RoleGuard>} />
+            <Route path="/lab/referrals" element={<RoleGuard roles={['laboratory']}><LabReferrals /></RoleGuard>} />
+            <Route path="/lab/settlements" element={<RoleGuard roles={['laboratory']}><LabSettlements /></RoleGuard>} />
+            <Route path="/lab/tests" element={<RoleGuard roles={['laboratory']}><LabTestCatalog /></RoleGuard>} />
 
             <Route path="/admin/overview" element={<RoleGuard roles={['admin']}><AdminOverview /></RoleGuard>} />
             <Route path="/admin/approvals" element={<RoleGuard roles={['admin']}><AdminApprovals /></RoleGuard>} />
@@ -149,6 +168,7 @@ function App() {
             <Route path="/admin/referrals" element={<RoleGuard roles={['admin']}><AdminReferrals /></RoleGuard>} />
             <Route path="/admin/beds" element={<RoleGuard roles={['admin']}><AdminBeds /></RoleGuard>} />
             <Route path="/admin/audit" element={<RoleGuard roles={['admin']}><AdminAudit /></RoleGuard>} />
+            <Route path="/admin/laboratory" element={<RoleGuard roles={['admin']}><AdminLaboratory /></RoleGuard>} />
             <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
           </Route>
         </Routes>

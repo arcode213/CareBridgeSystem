@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Consultant = require('../models/Consultant');
 const Hospital = require('../models/Hospital');
+const Laboratory = require('../models/Laboratory');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -92,7 +93,7 @@ exports.register = async (req, res) => {
   try {
     const { name, email, phone, password, role } = req.body;
 
-    if (!['consultant', 'hospital'].includes(role)) {
+    if (!['consultant', 'hospital', 'laboratory'].includes(role)) {
       return res.status(400).json({ success: false, message: 'Invalid role for registration' });
     }
 
@@ -232,6 +233,63 @@ exports.register = async (req, res) => {
         location: parsed.location,
         bedsInventory: parsed.bedsInventory,
         ratePackages: Array.isArray(req.body.ratePackages) ? req.body.ratePackages : [],
+        registrationDocuments,
+        isActive: false,
+      });
+    } else if (role === 'laboratory') {
+      const regNum = String(req.body.registrationNumber || '').trim();
+      if (!regNum) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({ success: false, message: 'Laboratory registration number is required' });
+      }
+
+      const representativeCnic = String(req.body.representativeCnic || req.body.cnic || '').trim();
+      const cnicRegex = /^\d{5}-\d{7}-\d{1}$/;
+      if (!cnicRegex.test(representativeCnic)) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({
+          success: false,
+          message: 'Representative CNIC must be in the format XXXXX-XXXXXXX-X',
+        });
+      }
+
+      const registrationDocuments = req.body.registrationDocuments || [];
+      if (!registrationDocuments.some((d) => d.name === 'CNIC' && d.url)) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({ success: false, message: 'CNIC document upload is required' });
+      }
+      if (!registrationDocuments.some((d) => d.name === 'Lab License' && d.url)) {
+        await User.deleteOne({ _id: user._id });
+        return res.status(400).json({ success: false, message: 'Lab License upload is required' });
+      }
+
+      // Optional geo + initial test catalog
+      const lat = parseFloat(req.body.lat);
+      const lng = parseFloat(req.body.lng);
+      const location =
+        Number.isFinite(lat) && Number.isFinite(lng)
+          ? { type: 'Point', coordinates: [lng, lat] }
+          : undefined;
+      const testCatalog = Array.isArray(req.body.testCatalog)
+        ? req.body.testCatalog
+            .filter((t) => t && t.testName && Number(t.price) >= 0)
+            .map((t) => ({
+              testName: String(t.testName).trim(),
+              price: Math.max(0, Number(t.price) || 0),
+              turnaroundHours: Math.max(0, Number(t.turnaroundHours) || 24),
+            }))
+        : [];
+
+      await Laboratory.create({
+        userId: user._id,
+        labName: (req.body.labName || name).trim(),
+        registrationNumber: regNum,
+        representativeCnic,
+        city: req.body.city?.trim(),
+        area: req.body.area?.trim(),
+        address: req.body.address?.trim(),
+        ...(location ? { location } : {}),
+        testCatalog,
         registrationDocuments,
         isActive: false,
       });

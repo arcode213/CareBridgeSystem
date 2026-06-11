@@ -13,6 +13,7 @@ const cron = require('node-cron');
 const { Server } = require('socket.io');
 const Hospital = require('./models/Hospital');
 const Consultant = require('./models/Consultant');
+const Laboratory = require('./models/Laboratory');
 const { processReferralEscalations } = require('./jobs/referralEscalation');
 const { ensurePlatformData } = require('./bootstrap/ensurePlatformData');
 const { setIO } = require('./socket');
@@ -49,16 +50,25 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const settlementRoutes = require('./routes/settlementRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const labRoutes = require('./routes/labRoutes');
+const labReferralRoutes = require('./routes/labReferralRoutes');
+const labSettlementRoutes = require('./routes/labSettlementRoutes');
+const labAdminRoutes = require('./routes/labAdminRoutes');
 
 app.use('/v1/auth', authRoutes);
 app.use('/v1/referrals', referralRoutes);
 app.use('/v1/hospitals', hospitalRoutes);
+// Laboratory module (mounted before /v1/admin so /v1/admin/labs resolves to the lab admin router)
+app.use('/v1/admin/labs', labAdminRoutes);
 app.use('/v1/admin', adminRoutes);
 app.use('/v1/payments', paymentRoutes);
 app.use('/v1/upload', uploadRoutes);
 app.use('/v1/profile', profileRoutes);
 app.use('/v1/settlements', settlementRoutes);
 app.use('/v1/notifications', notificationRoutes);
+app.use('/v1/labs', labRoutes);
+app.use('/v1/lab-referrals', labReferralRoutes);
+app.use('/v1/lab-settlements', labSettlementRoutes);
 
 // Static uploads
 app.use('/uploads', express.static('uploads'));
@@ -107,6 +117,19 @@ io.on('connection', (socket) => {
       socket.join(`consultant:${consultant._id.toString()}`);
     } catch (e) {
       console.warn('join_consultant:', e.message);
+    }
+  });
+
+  socket.on('join_laboratory', async ({ token } = {}) => {
+    try {
+      if (!token || !process.env.JWT_SECRET) return;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.role !== 'laboratory') return;
+      const lab = await Laboratory.findOne({ userId: decoded.id });
+      if (!lab) return;
+      socket.join(`lab:${lab._id.toString()}`);
+    } catch (e) {
+      console.warn('join_laboratory:', e.message);
     }
   });
 
