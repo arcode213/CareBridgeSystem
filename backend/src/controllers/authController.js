@@ -16,12 +16,12 @@ const generateToken = (user) => {
   return jwt.sign(
     { id: user._id.toString(), role: user.role, name: user.name },
     process.env.JWT_SECRET,
-    { expiresIn: '15m' }
+    { expiresIn: '1h' }
   );
 };
 
 const generateRefreshToken = (user) => {
-  return jwt.sign({ id: user._id.toString() }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ id: user._id.toString() }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
 };
 
 function parseHospitalRegistration(body) {
@@ -537,9 +537,12 @@ exports.refresh = async (req, res) => {
     }
 
     const accessToken = generateToken(user);
+    // Rolling refresh token: issue a fresh one on every refresh so an active
+    // user's session keeps sliding forward and never expires out from under them.
+    const newRefreshToken = generateRefreshToken(user);
     res.status(200).json({
       success: true,
-      data: { accessToken },
+      data: { accessToken, refreshToken: newRefreshToken },
     });
   } catch (error) {
     console.error('Refresh error:', error);

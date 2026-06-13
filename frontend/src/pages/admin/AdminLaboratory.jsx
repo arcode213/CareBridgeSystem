@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import {
   FlaskConical, CheckCircle2, Ban, Save, FileText, Upload, Receipt, Users, ClipboardList, Wallet, X, Eye,
 } from 'lucide-react';
@@ -159,15 +159,19 @@ const LabsPanel = () => {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin-labs'] });
 
-  const setStatus = async (id, status) => {
-    try {
-      await api.patch(`/admin/labs/${id}/status`, { status });
+  // A single mutation guards against double-clicks (button is disabled while the
+  // request is in flight) and always refetches authoritative server state on
+  // success — so the suspend/approve toggle is reliable and never races.
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }) => api.patch(`/admin/labs/${id}/status`, { status }),
+    onSuccess: (_res, { status }) => {
       toast.success(`Lab ${status === 'active' ? 'approved' : 'suspended'}`);
       refresh();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed');
-    }
-  };
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+  });
+  // Which lab id is currently being toggled (to disable only that row's buttons).
+  const togglingId = statusMutation.isPending ? statusMutation.variables?.id : null;
 
   const saveEconomics = async (lab) => {
     const e = edits[lab._id] || {};
@@ -199,7 +203,6 @@ const LabsPanel = () => {
         <p className="text-sm text-slate-400 py-8 text-center">No laboratories.</p>
       ) : (
         labs.map((lab) => {
-          const e = edits[lab._id] || {};
           const status = lab.userId?.status;
           return (
             <div key={lab._id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
@@ -235,10 +238,10 @@ const LabsPanel = () => {
 
                 <div className="ml-auto flex gap-2">
                   {status !== 'active' && (
-                    <button onClick={() => setStatus(lab._id, 'active')} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg"><CheckCircle2 size={13} /> Approve</button>
+                    <button onClick={() => statusMutation.mutate({ id: lab._id, status: 'active' })} disabled={togglingId === lab._id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"><CheckCircle2 size={13} /> {togglingId === lab._id ? 'Saving…' : 'Approve'}</button>
                   )}
                   {status === 'active' && (
-                    <button onClick={() => setStatus(lab._id, 'suspended')} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs rounded-lg"><Ban size={13} /> Suspend</button>
+                    <button onClick={() => statusMutation.mutate({ id: lab._id, status: 'suspended' })} disabled={togglingId === lab._id} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"><Ban size={13} /> {togglingId === lab._id ? 'Saving…' : 'Suspend'}</button>
                   )}
                 </div>
               </div>

@@ -15,38 +15,40 @@ const ConsultantDashboard = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      try {
-        const [refRes, earnRes] = await Promise.all([
-          api.get('/referrals/mine'),
-          api.get('/referrals/earnings')
-        ]);
-        
-        let total = 0;
-        let accepted = 0;
-        if (refRes.data.success) {
-          const data = refRes.data.data;
-          setReferrals(data);
-          total = data.length;
-          accepted = data.filter(r => ['accepted', 'admitted', 'closed'].includes(r.status)).length;
-        }
+      // Fetch referrals and earnings independently so a failure in one
+      // never blanks out the other's stat (e.g. the Accepted count).
+      const [refRes, earnRes] = await Promise.allSettled([
+        api.get('/referrals/mine'),
+        api.get('/referrals/earnings'),
+      ]);
 
-        let earningsDisplay = '0 PKR';
-        if (earnRes.data.success) {
-          const paisa = earnRes.data.data.totalEarningsPaisa || 0;
-          earningsDisplay = (paisa / 100).toLocaleString() + ' PKR';
-        }
-          
-        setStats(prev => [
-          { ...prev[0], value: total.toString() },
-          { ...prev[1], value: accepted.toString() },
-          { ...prev[2], value: earningsDisplay },
-        ]);
-        
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err);
-      } finally {
-        setLoading(false);
+      let total = 0;
+      let accepted = 0;
+      if (refRes.status === 'fulfilled' && refRes.value.data.success) {
+        const data = refRes.value.data.data;
+        setReferrals(data);
+        total = data.length;
+        // Only referrals currently in the "accepted" status for this consultant.
+        accepted = data.filter(r => r.status === 'accepted').length;
+      } else {
+        console.error('Failed to fetch referrals:', refRes.reason);
       }
+
+      let earningsDisplay = '0 PKR';
+      if (earnRes.status === 'fulfilled' && earnRes.value.data.success) {
+        const paisa = earnRes.value.data.data.totalEarningsPaisa || 0;
+        earningsDisplay = (paisa / 100).toLocaleString() + ' PKR';
+      } else if (earnRes.status === 'rejected') {
+        console.error('Failed to fetch earnings:', earnRes.reason);
+      }
+
+      setStats(prev => [
+        { ...prev[0], value: total.toString() },
+        { ...prev[1], value: accepted.toString() },
+        { ...prev[2], value: earningsDisplay },
+      ]);
+
+      setLoading(false);
     };
 
     fetchDashboardData();

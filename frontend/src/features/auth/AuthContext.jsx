@@ -11,44 +11,96 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    window.location.href = '/login'; // Force redirect to login on logout
+  };
+
   useEffect(() => {
     let timeoutId = null;
+    let cancelled = false;
+
+    // Silently swap the about-to-expire access token for a fresh one using the
+    // refresh token. The user stays logged in — we only force a logout if the
+    // refresh token itself is gone or rejected (e.g. account suspended).
+    const refreshAccessToken = async () => {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        logout();
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+        const data = await res.json();
+        if (!data.success || !data.data?.accessToken) {
+          throw new Error(data.message || 'Refresh failed');
+        }
+        if (cancelled) return;
+        localStorage.setItem('token', data.data.accessToken);
+        // Rolling refresh token — keep the newest one so the session slides forward.
+        if (data.data.refreshToken) {
+          localStorage.setItem('refreshToken', data.data.refreshToken);
+        }
+        // Updating token state re-runs this effect, which reschedules the next refresh.
+        setToken(data.data.accessToken);
+      } catch (e) {
+        console.error('Silent token refresh failed:', e);
+        logout();
+      }
+    };
+
+    const scheduleProactiveRefresh = (expSeconds) => {
+      const currentTime = Date.now() / 1000;
+      // Refresh ~1 minute before expiry (or right away if already inside that window).
+      const msUntilRefresh = Math.max(0, (expSeconds - currentTime - 60) * 1000);
+      timeoutId = setTimeout(refreshAccessToken, msUntilRefresh);
+    };
 
     const initializeAuth = () => {
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          const currentTime = Date.now() / 1000;
-
-          if (payload.exp && payload.exp < currentTime) {
-            throw new Error('Token expired');
-          }
-
-          setUser({ id: payload.id || payload._id, role: payload.role, name: payload.name });
-
-          // Auto logout when token expires
-          if (payload.exp) {
-            const timeUntilExpiry = (payload.exp - currentTime) * 1000;
-            timeoutId = setTimeout(() => {
-              logout();
-            }, timeUntilExpiry);
-          }
-        } catch (e) {
-          console.error('Session restore failed:', e);
-          setToken(null);
-          setUser(null);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-        }
-      } else {
+      if (!token) {
         setUser(null);
+        setIsInitializing(false);
+        return;
       }
-      setIsInitializing(false);
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Date.now() / 1000;
+
+        if (payload.exp && payload.exp < currentTime) {
+          // Expired access token on load — silently refresh instead of logging out.
+          // Stay on the loading screen until we have a fresh token (or refresh fails).
+          refreshAccessToken();
+          return;
+        }
+
+        setUser({ id: payload.id || payload._id, role: payload.role, name: payload.name });
+
+        // Proactively refresh before expiry so the user is never kicked out mid-session.
+        if (payload.exp) {
+          scheduleProactiveRefresh(payload.exp);
+        }
+        setIsInitializing(false);
+      } catch (e) {
+        console.error('Session restore failed:', e);
+        setToken(null);
+        setUser(null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        setIsInitializing(false);
+      }
     };
 
     initializeAuth();
 
     return () => {
+      cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [token]);
@@ -105,14 +157,6 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    window.location.href = '/login'; // Force redirect to login on logout
   };
 
   const isConsultant = user?.role === 'consultant';

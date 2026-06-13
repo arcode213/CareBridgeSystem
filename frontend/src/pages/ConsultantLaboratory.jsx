@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  FlaskConical, Plus, Trash2, MapPin, Percent, FileText, RefreshCw, Wallet, CheckCircle2, Send,
+  FlaskConical, Plus, Trash2, MapPin, Percent, FileText, RefreshCw, Wallet, CheckCircle2, Send, Download,
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
@@ -148,8 +150,7 @@ const NewReferral = ({ onCreated }) => {
         </datalist>
         {tests.map((t, i) => (
           <div key={i} className="flex items-center gap-2">
-            <input list="lab-test-options" className={inputClass} placeholder="Test name (type or pick)" value={t.testName} onChange={(e) => setTest(i, 'testName', e.target.value)} />
-            <input className={`${inputClass} flex-1`} placeholder="Note (optional)" value={t.note} onChange={(e) => setTest(i, 'note', e.target.value)} />
+            <input list="lab-test-options" className={`${inputClass} flex-1`} placeholder="Test name (type or pick)" value={t.testName} onChange={(e) => setTest(i, 'testName', e.target.value)} />
             <button type="button" onClick={() => removeTest(i)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={15} /></button>
           </div>
         ))}
@@ -349,6 +350,93 @@ const LabEarnings = () => {
     }
   };
 
+  const STATUS_LABEL = {
+    verified: 'Received',
+    pending_verification: 'Pending confirmation',
+    pending_payout: 'Awaiting payout',
+  };
+
+  const downloadCsv = () => {
+    if (payouts.length === 0) return toast.error('No earning records to download');
+    try {
+      const headers = ['Laboratory', 'Amount (PKR)', 'Period Start', 'Period End', 'Status'];
+      const rows = payouts.map((p) => [
+        `"${(p.labName || '').replace(/"/g, '""')}"`,
+        (p.amountPaisa / 100).toFixed(2),
+        new Date(p.billingPeriodStart).toLocaleDateString(),
+        new Date(p.billingPeriodEnd).toLocaleDateString(),
+        STATUS_LABEL[p.status] || p.status,
+      ]);
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Lab_Earnings_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('CSV downloaded');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to generate CSV');
+    }
+  };
+
+  const downloadPdf = () => {
+    if (payouts.length === 0) return toast.error('No earning records to download');
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      doc.setFontSize(22);
+      doc.setTextColor(30, 41, 59);
+      doc.text('CareBridge Health', 14, 22);
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Laboratory Earnings Report', 14, 28);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 28, { align: 'right' });
+
+      doc.setDrawColor(226, 232, 240);
+      doc.line(14, 32, pageWidth - 14, 32);
+
+      doc.setFontSize(10);
+      doc.setTextColor(30, 41, 59);
+      doc.text(`Total: ${formatPkr(earnings?.totalPaisa || 0)}`, 14, 40);
+      doc.text(`Paid: ${formatPkr(earnings?.paidPaisa || 0)}`, 14, 45);
+      doc.text(`Accrued (pending): ${formatPkr(earnings?.accruedPaisa || 0)}`, 14, 50);
+
+      const rows = payouts.map((p) => [
+        p.labName || '—',
+        formatPkr(p.amountPaisa),
+        `${new Date(p.billingPeriodStart).toLocaleDateString()} - ${new Date(p.billingPeriodEnd).toLocaleDateString()}`,
+        STATUS_LABEL[p.status] || p.status,
+      ]);
+
+      autoTable(doc, {
+        startY: 58,
+        head: [['Laboratory', 'Amount', 'Billing Period', 'Status']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [14, 165, 233] },
+        styles: { fontSize: 9 },
+      });
+
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Page ${i} of ${pageCount} - CareBridge Health System - Confidential`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+      }
+
+      doc.save(`Lab_Earnings_${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success('PDF downloaded');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to generate PDF');
+    }
+  };
+
   if (l1 && l2) return <Loader message="Loading lab earnings..." />;
 
   return (
@@ -370,7 +458,25 @@ const LabEarnings = () => {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-sm font-black text-slate-900 dark:text-slate-50">Settlement Payouts</h3>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h3 className="text-sm font-black text-slate-900 dark:text-slate-50">Settlement Payouts</h3>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={downloadCsv}
+              disabled={payouts.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download size={14} className="text-emerald-600 dark:text-emerald-400" /> CSV
+            </button>
+            <button
+              onClick={downloadPdf}
+              disabled={payouts.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileText size={14} className="text-red-600 dark:text-red-400" /> PDF
+            </button>
+          </div>
+        </div>
         {payouts.length === 0 ? (
           <p className="text-sm text-slate-400">No lab settlement payouts yet.</p>
         ) : (
@@ -378,7 +484,7 @@ const LabEarnings = () => {
             <div key={p.settlementId} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-3">
               <div>
                 <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{p.labName}</p>
-                <p className="text-xs text-slate-500">{formatPkr(p.amountPaisa)} ({p.commissionPercentage}%) • {new Date(p.billingPeriodStart).toLocaleDateString()} → {new Date(p.billingPeriodEnd).toLocaleDateString()}</p>
+                <p className="text-xs text-slate-500">{formatPkr(p.amountPaisa)} • {new Date(p.billingPeriodStart).toLocaleDateString()} → {new Date(p.billingPeriodEnd).toLocaleDateString()}</p>
               </div>
               {p.status === 'verified' ? (
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600"><CheckCircle2 size={14} /> Received</span>

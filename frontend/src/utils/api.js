@@ -90,6 +90,10 @@ api.interceptors.response.use(
       }
       const newAccess = data.data.accessToken;
       localStorage.setItem('token', newAccess);
+      // Persist the rolling refresh token so the session keeps sliding forward.
+      if (data.data.refreshToken) {
+        localStorage.setItem('refreshToken', data.data.refreshToken);
+      }
       processQueue(null, newAccess);
       originalRequest.headers.Authorization = `Bearer ${newAccess}`;
       return api(originalRequest);

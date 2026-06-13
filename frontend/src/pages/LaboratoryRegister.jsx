@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Eye, EyeOff, FileCheck, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, FileCheck, Plus, Trash2, MapPin } from 'lucide-react';
 import api from '../utils/api';
 
 const LaboratoryRegister = () => {
@@ -18,10 +18,11 @@ const LaboratoryRegister = () => {
     area: '',
     address: '',
     role: 'laboratory',
-    lat: '24.8607',
-    lng: '67.0099',
+    lat: '',
+    lng: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
   const [tests, setTests] = useState([{ testName: '', price: '', turnaroundHours: 24 }]);
   const [registrationDocuments, setRegistrationDocuments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -54,6 +55,29 @@ const LaboratoryRegister = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      return toast.error('Geolocation is not supported by your browser');
+    }
+    setIsDetecting(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormData((prev) => ({
+          ...prev,
+          lat: pos.coords.latitude.toFixed(6),
+          lng: pos.coords.longitude.toFixed(6),
+        }));
+        setIsDetecting(false);
+        toast.success('Location detected');
+      },
+      () => {
+        setIsDetecting(false);
+        toast.error('Could not detect location. Please allow location access and try again.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const updateTest = (idx, field, value) => {
@@ -221,15 +245,43 @@ const LaboratoryRegister = () => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Latitude</label>
-              <input name="lat" type="text" required value={formData.lat} onChange={handleChange} className={inputClass} placeholder="24.8607" />
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Laboratory Location</label>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <div className="grid grid-cols-2 gap-3 flex-1">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Latitude</label>
+                  <input
+                    name="lat"
+                    type="text"
+                    readOnly
+                    value={formData.lat}
+                    className={`${inputClass} bg-slate-50 cursor-not-allowed`}
+                    placeholder="Not detected"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Longitude</label>
+                  <input
+                    name="lng"
+                    type="text"
+                    readOnly
+                    value={formData.lng}
+                    className={`${inputClass} bg-slate-50 cursor-not-allowed`}
+                    placeholder="Not detected"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={detectLocation}
+                disabled={isDetecting}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-sky-200 text-sky-700 font-semibold text-sm hover:bg-sky-50 transition-colors disabled:opacity-60 whitespace-nowrap"
+              >
+                <MapPin size={16} /> {isDetecting ? 'Detecting…' : 'Detect Location'}
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Longitude</label>
-              <input name="lng" type="text" required value={formData.lng} onChange={handleChange} className={inputClass} placeholder="67.0099" />
-            </div>
+            <p className="text-xs text-slate-400 mt-1.5">Tap “Detect Location” to automatically capture your lab’s coordinates.</p>
           </div>
         </div>
 

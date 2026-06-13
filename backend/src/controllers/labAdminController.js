@@ -49,6 +49,11 @@ exports.setLabStatus = async (req, res) => {
     if (!lab) {
       return res.status(404).json({ success: false, message: 'Laboratory not found' });
     }
+    // Guard against an orphaned lab with no owner — without this an empty userId
+    // could broaden the owner lookup and touch the wrong account.
+    if (!lab.userId) {
+      return res.status(409).json({ success: false, message: 'Laboratory has no linked owner account' });
+    }
     const user = await User.findOne({ _id: lab.userId, role: 'laboratory' });
     if (!user) {
       return res.status(404).json({ success: false, message: 'Laboratory owner account not found' });
