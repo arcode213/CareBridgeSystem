@@ -36,12 +36,14 @@ exports.listPendingReferrals = async (req, res) => {
   }
 };
 
-// 2. Lab creates a weekly settlement summary upload
+// 2. Lab creates a weekly settlement and uploads its payment receipt in one step.
+//    The selected referrals' individual bills (patientBillFileUrl) are auto-attached
+//    via labReferralIds — no separate weekly bill summary is collected.
 exports.createSettlement = async (req, res) => {
   try {
-    const { billingPeriodStart, billingPeriodEnd, labReferralIds, billSummaryFileUrl, notes } = req.body;
+    const { billingPeriodStart, billingPeriodEnd, labReferralIds, labReceiptFileUrl, notes } = req.body;
 
-    if (!billingPeriodStart || !billingPeriodEnd || !labReferralIds || !labReferralIds.length || !billSummaryFileUrl) {
+    if (!billingPeriodStart || !billingPeriodEnd || !labReferralIds || !labReferralIds.length || !labReceiptFileUrl) {
       return res.status(400).json({ success: false, message: 'Missing required settlement parameters' });
     }
 
@@ -90,7 +92,8 @@ exports.createSettlement = async (req, res) => {
     }
     const consultantPayouts = Object.values(consultantMap);
 
-    // 5. Create settlement record
+    // 5. Create settlement record — lab pays the platform fee and uploads its
+    //    receipt at creation, so it goes straight to admin verification.
     const settlement = await LabSettlement.create({
       laboratoryId: lab._id,
       billingPeriodStart: new Date(billingPeriodStart),
@@ -99,9 +102,10 @@ exports.createSettlement = async (req, res) => {
       grossAmountPaisa,
       deductionPercentage: lab.deductionPercentage || 20,
       calculatedPlatformCutPaisa,
-      billSummaryFileUrl,
+      labReceiptFileUrl,
+      labPaidAt: new Date(),
       notes,
-      status: 'pending_payment',
+      status: 'pending_admin_verification',
       consultantPayouts,
     });
 
@@ -126,7 +130,7 @@ exports.createSettlement = async (req, res) => {
       })
       .catch((err) => console.error('Lab settlement created notify failed:', err.message));
 
-    res.status(201).json({ success: true, message: 'Weekly lab settlement summary uploaded successfully', data: settlement });
+    res.status(201).json({ success: true, message: 'Settlement submitted with payment receipt — awaiting admin verification', data: settlement });
   } catch (error) {
     console.error('[CREATE_LAB_SETTLEMENT_ERROR]', error);
     res.status(500).json({ success: false, message: 'Failed to create weekly lab settlement summary' });

@@ -37,9 +37,9 @@ const LabSettlements = () => {
   const [selected, setSelected] = useState([]);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
-  const [summaryFile, setSummaryFile] = useState(null);
+  const [receiptFile, setReceiptFile] = useState(null);
   const [notes, setNotes] = useState('');
-  const [uploadingSummary, setUploadingSummary] = useState(false);
+  const [uploadingNewReceipt, setUploadingNewReceipt] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState({});
 
   const { data: pending = [], isLoading: l1 } = useQuery({
@@ -62,24 +62,24 @@ const LabSettlements = () => {
   const grossPaisa = selectedObjs.reduce((s, r) => s + (r.billTotalPaisa || 0), 0);
   const platformCutPaisa = selectedObjs.reduce((s, r) => s + (r.calculatedPlatformCutPaisa || 0), 0);
 
-  const handleSummaryUpload = async (e) => {
+  const handleReceiptUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
-      setUploadingSummary(true);
-      setSummaryFile(await uploadFile(file));
-      toast.success('Summary uploaded');
+      setUploadingNewReceipt(true);
+      setReceiptFile(await uploadFile(file));
+      toast.success('Receipt uploaded');
     } catch {
-      toast.error('Failed to upload summary');
+      toast.error('Failed to upload receipt');
     } finally {
-      setUploadingSummary(false);
+      setUploadingNewReceipt(false);
     }
   };
 
   const create = async (e) => {
     e.preventDefault();
     if (selected.length === 0) return toast.error('Select at least one closed case');
-    if (!summaryFile) return toast.error('Upload your bill summary document');
+    if (!receiptFile) return toast.error('Upload your payment receipt');
     let periodStart = start;
     let periodEnd = end;
     if (!periodStart || !periodEnd) {
@@ -94,12 +94,12 @@ const LabSettlements = () => {
         billingPeriodStart: periodStart,
         billingPeriodEnd: periodEnd,
         labReferralIds: selected,
-        billSummaryFileUrl: summaryFile,
+        labReceiptFileUrl: receiptFile,
         notes,
       });
       if (res.data.success) {
         toast.success('Settlement submitted');
-        setSelected([]); setStart(''); setEnd(''); setSummaryFile(null); setNotes('');
+        setSelected([]); setStart(''); setEnd(''); setReceiptFile(null); setNotes('');
         refresh();
       }
     } catch (err) {
@@ -157,6 +157,7 @@ const LabSettlements = () => {
 
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Closed cases ({selected.length} chosen)</label>
+          <p className="text-[11px] text-slate-400 mb-2">Selecting a case automatically attaches its patient bill — no separate summary needed.</p>
           <div className="border border-slate-100 dark:border-slate-800 rounded-xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
             {pending.length === 0 ? (
               <div className="px-5 py-8 text-center text-xs text-slate-400">No closed-but-unsettled cases.</div>
@@ -169,7 +170,20 @@ const LabSettlements = () => {
                       <span className="font-mono text-xs font-bold text-sky-600 dark:text-sky-400">{r.referralCode}</span>
                       <span className="text-xs text-slate-500 ml-2">{r.patientName}</span>
                     </div>
-                    <span className="text-xs font-black text-slate-800 dark:text-slate-200 tabular-nums">{formatPkr(r.billTotalPaisa)}</span>
+                    <div className="flex items-center gap-3">
+                      {r.patientBillFileUrl && (
+                        <a
+                          href={r.patientBillFileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                        >
+                          <FileText size={12} /> Bill
+                        </a>
+                      )}
+                      <span className="text-xs font-black text-slate-800 dark:text-slate-200 tabular-nums">{formatPkr(r.billTotalPaisa)}</span>
+                    </div>
                   </div>
                 </label>
               ))
@@ -185,20 +199,21 @@ const LabSettlements = () => {
         )}
 
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Upload weekly bill summary</label>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Upload paid receipt</label>
+          <p className="text-[11px] text-slate-400 mb-2">Pay the platform fee shown above, then attach your payment receipt here to submit in one step.</p>
           <div className="flex items-center gap-4">
             <label className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-6 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40">
               <Upload className="w-7 h-7 text-slate-400 mb-2" />
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{uploadingSummary ? 'Uploading…' : summaryFile ? 'File attached' : 'Browse summary (PDF/JPG/PNG)'}</span>
-              <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={handleSummaryUpload} disabled={uploadingSummary} className="hidden" />
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{uploadingNewReceipt ? 'Uploading…' : receiptFile ? 'Receipt attached' : 'Browse receipt (PDF/JPG/PNG)'}</span>
+              <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={handleReceiptUpload} disabled={uploadingNewReceipt} className="hidden" />
             </label>
-            {summaryFile && <a href={summaryFile} target="_blank" rel="noreferrer" className="text-xs text-sky-600 font-bold underline">View</a>}
+            {receiptFile && <a href={receiptFile} target="_blank" rel="noreferrer" className="text-xs text-sky-600 font-bold underline">View</a>}
           </div>
         </div>
 
         <textarea placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className={`${inputClass} h-20`} />
 
-        <button type="submit" disabled={selected.length === 0 || !summaryFile} className="w-full flex items-center justify-center gap-2 py-3 bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-sm rounded-xl disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 transition-all">
+        <button type="submit" disabled={selected.length === 0 || !receiptFile} className="w-full flex items-center justify-center gap-2 py-3 bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-sm rounded-xl disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 transition-all">
           Submit Settlement & Await Verification <ArrowRight size={16} />
         </button>
       </form>
@@ -248,7 +263,10 @@ const LabSettlements = () => {
               )}
 
               <div className="flex flex-wrap gap-3 text-xs pt-1">
-                <a href={s.billSummaryFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-800"><FileText size={13} className="text-sky-600" /> Bill Summary</a>
+                {(s.labReferralIds || []).filter((r) => r && r.patientBillFileUrl).map((r) => (
+                  <a key={r._id} href={r.patientBillFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-800"><FileText size={13} className="text-sky-600" /> Bill · {r.referralCode}</a>
+                ))}
+                {s.billSummaryFileUrl && <a href={s.billSummaryFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-800"><FileText size={13} className="text-sky-600" /> Bill Summary</a>}
                 {s.labReceiptFileUrl && <a href={s.labReceiptFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-800"><FileText size={13} className="text-sky-600" /> Payment Receipt</a>}
               </div>
             </div>

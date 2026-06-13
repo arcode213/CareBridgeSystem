@@ -486,13 +486,25 @@ const LabEarnings = () => {
                 <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{p.labName}</p>
                 <p className="text-xs text-slate-500">{formatPkr(p.amountPaisa)} • {new Date(p.billingPeriodStart).toLocaleDateString()} → {new Date(p.billingPeriodEnd).toLocaleDateString()}</p>
               </div>
-              {p.status === 'verified' ? (
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600"><CheckCircle2 size={14} /> Received</span>
-              ) : p.status === 'pending_verification' ? (
-                <button onClick={() => verify(p.settlementId)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">Confirm received</button>
-              ) : (
-                <span className="text-xs font-bold text-slate-400">Awaiting payout</span>
-              )}
+              <div className="flex items-center gap-3 shrink-0">
+                {p.payoutReceiptFileUrl && (
+                  <a
+                    href={p.payoutReceiptFileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                  >
+                    <FileText size={14} /> View receipt
+                  </a>
+                )}
+                {p.status === 'verified' ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600"><CheckCircle2 size={14} /> Received</span>
+                ) : p.status === 'pending_verification' ? (
+                  <button onClick={() => verify(p.settlementId)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">Confirm received</button>
+                ) : (
+                  <span className="text-xs font-bold text-slate-400">Awaiting payout</span>
+                )}
+              </div>
             </div>
           ))
         )}

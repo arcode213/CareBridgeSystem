@@ -153,7 +153,8 @@ const LabReferralDetailModal = ({ referralId, editable = false, onClose, onSaved
                 <div className="flex flex-wrap gap-2">
                   {referral.reportFiles.map((f, i) => (
                     <a key={i} href={f.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-100">
-                      <FileText size={13} /> {f.name || `Report ${i + 1}`}
+                      <FileText size={13} />
+                      {f.testName ? <span className="font-black">{f.testName}:</span> : null} {f.name || `Report ${i + 1}`}
                     </a>
                   ))}
                 </div>

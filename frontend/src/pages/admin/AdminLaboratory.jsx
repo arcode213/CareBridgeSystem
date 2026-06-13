@@ -408,6 +408,9 @@ const SettlementsPanel = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {(s.labReferralIds || []).filter((r) => r && r.patientBillFileUrl).map((r) => (
+              <a key={r._id} href={r.patientBillFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800"><FileText size={12} className="text-sky-600" /> Bill · {r.referralCode}</a>
+            ))}
             {s.billSummaryFileUrl && <a href={s.billSummaryFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800"><FileText size={12} className="text-sky-600" /> Bill Summary</a>}
             {s.labReceiptFileUrl && <a href={s.labReceiptFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800"><FileText size={12} className="text-sky-600" /> Payment Receipt</a>}
           </div>
@@ -434,7 +437,16 @@ const SettlementsPanel = () => {
                     {pay.status === 'verified' ? (
                       <span className="inline-flex items-center gap-1 text-emerald-600 font-bold"><CheckCircle2 size={13} /> Verified</span>
                     ) : pay.status === 'pending_verification' ? (
-                      <span className="font-bold text-amber-600">Paid, awaiting consultant</span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-amber-600">Paid, awaiting consultant</span>
+                        {pay.payoutReceiptFileUrl && (
+                          <a href={pay.payoutReceiptFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 font-bold hover:underline"><Eye size={12} /> View</a>
+                        )}
+                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-sky-200 dark:border-sky-900/50 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/20 font-bold rounded-lg cursor-pointer">
+                          <Upload size={12} /> {busy[key] ? 'Uploading…' : 'Re-upload'}
+                          <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(ev) => uploadPayout(s._id, cId, ev.target.files[0])} className="hidden" />
+                        </label>
+                      </div>
                     ) : (
                       <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg cursor-pointer">
                         <Upload size={12} /> {busy[key] ? 'Uploading…' : 'Upload payout'}

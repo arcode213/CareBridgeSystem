@@ -4,7 +4,7 @@ import api from '../utils/api';
 import { SOCKET_URL } from '../config';
 import DetailModal from '../components/DetailModal';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
-import { FileText, User, Clock, Activity, Pencil, X, XCircle } from 'lucide-react';
+import { FileText, User, Clock, Activity, Pencil, X, XCircle, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
 
@@ -35,6 +35,7 @@ const ReferralsList = () => {
   const [referrals, setReferrals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selected, setSelected] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -74,11 +75,16 @@ const ReferralsList = () => {
     return () => socket.disconnect();
   }, [fetchReferrals, selected]);
 
-  const filteredReferrals = filter === 'all' 
-    ? referrals 
-    : filter === 'emergency' 
-      ? referrals.filter(r => r.urgency === 'emergency') 
+  const statusFiltered = filter === 'all'
+    ? referrals
+    : filter === 'emergency'
+      ? referrals.filter(r => r.urgency === 'emergency')
       : referrals.filter(r => r.status === filter);
+
+  const search = searchTerm.trim().toLowerCase();
+  const filteredReferrals = search
+    ? statusFiltered.filter(r => r.referralCode?.toLowerCase().includes(search))
+    : statusFiltered;
 
   const openEdit = (ref) => {
     setEditForm({
@@ -131,14 +137,26 @@ const ReferralsList = () => {
           <h1 className="text-2xl font-bold text-gray-900">My Referrals</h1>
           <p className="text-gray-500 text-sm mt-0.5">Click any row to view full referral details.</p>
         </div>
-        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
-          {['all', 'emergency', 'pending', 'accepted', 'rejected', 'admitted'].map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
-                filter === f ? (f === 'emergency' ? 'bg-red-600 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm') : 'text-gray-500 hover:bg-gray-50'
-              }`}
-            >{f}</button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by Referral ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full sm:w-60 pl-9 pr-4 py-2 text-sm bg-white border border-gray-100 shadow-sm rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            />
+          </div>
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
+            {['all', 'emergency', 'pending', 'accepted', 'rejected', 'admitted'].map((f) => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
+                  filter === f ? (f === 'emergency' ? 'bg-red-600 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm') : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >{f}</button>
+            ))}
+          </div>
         </div>
       </div>
 

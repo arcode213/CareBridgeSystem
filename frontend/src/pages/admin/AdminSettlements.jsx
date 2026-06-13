@@ -462,6 +462,16 @@ const AdminSettlements = () => {
                                       View Uploaded Transfer Proof
                                     </a>
                                   )}
+                                  <label className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+                                    <Upload size={11} /> {isUploading ? 'Uploading...' : 'Re-upload receipt'}
+                                    <input
+                                      type="file"
+                                      accept=".pdf,.png,.jpg,.jpeg"
+                                      onChange={e => handleUploadPayoutReceipt(selectedSettlement._id, pay.consultantId._id, e.target.files[0])}
+                                      disabled={isUploading}
+                                      className="hidden"
+                                    />
+                                  </label>
                                 </div>
                               )}
                               {pay.status === 'verified' && (

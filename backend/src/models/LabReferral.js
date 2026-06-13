@@ -62,6 +62,7 @@ const LabReferralSchema = new mongoose.Schema(
       {
         name: { type: String },
         url: { type: String, required: true },
+        testName: { type: String }, // Which recommended test this report belongs to (optional)
         uploadedAt: { type: Date, default: Date.now },
       },
     ],

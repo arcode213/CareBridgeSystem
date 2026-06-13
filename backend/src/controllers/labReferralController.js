@@ -407,7 +407,11 @@ exports.uploadLabReports = async (req, res) => {
     const files = Array.isArray(req.body.reportFiles) ? req.body.reportFiles : [];
     const valid = files
       .filter((f) => f && f.url)
-      .map((f) => ({ name: String(f.name || 'Report').trim(), url: String(f.url).trim() }));
+      .map((f) => ({
+        name: String(f.name || 'Report').trim(),
+        url: String(f.url).trim(),
+        testName: f.testName ? String(f.testName).trim() : undefined,
+      }));
     if (valid.length === 0) {
       return res.status(400).json({ success: false, message: 'At least one report file is required' });
     }

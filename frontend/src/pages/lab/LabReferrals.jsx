@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  FileText, Upload, X, FlaskConical, CheckCircle2, FileCheck2, Receipt, Percent,
+  FileText, Upload, X, FlaskConical, CheckCircle2, FileCheck2, Receipt, Percent, Search,
 } from 'lucide-react';
 import api from '../../utils/api';
 import { formatPkr } from '../../utils/formatPkr';
@@ -32,6 +32,7 @@ const ManageModal = ({ referral, onClose, onChanged }) => {
   const [reportFiles, setReportFiles] = useState(referral.reportFiles || []);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingKey, setUploadingKey] = useState(null); // which test row is currently uploading
 
   // The lab's own catalog — used to auto-fill each referred test's price.
   const { data: catalog = [] } = useQuery({
@@ -66,22 +67,30 @@ const ManageModal = ({ referral, onClose, onChanged }) => {
       .filter((l) => String(l.description || '').trim())
       .map((l) => ({ description: l.description.trim(), amountPaisa: Math.round(Number(l.amountPkr) * 100) || 0 }));
 
-  const handleReportUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // Upload one or more report files, optionally tagged to a specific recommended test.
+  const handleReportUpload = async (e, testName = '') => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const key = testName || '__other__';
     try {
       setUploading(true);
-      const url = await uploadFile(file);
-      const res = await api.post(`/lab-referrals/${referral._id}/reports`, { reportFiles: [{ name: file.name, url }] });
+      setUploadingKey(key);
+      const uploaded = [];
+      for (const file of files) {
+        const url = await uploadFile(file);
+        uploaded.push({ name: file.name, url, testName: testName || undefined });
+      }
+      const res = await api.post(`/lab-referrals/${referral._id}/reports`, { reportFiles: uploaded });
       if (res.data.success) {
         setReportFiles(res.data.data.reportFiles);
-        toast.success('Report uploaded');
+        toast.success(files.length > 1 ? `${files.length} reports uploaded` : 'Report uploaded');
         onChanged();
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to upload report');
     } finally {
       setUploading(false);
+      setUploadingKey(null);
       e.target.value = '';
     }
   };
@@ -159,23 +168,79 @@ const ManageModal = ({ referral, onClose, onChanged }) => {
         </div>
 
         <div className="p-5 space-y-6">
-          {/* Reports */}
+          {/* Reports — one or more report files per recommended test */}
           <section>
-            <h3 className="text-sm font-black text-slate-900 dark:text-slate-50 mb-2 flex items-center gap-1.5"><FileCheck2 size={16} className="text-sky-500" /> Test Reports</h3>
-            <div className="space-y-2">
-              {reportFiles.length === 0 && <p className="text-xs text-slate-400">No reports uploaded yet.</p>}
-              {reportFiles.map((f, i) => (
-                <a key={i} href={f.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs text-sky-700 dark:text-sky-400 font-semibold hover:underline">
-                  <FileText size={14} /> {f.name || `Report ${i + 1}`}
-                </a>
-              ))}
+            <h3 className="text-sm font-black text-slate-900 dark:text-slate-50 mb-1 flex items-center gap-1.5"><FileCheck2 size={16} className="text-sky-500" /> Test Reports</h3>
+            <p className="text-xs text-slate-400 mb-3">Upload a report for each test below. You can attach more than one file per test.</p>
+
+            <div className="space-y-3">
+              {referredTests.length === 0 && reportFiles.length === 0 && (
+                <p className="text-xs text-slate-400">No tests on this referral.</p>
+              )}
+
+              {/* One block per recommended test */}
+              {referredTests.map((t, ti) => {
+                const testReports = reportFiles.filter((f) => (f.testName || '') === t.testName);
+                return (
+                  <div key={ti} className="border border-slate-100 dark:border-slate-800 rounded-xl p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{t.testName}</p>
+                        {t.note && <p className="text-xs text-slate-400 truncate">{t.note}</p>}
+                      </div>
+                      {!isClosed && (
+                        <label className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 font-bold text-xs rounded-lg cursor-pointer hover:bg-sky-100">
+                          <Upload size={13} /> {uploadingKey === t.testName ? 'Uploading…' : 'Upload'}
+                          <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleReportUpload(e, t.testName)} disabled={uploading} className="hidden" />
+                        </label>
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {testReports.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">No report uploaded yet.</p>
+                      ) : (
+                        testReports.map((f, i) => (
+                          <a key={i} href={f.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs text-sky-700 dark:text-sky-400 font-semibold hover:underline">
+                            <FileText size={14} /> {f.name || `Report ${i + 1}`}
+                          </a>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Reports not tied to any listed test */}
+              {(() => {
+                const testNames = referredTests.map((t) => t.testName);
+                const others = reportFiles.filter((f) => !f.testName || !testNames.includes(f.testName));
+                if (others.length === 0 && referredTests.length > 0 && isClosed) return null;
+                return (
+                  <div className="border border-slate-100 dark:border-slate-800 rounded-xl p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Other reports</p>
+                      {!isClosed && (
+                        <label className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 font-bold text-xs rounded-lg cursor-pointer hover:bg-sky-100">
+                          <Upload size={13} /> {uploadingKey === '__other__' ? 'Uploading…' : 'Upload'}
+                          <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleReportUpload(e, '')} disabled={uploading} className="hidden" />
+                        </label>
+                      )}
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {others.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">No additional reports.</p>
+                      ) : (
+                        others.map((f, i) => (
+                          <a key={i} href={f.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs text-sky-700 dark:text-sky-400 font-semibold hover:underline">
+                            <FileText size={14} /> {f.name || `Report ${i + 1}`}
+                          </a>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
-            {!isClosed && (
-              <label className="mt-3 inline-flex items-center gap-2 px-3 py-2 bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 font-bold text-xs rounded-lg cursor-pointer hover:bg-sky-100">
-                <Upload size={14} /> {uploading ? 'Uploading…' : 'Upload report'}
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleReportUpload} disabled={uploading} className="hidden" />
-              </label>
-            )}
           </section>
 
           {/* Billing */}
@@ -243,11 +308,17 @@ const ManageModal = ({ referral, onClose, onChanged }) => {
 const LabReferrals = () => {
   const queryClient = useQueryClient();
   const [active, setActive] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: referrals = [], isLoading } = useQuery({
     queryKey: ['lab-referrals'],
     queryFn: async () => (await api.get('/lab-referrals/lab-all')).data.data,
   });
+
+  const search = searchTerm.trim().toLowerCase();
+  const filteredReferrals = search
+    ? referrals.filter((r) => r.referralCode?.toLowerCase().includes(search))
+    : referrals;
 
   // Keep the open modal's data fresh after mutations
   useEffect(() => {
@@ -267,20 +338,30 @@ const LabReferrals = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-start gap-3 border-b border-slate-100 dark:border-slate-800 pb-5">
+      <div className="flex flex-wrap items-start gap-3 border-b border-slate-100 dark:border-slate-800 pb-5">
         <div className="p-2.5 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 text-white shadow-md">
           <FlaskConical className="w-6 h-6" />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-50">Referrals & Billing</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Upload reports and finalize bills for your cases.</p>
         </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by Referral ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 transition-all dark:text-slate-100"
+          />
+        </div>
       </div>
 
-      {referrals.length === 0 ? (
+      {filteredReferrals.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-10 text-center text-slate-400">
           <FlaskConical className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-700 mb-3" />
-          <p className="text-sm font-bold">No referrals yet.</p>
+          <p className="text-sm font-bold">{search ? 'No referrals match your search.' : 'No referrals yet.'}</p>
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
@@ -295,7 +376,7 @@ const LabReferrals = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {referrals.map((r) => (
+              {filteredReferrals.map((r) => (
                 <tr key={r._id}>
                   <td className="px-4 py-3 font-mono text-xs font-bold text-sky-600 dark:text-sky-400">{r.referralCode}</td>
                   <td className="px-4 py-3">

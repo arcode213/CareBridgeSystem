@@ -15,8 +15,10 @@ const LabSettlementSchema = new mongoose.Schema(
     deductionPercentage: { type: Number, required: true }, // Snapshotted from lab deductionPercentage at creation
     calculatedPlatformCutPaisa: { type: Number, required: true, min: 0 },
 
-    // Bill summary document uploaded by lab (PDF or image)
-    billSummaryFileUrl: { type: String, required: true },
+    // Optional weekly bill summary document. No longer collected at creation —
+    // each referral's own patientBillFileUrl is auto-attached via labReferralIds.
+    // Kept (optional) for backward compatibility with older settlements.
+    billSummaryFileUrl: { type: String },
 
     // Lab manual payment receipt details
     labReceiptFileUrl: { type: String },
