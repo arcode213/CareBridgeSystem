@@ -28,3 +28,14 @@ node_modules/
 dist/
 build/
 .cache/
+
+# Runtime-generated upload storage (user uploads + dev email previews).
+# The folder is kept in git via uploads/.gitkeep; its contents are ignored.
+uploads/*
+!uploads/.gitkeep
+
+# Server logs written to the repo root (these are .txt, so *.log above misses them)
+server_log*.txt
+
+# Generated QA/compliance reports
+*.pdf

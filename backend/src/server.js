@@ -24,9 +24,18 @@ dotenv.config();
 const app = express();
 app.set('trust proxy', 1);
 const server = http.createServer(app);
+
+// CORS allowlist. Set CORS_ORIGINS to a comma-separated list of origins in
+// production; leave it blank to allow all origins (development default).
+const corsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+const corsOrigin = corsOrigins.length > 0 ? corsOrigins : '*';
+
 const io = new Server(server, {
   cors: {
-    origin: '*', // TODO: Update for production
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
   },
 });
@@ -37,7 +46,7 @@ setIO(io);
 
 // Middleware
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors());
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 
 // Routes
@@ -54,6 +63,7 @@ const labRoutes = require('./routes/labRoutes');
 const labReferralRoutes = require('./routes/labReferralRoutes');
 const labSettlementRoutes = require('./routes/labSettlementRoutes');
 const labAdminRoutes = require('./routes/labAdminRoutes');
+const exportRoutes = require('./routes/exportRoutes');
 
 app.use('/v1/auth', authRoutes);
 app.use('/v1/referrals', referralRoutes);
@@ -69,6 +79,7 @@ app.use('/v1/notifications', notificationRoutes);
 app.use('/v1/labs', labRoutes);
 app.use('/v1/lab-referrals', labReferralRoutes);
 app.use('/v1/lab-settlements', labSettlementRoutes);
+app.use('/v1/exports', exportRoutes);
 
 // Static uploads
 app.use('/uploads', express.static('uploads'));

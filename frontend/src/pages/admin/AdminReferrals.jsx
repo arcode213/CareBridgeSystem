@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, AlertCircle, Search, Edit2, Trash2, X, Check, Eye } from 'lucide-react';
+import { Activity, AlertCircle, Search, Edit2, Trash2, X, Check, Eye, Download } from 'lucide-react';
+import { downloadPdf } from '../../utils/downloadFile';
 import toast from 'react-hot-toast';
 import api from '../../utils/api';
 import Loader from '../../components/Loader';
@@ -236,16 +237,25 @@ const AdminReferrals = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => {
-                          setSelectedRef(ref);
-                          setIsEditing(false);
-                          setDeleteConfirmStep(0);
-                        }}
-                        className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
-                      >
-                        <Eye className="w-3.5 h-3.5" /> Details
-                      </button>
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            setSelectedRef(ref);
+                            setIsEditing(false);
+                            setDeleteConfirmStep(0);
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> Details
+                        </button>
+                        <button
+                          onClick={() => downloadPdf(`/exports/admin/referrals/${ref._id}`, `Patient_Record_${ref.referralCode}.pdf`)}
+                          title="Download patient record PDF"
+                          className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                        >
+                          <Download className="w-3.5 h-3.5" /> PDF
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

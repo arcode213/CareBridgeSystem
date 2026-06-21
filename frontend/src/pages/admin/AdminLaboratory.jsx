@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import {
-  FlaskConical, CheckCircle2, Ban, Save, FileText, Upload, Receipt, Users, ClipboardList, Wallet, X, Eye,
+  FlaskConical, CheckCircle2, Ban, Save, FileText, Upload, Receipt, Users, ClipboardList, Wallet, X, Eye, Download,
 } from 'lucide-react';
 import api from '../../utils/api';
 import { formatPkr } from '../../utils/formatPkr';
 import toast from 'react-hot-toast';
 import Loader from '../../components/Loader';
 import LabReferralDetailModal from '../../components/LabReferralDetailModal';
+import { downloadPdf } from '../../utils/downloadFile';
 
 const SUBTABS = [
   { key: 'labs', label: 'Labs', icon: FlaskConical },
@@ -213,6 +214,7 @@ const LabsPanel = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setDetailLabId(lab._id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-sky-200 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/20 font-bold text-xs rounded-lg"><Eye size={13} /> Details</button>
+                  <button onClick={() => downloadPdf(`/exports/admin/laboratories/${lab._id}`, `Laboratory_${(lab.labName || 'file').replace(/\s+/g, '_')}.pdf`)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-lg"><Download size={13} /> File</button>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${status === 'active' ? 'bg-emerald-100 text-emerald-700' : status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{status}</span>
                 </div>
               </div>
@@ -281,6 +283,7 @@ const ReferralsPanel = () => {
             <th className="text-left px-4 py-3 font-semibold">Lab</th>
             <th className="text-left px-4 py-3 font-semibold">Status</th>
             <th className="text-left px-4 py-3 font-semibold">Bill</th>
+            <th className="px-4 py-3"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -292,6 +295,15 @@ const ReferralsPanel = () => {
               <td className="px-4 py-3">{r.targetLaboratoryId?.labName || '—'}</td>
               <td className="px-4 py-3"><span className="text-xs font-bold capitalize">{r.status}</span></td>
               <td className="px-4 py-3 tabular-nums">{r.billTotalPaisa ? formatPkr(r.billTotalPaisa) : '—'}</td>
+              <td className="px-4 py-3 text-right">
+                <button
+                  onClick={(e) => { e.stopPropagation(); downloadPdf(`/exports/admin/lab-referrals/${r._id}`, `Lab_Record_${r.referralCode}.pdf`); }}
+                  title="Download record PDF"
+                  className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-sky-600 transition-colors"
+                >
+                  <Download size={15} />
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

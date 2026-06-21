@@ -4,9 +4,10 @@ import api from '../utils/api';
 import { SOCKET_URL } from '../config';
 import DetailModal from '../components/DetailModal';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
-import { FileText, User, Clock, Activity, Pencil, X, XCircle, Search } from 'lucide-react';
+import { FileText, User, Clock, Activity, Pencil, X, XCircle, Search, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
+import { downloadPdf } from '../utils/downloadFile';
 
 const EDITABLE_STATUSES = ['pending', 'accepted', 'rejected'];
 
@@ -138,6 +139,13 @@ const ReferralsList = () => {
           <p className="text-gray-500 text-sm mt-0.5">Click any row to view full referral details.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => downloadPdf('/exports/consultant/referrals', 'My_Referrals.pdf')}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl shadow-sm hover:bg-blue-700 transition-all"
+          >
+            <Download size={16} /> Download All
+          </button>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -281,6 +289,13 @@ const ReferralsList = () => {
                     <Pencil size={14} /> Edit
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => downloadPdf(`/exports/consultant/referrals/${selected._id}`, `Patient_Record_${selected.referralCode}.pdf`)}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-lg bg-white/80 text-slate-700 text-xs font-bold hover:bg-white ${canEdit && !isEditing ? '' : 'ml-2'}`}
+                >
+                  <Download size={14} /> PDF
+                </button>
               </div>
 
               {/* Rejection reason from hospital */}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Building2, Eye, Search, BedDouble, Stethoscope } from 'lucide-react';
+import { Building2, Eye, Search, BedDouble, Stethoscope, Download } from 'lucide-react';
+import { downloadPdf } from '../../utils/downloadFile';
 import api from '../../utils/api';
 import Loader from '../../components/Loader';
 import toast from 'react-hot-toast';
@@ -309,6 +310,11 @@ const AdminHospitals = () => {
                         className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-teal-600 transition-colors">
                         <Eye size={16} />
                       </button>
+                      <button onClick={() => downloadPdf(`/exports/admin/hospitals/${h._id}`, `Hospital_${(h.profile?.hospitalName || h.name || 'file').replace(/\s+/g, '_')}.pdf`)}
+                        title="Download complete file"
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-teal-600 transition-colors">
+                        <Download size={16} />
+                      </button>
                       <button
                         onClick={() => toggleStatus(h._id, h.status)}
                         disabled={actionId === h._id}
@@ -371,6 +377,13 @@ const AdminHospitals = () => {
                     className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition-all"
                   >
                     Edit facility
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadPdf(`/exports/admin/hospitals/${selected._id}`, `Hospital_${(selected.profile?.hospitalName || selected.name || 'file').replace(/\s+/g, '_')}.pdf`)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white hover:bg-teal-700 rounded-xl text-xs font-bold transition-all"
+                  >
+                    <Download size={14} /> Download File
                   </button>
                   <button
                     onClick={() => handleChangePassword(selected._id)}

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { FileText, Search, ChevronDown, ChevronUp, Clock, User, Phone, Shield, Calendar, CreditCard } from 'lucide-react';
+import { FileText, Search, ChevronDown, ChevronUp, Clock, User, Phone, Shield, Calendar, CreditCard, Download } from 'lucide-react';
 import { useHospitalReferrals } from '../hooks/useReferrals';
 import api from '../utils/api';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
 import Loader from '../components/Loader';
+import { downloadPdf } from '../utils/downloadFile';
 
 const urgencyStyles = {
   emergency: { card: 'border-red-200',   badge: 'bg-red-50 text-red-600 border-red-100',    text: 'text-red-600' },
@@ -75,6 +76,13 @@ const HospitalReferrals = () => {
             Complete historical log of referrals sent to your facility. Click any referral to view full detail or add clinical notes.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => downloadPdf('/exports/hospital/records', 'Hospital_Records.pdf')}
+          className="ml-auto flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl shadow-sm hover:bg-blue-700 transition-all shrink-0"
+        >
+          <Download size={16} /> Download All Records
+        </button>
       </div>
 
       {/* Filters & Search */}
@@ -198,6 +206,20 @@ const HospitalReferrals = () => {
                 {/* Expanded Details Section */}
                 {isExpanded && (
                   <div className="border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/10 p-6 space-y-6">
+                    {/* Download this record */}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadPdf(`/exports/hospital/referrals/${referral._id}`, `Patient_Record_${referral.referralCode}.pdf`);
+                        }}
+                        className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-all"
+                      >
+                        <Download size={14} /> Download Record PDF
+                      </button>
+                    </div>
+
                     {/* Patient & Financial Details Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-sm">
                       <Field label="Phone Number" value={referral.phone} />

@@ -10,6 +10,7 @@ import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
 import LabReferralDetailModal from '../components/LabReferralDetailModal';
+import { downloadPdf as downloadRecordPdf } from '../utils/downloadFile';
 
 const TABS = [
   { key: 'new', label: 'New Referral' },
@@ -274,6 +275,15 @@ const MyReferrals = () => {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => downloadRecordPdf('/exports/consultant/lab-referrals', 'My_Lab_Referrals.pdf')}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-sky-600 rounded-xl shadow-sm hover:bg-sky-700 transition-all"
+        >
+          <Download size={16} /> Download All
+        </button>
+      </div>
       {referrals.map((r) => (
         <div
           key={r._id}
@@ -315,9 +325,12 @@ const MyReferrals = () => {
 
           <div className="flex items-center justify-between gap-2 pt-1">
             <span className="text-[11px] text-slate-400">Click for full details</span>
-            {['pending', 'rejected'].includes(r.status) && (
-              <button onClick={(e) => { e.stopPropagation(); reRefer(r._id); }} className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-700"><RefreshCw size={13} /> Re-refer to another lab</button>
-            )}
+            <div className="flex items-center gap-3">
+              {['pending', 'rejected'].includes(r.status) && (
+                <button onClick={(e) => { e.stopPropagation(); reRefer(r._id); }} className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 hover:text-sky-700"><RefreshCw size={13} /> Re-refer to another lab</button>
+              )}
+              <button onClick={(e) => { e.stopPropagation(); downloadRecordPdf(`/exports/consultant/lab-referrals/${r._id}`, `Lab_Record_${r.referralCode}.pdf`); }} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-sky-700"><Download size={13} /> Download PDF</button>
+            </div>
           </div>
         </div>
       ))}

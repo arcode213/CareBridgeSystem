@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  FileText, Upload, X, FlaskConical, CheckCircle2, FileCheck2, Receipt, Percent, Search,
+  FileText, Upload, X, FlaskConical, CheckCircle2, FileCheck2, Receipt, Percent, Search, Download,
 } from 'lucide-react';
 import api from '../../utils/api';
 import { formatPkr } from '../../utils/formatPkr';
 import toast from 'react-hot-toast';
 import Loader from '../../components/Loader';
+import { downloadPdf } from '../../utils/downloadFile';
 
 const STATUS_BADGE = {
   pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
@@ -356,6 +357,13 @@ const LabReferrals = () => {
             className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 transition-all dark:text-slate-100"
           />
         </div>
+        <button
+          type="button"
+          onClick={() => downloadPdf('/exports/lab/records', 'Lab_Records.pdf')}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-sky-600 rounded-xl shadow-sm hover:bg-sky-700 transition-all shrink-0"
+        >
+          <Download size={16} /> Download All Records
+        </button>
       </div>
 
       {filteredReferrals.length === 0 ? (
@@ -388,13 +396,22 @@ const LabReferrals = () => {
                   </td>
                   <td className="px-4 py-3 tabular-nums">{r.billTotalPaisa ? formatPkr(r.billTotalPaisa) : '—'}</td>
                   <td className="px-4 py-3 text-right">
-                    {['accepted', 'reported', 'closed'].includes(r.status) ? (
-                      <button onClick={() => setActive(r)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-lg transition-colors">
-                        {r.status === 'closed' ? 'View' : 'Manage'}
+                    <div className="inline-flex items-center gap-1.5">
+                      {['accepted', 'reported', 'closed'].includes(r.status) ? (
+                        <button onClick={() => setActive(r)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-lg transition-colors">
+                          {r.status === 'closed' ? 'View' : 'Manage'}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400">{r.status === 'pending' ? 'In inbox' : '—'}</span>
+                      )}
+                      <button
+                        onClick={() => downloadPdf(`/exports/lab/referrals/${r._id}`, `Lab_Record_${r.referralCode}.pdf`)}
+                        title="Download record PDF"
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-sky-600 transition-colors"
+                      >
+                        <Download size={15} />
                       </button>
-                    ) : (
-                      <span className="text-xs text-slate-400">{r.status === 'pending' ? 'In inbox' : '—'}</span>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}

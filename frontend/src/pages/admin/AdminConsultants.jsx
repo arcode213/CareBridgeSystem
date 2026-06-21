@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Eye, Search, CheckCircle, XCircle, Stethoscope, FileText, Wallet, Clock, TrendingUp, MapPin, Building, Activity, Shield } from 'lucide-react';
+import { Users, Eye, Search, CheckCircle, XCircle, Stethoscope, FileText, Wallet, Clock, TrendingUp, MapPin, Building, Activity, Shield, Download } from 'lucide-react';
+import { downloadPdf } from '../../utils/downloadFile';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import DetailModal from '../../components/DetailModal';
@@ -257,6 +258,11 @@ const AdminConsultants = () => {
                       className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors">
                       <Eye size={16} />
                     </button>
+                    <button onClick={() => downloadPdf(`/exports/admin/consultants/${c._id}`, `Consultant_${(c.name || 'file').replace(/\s+/g, '_')}.pdf`)}
+                      title="Download complete file"
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-colors">
+                      <Download size={16} />
+                    </button>
                     <button
                       onClick={() => toggleStatus(c._id, c.status)}
                       disabled={actionId === c._id}
@@ -317,6 +323,13 @@ const AdminConsultants = () => {
                     className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition-all"
                   >
                     Edit profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadPdf(`/exports/admin/consultants/${selected._id}`, `Consultant_${(selected.name || 'file').replace(/\s+/g, '_')}.pdf`)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-xs font-bold transition-all"
+                  >
+                    <Download size={14} /> Download File
                   </button>
                   <button
                     onClick={() => handleChangePassword(selected._id)}

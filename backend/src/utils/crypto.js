@@ -7,10 +7,15 @@ const IV_LENGTH = 16; // For AES, this is always 16
 function encrypt(text) {
   if (!text) return text;
   if (!ENCRYPTION_KEY) {
-    console.error('ENCRYPTION_KEY not set!');
+    // Silently storing plaintext is a data-protection failure. In production we
+    // refuse; in development we warn so local work isn't blocked.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('ENCRYPTION_KEY not set — refusing to store sensitive data unencrypted');
+    }
+    console.error('ENCRYPTION_KEY not set! Storing value unencrypted (development only).');
     return text;
   }
-  
+
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
   let encrypted = cipher.update(text);
