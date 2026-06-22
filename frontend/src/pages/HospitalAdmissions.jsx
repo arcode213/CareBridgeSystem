@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { useAdmissions, useHospitalPipeline } from '../hooks/useReferrals';
 import { useQueryClient } from '@tanstack/react-query';
 import Loader from '../components/Loader';
+import { formatDob, ageLabel } from '../utils/dob';
 
 
 
@@ -294,7 +295,8 @@ const HospitalAdmissions = () => {
                 {/* Expandable patient info */}
                 {expanded === `pre-${r._id}` && (
                   <div className="border-t border-slate-100 bg-slate-50 px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Age / Gender</p><p className="font-medium text-slate-700">{r.age}y · {r.gender}</p></div>
+                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Date of Birth</p><p className="font-medium text-slate-700">{formatDob(r.dateOfBirth) || '—'}</p></div>
+                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Age / Gender</p><p className="font-medium text-slate-700">{ageLabel(r)} · {r.gender}</p></div>
                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Phone</p><p className="font-medium text-slate-700">{r.phone || '—'}</p></div>
                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Urgency</p><p className="font-medium text-slate-700 capitalize">{r.urgency}</p></div>
                     {r.symptomsText && (

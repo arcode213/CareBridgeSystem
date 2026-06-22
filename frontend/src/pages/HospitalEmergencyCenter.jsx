@@ -6,6 +6,7 @@ import DetailModal from '../components/DetailModal';
 import { AlertTriangle, Clock, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
+import { ageLabel } from '../utils/dob';
 
 const HospitalEmergencyCenter = () => {
   const [emergencies, setEmergencies] = useState([]);
@@ -98,7 +99,7 @@ const HospitalEmergencyCenter = () => {
               </div>
               <div className="text-xs font-bold text-red-600 uppercase tracking-widest mb-1">Critical Priority</div>
               <h3 className="text-xl font-black text-slate-900">{r.patientName}</h3>
-              <p className="text-sm text-slate-500 font-medium mb-4">{r.age} yrs · {r.gender} · {r.department || 'General'}</p>
+              <p className="text-sm text-slate-500 font-medium mb-4">{ageLabel(r)} · {r.gender} · {r.department || 'General'}</p>
               
               <div className="p-3 bg-red-50 rounded-xl mb-4 border border-red-100">
                 <p className="text-xs font-bold text-red-800 uppercase mb-1">Primary Symptoms</p>

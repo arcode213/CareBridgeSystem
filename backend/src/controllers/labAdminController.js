@@ -4,6 +4,7 @@ const LabReferral = require('../models/LabReferral');
 const LabPayout = require('../models/LabPayout');
 const User = require('../models/User');
 const { logAction } = require('../utils/logger');
+const { ageFromDob } = require('../utils/age');
 const notificationService = require('../services/notificationService');
 
 /** List labs, optionally filtered by owner-user status (?status=pending|active|suspended). */
@@ -196,7 +197,14 @@ exports.updateLabReferral = async (req, res) => {
 
     const b = req.body;
     if (b.patientName != null && String(b.patientName).trim()) referral.patientName = String(b.patientName).trim();
-    if (b.age != null && Number(b.age) >= 0) referral.age = Number(b.age);
+    // DOB is the source of truth; derive age from it when supplied.
+    if (b.dateOfBirth) {
+      referral.dateOfBirth = new Date(b.dateOfBirth);
+      const derivedAge = ageFromDob(b.dateOfBirth);
+      if (derivedAge != null) referral.age = derivedAge;
+    } else if (b.age != null && Number(b.age) >= 0) {
+      referral.age = Number(b.age);
+    }
     if (b.gender && ['male', 'female', 'other'].includes(b.gender)) referral.gender = b.gender;
     if (b.phone != null) referral.phone = String(b.phone).replace(/[\s\-()]/g, '');
     if (b.area != null) referral.area = String(b.area).trim();

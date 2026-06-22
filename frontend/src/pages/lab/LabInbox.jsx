@@ -4,6 +4,7 @@ import { Inbox, Clock, Check, X, User, Stethoscope, Percent } from 'lucide-react
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Loader from '../../components/Loader';
+import { ageLabel } from '../../utils/dob';
 
 const urgencyTone = {
   emergency: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400',
@@ -89,7 +90,7 @@ const LabInbox = () => {
                 <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                   <User size={15} className="text-slate-400" />
                   <span className="font-semibold">{r.patientName}</span>
-                  <span className="text-slate-400">• {r.age}y • {r.gender}</span>
+                  <span className="text-slate-400">• {ageLabel(r)} • {r.gender}</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                   <Stethoscope size={15} className="text-slate-400" />

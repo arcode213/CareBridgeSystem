@@ -4,6 +4,8 @@ import { X, FileText, Pencil, Save, Plus, Trash2 } from 'lucide-react';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
+import DobPicker from './DobPicker';
+import { ageFromDob, formatDob, formatAge, ageLabel } from '../utils/dob';
 
 const STATUS_BADGE = {
   pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
@@ -49,6 +51,7 @@ const LabReferralDetailModal = ({ referralId, editable = false, onClose, onSaved
     if (referral && !form) {
       setForm({
         patientName: referral.patientName || '',
+        dateOfBirth: referral.dateOfBirth || '',
         age: referral.age ?? '',
         gender: referral.gender || 'male',
         phone: referral.phone || '',
@@ -122,7 +125,8 @@ const LabReferralDetailModal = ({ referralId, editable = false, onClose, onSaved
 
             <section className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <Field label="Patient">{referral.patientName}</Field>
-              <Field label="Age / Gender">{referral.age}y • {referral.gender}</Field>
+              <Field label="Date of Birth">{formatDob(referral.dateOfBirth) || '—'}</Field>
+              <Field label="Age / Gender">{ageLabel(referral)} • {referral.gender}</Field>
               <Field label="Phone">{referral.phone}</Field>
               <Field label="CNIC">{referral.cnic}</Field>
               <Field label="Area">{referral.area}</Field>
@@ -178,7 +182,8 @@ const LabReferralDetailModal = ({ referralId, editable = false, onClose, onSaved
           <div className="p-5 space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className="text-xs font-bold text-slate-500">Patient name</label><input className={input} value={form.patientName} onChange={(e) => setF('patientName', e.target.value)} /></div>
-              <div><label className="text-xs font-bold text-slate-500">Age</label><input type="number" className={input} value={form.age} onChange={(e) => setF('age', e.target.value)} /></div>
+              <div className="sm:col-span-2"><label className="text-xs font-bold text-slate-500">Date of Birth</label><DobPicker value={form.dateOfBirth} onChange={(iso) => setForm((p) => ({ ...p, dateOfBirth: iso, age: ageFromDob(iso) }))} className={input} /></div>
+              <div><label className="text-xs font-bold text-slate-500">Age (auto)</label><input type="text" readOnly disabled title="Auto-calculated from date of birth" className={`${input} bg-slate-50 dark:bg-slate-800/60 cursor-not-allowed`} value={formatAge(form.dateOfBirth)} /></div>
               <div><label className="text-xs font-bold text-slate-500">Gender</label><select className={input} value={form.gender} onChange={(e) => setF('gender', e.target.value)}><option value="male">male</option><option value="female">female</option><option value="other">other</option></select></div>
               <div><label className="text-xs font-bold text-slate-500">Phone</label><input className={input} value={form.phone} onChange={(e) => setF('phone', e.target.value)} /></div>
               <div><label className="text-xs font-bold text-slate-500">Area</label><input className={input} value={form.area} onChange={(e) => setF('area', e.target.value)} /></div>

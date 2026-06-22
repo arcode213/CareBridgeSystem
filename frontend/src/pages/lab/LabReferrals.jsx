@@ -8,6 +8,7 @@ import { formatPkr } from '../../utils/formatPkr';
 import toast from 'react-hot-toast';
 import Loader from '../../components/Loader';
 import { downloadPdf } from '../../utils/downloadFile';
+import { ageLabel } from '../../utils/dob';
 
 const STATUS_BADGE = {
   pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
@@ -389,7 +390,7 @@ const LabReferrals = () => {
                   <td className="px-4 py-3 font-mono text-xs font-bold text-sky-600 dark:text-sky-400">{r.referralCode}</td>
                   <td className="px-4 py-3">
                     <span className="font-semibold text-slate-800 dark:text-slate-200">{r.patientName}</span>
-                    <span className="text-slate-400 text-xs"> • {r.age}y</span>
+                    <span className="text-slate-400 text-xs"> • {ageLabel(r)}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${STATUS_BADGE[r.status]}`}>{r.status}</span>

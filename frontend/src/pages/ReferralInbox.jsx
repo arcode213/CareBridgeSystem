@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useInbox } from '../hooks/useReferrals';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
 import Loader from '../components/Loader';
+import { formatDob, ageLabel } from '../utils/dob';
 
 function formatSlaCountdown(deadline, now) {
   if (!deadline) return '—';
@@ -122,7 +123,7 @@ const ReferralInbox = () => {
                       </div>
                       <p className="text-sm text-slate-500 mt-0.5">
                         From <span className="font-semibold text-slate-700">{consultantName}</span>
-                        {' · '}{referral.age}y · {referral.gender}
+                        {' · '}{ageLabel(referral)} · {referral.gender}
                       </p>
                       {referral.department && (
                         <span className="inline-block mt-1.5 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
@@ -155,7 +156,8 @@ const ReferralInbox = () => {
                   {/* Patient + Clinical grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl">
                     <Field label="Patient Name"   value={referral.patientName} />
-                    <Field label="Age / Gender"   value={`${referral.age}y · ${referral.gender}`} />
+                    <Field label="Date of Birth"  value={formatDob(referral.dateOfBirth) || null} />
+                    <Field label="Age / Gender"   value={`${ageLabel(referral)} · ${referral.gender}`} />
                     <Field label="Phone"          value={referral.phone} />
                     <Field label="Patient CNIC"   value={referral.cnic} />
                     <Field label="Guardian"       value={[referral.guardianRelation, referral.guardianName].filter(Boolean).join(' ')} />

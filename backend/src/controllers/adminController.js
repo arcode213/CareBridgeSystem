@@ -10,6 +10,7 @@ const PlatformSettings = require('../models/PlatformSettings');
 const AuditLog = require('../models/AuditLog');
 const HospitalDoctor = require('../models/HospitalDoctor');
 const { logAction } = require('../utils/logger');
+const { ageFromDob } = require('../utils/age');
 
 exports.listPendingUsers = async (req, res) => {
   try {
@@ -775,6 +776,12 @@ exports.updateReferralFull = async (req, res) => {
     
     // Drop guardianCnic if a stale client still sends it (field removed from schema)
     delete updates.guardianCnic;
+
+    // Keep age in sync with DOB whenever a date of birth is provided.
+    if (updates.dateOfBirth) {
+      const derivedAge = ageFromDob(updates.dateOfBirth);
+      if (derivedAge != null) updates.age = derivedAge;
+    }
 
     Object.assign(referral, updates);
     await referral.save();

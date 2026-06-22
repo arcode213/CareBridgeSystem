@@ -4,6 +4,7 @@ const Laboratory = require('../models/Laboratory');
 const Consultant = require('../models/Consultant');
 const User = require('../models/User');
 const { calculateDistance } = require('../utils/scoringEngine');
+const { ageFromDob } = require('../utils/age');
 const labBillingService = require('../services/labBillingService');
 const notificationService = require('../services/notificationService');
 
@@ -84,7 +85,12 @@ exports.getLabSuggestions = async (req, res) => {
 
 exports.createLabReferral = async (req, res) => {
   try {
-    const { patientName, age, gender, cnic, phone } = req.body;
+    const { patientName, gender, cnic, phone } = req.body;
+    // DOB is the source of truth; derive age from it when supplied, else fall
+    // back to the directly-entered age (legacy clients).
+    const dateOfBirth = req.body.dateOfBirth || undefined;
+    const derivedAge = ageFromDob(dateOfBirth);
+    const age = derivedAge != null ? derivedAge : req.body.age;
     if (!patientName) {
       return res.status(400).json({ success: false, message: 'Patient Name is required' });
     }
@@ -145,6 +151,7 @@ exports.createLabReferral = async (req, res) => {
     const referral = await LabReferral.create({
       consultantId: consultant._id,
       patientName: String(patientName).trim(),
+      dateOfBirth,
       age: Number(age),
       gender,
       phone: phoneClean,

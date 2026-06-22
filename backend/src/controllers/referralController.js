@@ -10,6 +10,7 @@ const { resolveDepartmentFromSymptoms } = require('../services/departmentService
 const { getScoringWeights } = require('../services/scoringWeightsService');
 const suggestionCache = require('../utils/suggestionCache');
 const { logAction } = require('../utils/logger');
+const { ageFromDob } = require('../utils/age');
 const { updateHospitalStats } = require('../services/statsService');
 const HospitalDoctor = require('../models/HospitalDoctor');
 const {
@@ -263,13 +264,19 @@ exports.createReferral = async (req, res) => {
       });
     }
 
+    // DOB is the source of truth; derive age from it when supplied, else fall
+    // back to the directly-entered age (legacy clients).
+    const dateOfBirth = req.body.dateOfBirth || undefined;
+    const derivedAge = ageFromDob(dateOfBirth);
+
     const referral = new Referral({
       consultantId: consultant._id,
       rankedHospitalIds: ranked,
       rankedHospitalPreferences,
       currentRankIndex: rankIdx,
       patientName: req.body.patientName,
-      age: Number(req.body.age),
+      dateOfBirth,
+      age: derivedAge != null ? derivedAge : Number(req.body.age),
       gender: req.body.gender,
       phone: req.body.phone,
       area: req.body.area,
@@ -775,7 +782,7 @@ exports.updateReferralByConsultant = async (req, res) => {
 
     // Only allow updating clinical/patient fields — NOT status, hospital, or scoring
     const allowedFields = [
-      'patientName', 'age', 'gender', 'phone', 'area', 'cnic',
+      'patientName', 'dateOfBirth', 'age', 'gender', 'phone', 'area', 'cnic',
       'guardianName', 'guardianRelation', 'urgency', 'symptomsText',
       'summaryNotes', 'department', 'diagnosisText', 'notes',
       'attachments',
@@ -786,6 +793,12 @@ exports.updateReferralByConsultant = async (req, res) => {
       if (req.body[field] !== undefined) {
         updates[field] = req.body[field];
       }
+    }
+
+    // Keep age in sync with DOB whenever a date of birth is provided.
+    if (updates.dateOfBirth) {
+      const derivedAge = ageFromDob(updates.dateOfBirth);
+      if (derivedAge != null) updates.age = derivedAge;
     }
 
     // Validate CNIC format if provided

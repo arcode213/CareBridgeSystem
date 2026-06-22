@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../utils/api';
+import DobPicker from '../components/DobPicker';
+import { ageFromDob, formatAge } from '../utils/dob';
 
 const SmartIntakeForm = () => {
   const [step, setStep] = useState(1);
@@ -11,6 +13,7 @@ const SmartIntakeForm = () => {
     cnic: '',
     guardianRelation: 'S/O',
     guardianName: '',
+    dateOfBirth: '',
     age: '',
     gender: 'male',
     phone: '',
@@ -100,6 +103,11 @@ const SmartIntakeForm = () => {
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // DOB drives age — keep the (read-only) age field in sync with the picker.
+  const handleDobChange = (iso) => {
+    setFormData((prev) => ({ ...prev, dateOfBirth: iso, age: ageFromDob(iso) }));
   };
 
   const handleStep1Next = () => {
@@ -277,12 +285,16 @@ const SmartIntakeForm = () => {
                   placeholder="Enter father / husband name"
                 />
               </div>
+              <div className="space-y-2 col-span-2">
+                <label className="text-sm font-semibold text-gray-700">Date of Birth</label>
+                <DobPicker value={formData.dateOfBirth} onChange={handleDobChange} />
+              </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Age</label>
-                <input 
-                  type="number" name="age" value={formData.age} onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="Patient age"
+                <label className="text-sm font-semibold text-gray-700">Age <span className="text-gray-400 font-normal">(auto-calculated)</span></label>
+                <input
+                  type="text" value={formatAge(formData.dateOfBirth)} readOnly disabled
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-600 outline-none cursor-not-allowed"
+                  placeholder="Select date of birth"
                 />
               </div>
               <div className="space-y-2">
@@ -308,7 +320,7 @@ const SmartIntakeForm = () => {
             <div className="flex justify-end pt-4">
               <button 
                 onClick={handleStep1Next}
-                disabled={!formData.patientName || !formData.age || !formData.phone || !formData.guardianName}
+                disabled={!formData.patientName || !formData.dateOfBirth || !formData.phone || !formData.guardianName}
                 className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
               >
                 Next Step

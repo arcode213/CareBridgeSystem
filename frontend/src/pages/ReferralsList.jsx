@@ -8,6 +8,8 @@ import { FileText, User, Clock, Activity, Pencil, X, XCircle, Search, Download }
 import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
 import { downloadPdf } from '../utils/downloadFile';
+import DobPicker from '../components/DobPicker';
+import { ageFromDob, formatDob, formatAge, ageLabel } from '../utils/dob';
 
 const EDITABLE_STATUSES = ['pending', 'accepted', 'rejected'];
 
@@ -90,6 +92,7 @@ const ReferralsList = () => {
   const openEdit = (ref) => {
     setEditForm({
       patientName: ref.patientName || '',
+      dateOfBirth: ref.dateOfBirth || '',
       age: ref.age ?? '',
       gender: ref.gender || 'male',
       phone: ref.phone || '',
@@ -207,7 +210,7 @@ const ReferralsList = () => {
                       <td className="px-5 py-4 font-bold text-blue-600 font-mono text-sm">{r.referralCode}</td>
                       <td className="px-5 py-4">
                         <div className="font-semibold text-gray-900">{r.patientName}</div>
-                        <div className="text-xs text-gray-500">{r.age}y · {r.gender} · {r.phone}</div>
+                        <div className="text-xs text-gray-500">{ageLabel(r)} · {r.gender} · {r.phone}</div>
                       </td>
                       <td className="px-5 py-4 text-sm text-gray-700">{r.department || '—'}</td>
                       <td className="px-5 py-4">
@@ -319,7 +322,15 @@ const ReferralsList = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <input className="rounded-lg border px-3 py-2 text-sm" placeholder="Patient name" value={editForm.patientName} onChange={(e) => setEditForm({ ...editForm, patientName: e.target.value })} />
-                    <input className="rounded-lg border px-3 py-2 text-sm" type="number" placeholder="Age" value={editForm.age} onChange={(e) => setEditForm({ ...editForm, age: e.target.value })} />
+                    <input className="rounded-lg border px-3 py-2 text-sm bg-slate-50 text-slate-500 cursor-not-allowed" type="text" placeholder="Age" value={formatAge(editForm.dateOfBirth)} readOnly disabled title="Auto-calculated from date of birth" />
+                    <div className="col-span-2 space-y-1">
+                      <label className="text-xs font-bold text-slate-500">Date of Birth</label>
+                      <DobPicker
+                        value={editForm.dateOfBirth}
+                        onChange={(iso) => setEditForm({ ...editForm, dateOfBirth: iso, age: ageFromDob(iso) })}
+                        className="rounded-lg border px-3 py-2 text-sm bg-white w-full"
+                      />
+                    </div>
                     <select className="rounded-lg border px-3 py-2 text-sm" value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}>
                       <option value="male">Male</option>
                       <option value="female">Female</option>
@@ -358,7 +369,8 @@ const ReferralsList = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl">
                   <Field label="Full Name"      value={selected.patientName} />
-                  <Field label="Age"            value={selected.age ? `${selected.age} years` : null} />
+                  <Field label="Date of Birth"  value={formatDob(selected.dateOfBirth) || null} />
+                  <Field label="Age"            value={ageLabel(selected) || null} />
                   <Field label="Gender"         value={selected.gender} />
                   <Field label="Phone"          value={selected.phone} />
                   <Field label="Patient CNIC"   value={selected.cnic} />

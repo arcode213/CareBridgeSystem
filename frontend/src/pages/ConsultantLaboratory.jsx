@@ -10,6 +10,8 @@ import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
 import LabReferralDetailModal from '../components/LabReferralDetailModal';
+import DobPicker from '../components/DobPicker';
+import { ageFromDob, formatAge, ageLabel } from '../utils/dob';
 import { downloadPdf as downloadRecordPdf } from '../utils/downloadFile';
 
 const TABS = [
@@ -31,7 +33,7 @@ const inputClass =
 
 // ── New referral form ──────────────────────────────────────────────────────────
 const NewReferral = ({ onCreated }) => {
-  const [patient, setPatient] = useState({ patientName: '', age: '', gender: 'male', phone: '', cnic: '', area: '', urgency: 'routine', summaryNotes: '' });
+  const [patient, setPatient] = useState({ patientName: '', dateOfBirth: '', age: '', gender: 'male', phone: '', cnic: '', area: '', urgency: 'routine', summaryNotes: '' });
   const [tests, setTests] = useState([{ testName: '', note: '' }]);
   const [coords, setCoords] = useState({ lat: '24.8607', lng: '67.0099' });
   const [suggestions, setSuggestions] = useState([]);
@@ -86,6 +88,7 @@ const NewReferral = ({ onCreated }) => {
   const submit = async (e) => {
     e.preventDefault();
     if (!selectedLab) return toast.error('Select a laboratory');
+    if (!patient.dateOfBirth) return toast.error('Select the patient’s date of birth');
     const cleanTests = tests.filter((t) => t.testName.trim());
     if (cleanTests.length === 0) return toast.error('Add at least one recommended test');
     try {
@@ -99,7 +102,7 @@ const NewReferral = ({ onCreated }) => {
       });
       if (res.data.success) {
         toast.success('Lab referral created');
-        setPatient({ patientName: '', age: '', gender: 'male', phone: '', cnic: '', area: '', urgency: 'routine', summaryNotes: '' });
+        setPatient({ patientName: '', dateOfBirth: '', age: '', gender: 'male', phone: '', cnic: '', area: '', urgency: 'routine', summaryNotes: '' });
         setTests([{ testName: '', note: '' }]);
         setSelectedLab(null);
         setSuggestions([]);
@@ -120,7 +123,15 @@ const NewReferral = ({ onCreated }) => {
         <h3 className="text-sm font-black text-slate-900 dark:text-slate-50">Patient Details</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <input className={inputClass} placeholder="Patient name *" value={patient.patientName} onChange={(e) => setField('patientName', e.target.value)} required />
-          <input type="number" min={0} className={inputClass} placeholder="Age *" value={patient.age} onChange={(e) => setField('age', e.target.value)} required />
+          <div className="sm:col-span-2 space-y-1">
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Date of Birth *</label>
+            <DobPicker
+              value={patient.dateOfBirth}
+              onChange={(iso) => setPatient((p) => ({ ...p, dateOfBirth: iso, age: ageFromDob(iso) }))}
+              className={inputClass}
+            />
+          </div>
+          <input type="text" className={`${inputClass} bg-slate-50 dark:bg-slate-800/60 cursor-not-allowed`} placeholder="Age" value={formatAge(patient.dateOfBirth)} readOnly disabled title="Auto-calculated from date of birth" />
           <select className={inputClass} value={patient.gender} onChange={(e) => setField('gender', e.target.value)}>
             <option value="male">Male</option>
             <option value="female">Female</option>

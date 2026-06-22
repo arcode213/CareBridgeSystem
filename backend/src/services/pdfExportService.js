@@ -17,8 +17,12 @@
 const PDFDocument = require('pdfkit');
 const axios = require('axios');
 const { PDFDocument: PdfLib } = require('pdf-lib');
+const { formatAge } = require('../utils/age');
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
+// Age display adapts to the patient: days / months / years. Falls back to the
+// stored numeric age (legacy records without a date of birth).
+const ageDisplay = (r) => formatAge(r && r.dateOfBirth) || (r && r.age != null ? `${r.age}` : '');
 const formatPkr = (paisa) => {
   if (paisa === undefined || paisa === null || isNaN(paisa)) return 'PKR 0';
   const rupees = Number(paisa) / 100;
@@ -340,7 +344,7 @@ function writeReferralDetail(doc, referral, admission, labReferrals) {
   keyValues(doc, [
     ['Referral Code', referral.referralCode],
     ['Patient Name', referral.patientName],
-    ['Age / Gender', `${safe(referral.age)} / ${safe(referral.gender)}`],
+    ['Age / Gender', `${safe(ageDisplay(referral))} / ${safe(referral.gender)}`],
     ['Phone', referral.phone],
     ['CNIC', referral.cnic],
     ['Guardian', referral.guardianName ? `${referral.guardianName} (${safe(referral.guardianRelation)})` : null],
@@ -435,7 +439,7 @@ function writeLabReferralDetail(doc, referral, labPayout) {
   keyValues(doc, [
     ['Lab Referral Code', referral.referralCode],
     ['Patient Name', referral.patientName],
-    ['Age / Gender', `${safe(referral.age)} / ${safe(referral.gender)}`],
+    ['Age / Gender', `${safe(ageDisplay(referral))} / ${safe(referral.gender)}`],
     ['Phone', referral.phone],
     ['CNIC', referral.cnic],
     ['Guardian', referral.guardianName ? `${referral.guardianName} (${safe(referral.guardianRelation)})` : null],
@@ -522,7 +526,7 @@ async function buildConsultantReferralsPdf(res, { consultantName, referrals }) {
     { label: 'Status', width: 45 },
   ] }, referrals.map((r) => [
     safe(r.referralCode), fmtDate(r.createdAt), safe(r.patientName),
-    `${safe(r.age)}/${(r.gender || '').charAt(0).toUpperCase()}`,
+    `${safe(ageDisplay(r))}/${(r.gender || '').charAt(0).toUpperCase()}`,
     safe(r.targetHospitalId?.hospitalName), safe(r.department), (r.status || '').toUpperCase(),
   ]));
   await finish(doc, done, res, `My_Referrals_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -555,7 +559,7 @@ async function buildHospitalRecordsPdf(res, { hospital, referrals }) {
     { label: 'Status', width: 45 },
   ] }, referrals.map((r) => [
     safe(r.referralCode), fmtDate(r.createdAt), safe(r.patientName),
-    `${safe(r.age)}/${(r.gender || '').charAt(0).toUpperCase()}`,
+    `${safe(ageDisplay(r))}/${(r.gender || '').charAt(0).toUpperCase()}`,
     safe(r.consultantId?.userId?.name), safe(r.department), (r.status || '').toUpperCase(),
   ]));
   await finish(doc, done, res, `Hospital_Records_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -704,7 +708,7 @@ async function buildLabReferralsRosterPdf(res, { heading, subtitle, filename, re
     { label: 'Age/Sex', width: 48 }, { label: partyLabel || 'Party', width: 92 }, { label: 'Status', width: 60 }, { label: 'Bill', width: 60 },
   ] }, referrals.map((r) => [
     safe(r.referralCode), fmtDate(r.createdAt), safe(r.patientName),
-    `${safe(r.age)}/${(r.gender || '').charAt(0).toUpperCase()}`,
+    `${safe(ageDisplay(r))}/${(r.gender || '').charAt(0).toUpperCase()}`,
     partyValue ? safe(partyValue(r)) : '—', (r.status || '').toUpperCase(),
     r.billTotalPaisa != null ? formatPkr(r.billTotalPaisa) : '—',
   ]));

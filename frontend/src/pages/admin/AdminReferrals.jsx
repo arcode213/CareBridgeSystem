@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import api from '../../utils/api';
 import Loader from '../../components/Loader';
 import DetailModal from '../../components/DetailModal';
+import DobPicker from '../../components/DobPicker';
+import { ageFromDob, formatDob, formatAge, ageLabel } from '../../utils/dob';
 
 const AdminReferrals = () => {
   const queryClient = useQueryClient();
@@ -17,6 +19,7 @@ const AdminReferrals = () => {
   // Edit form state
   const [editForm, setEditForm] = useState({
     patientName: '',
+    dateOfBirth: '',
     age: '',
     gender: 'male',
     phone: '',
@@ -146,6 +149,7 @@ const AdminReferrals = () => {
   const startEdit = (ref) => {
     setEditForm({
       patientName: ref.patientName || '',
+      dateOfBirth: ref.dateOfBirth || '',
       age: ref.age || '',
       gender: ref.gender || 'male',
       phone: ref.phone || '',
@@ -295,8 +299,12 @@ const AdminReferrals = () => {
                     <span className="font-semibold text-slate-800">{selectedRef.patientName}</span>
                   </div>
                   <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Date of Birth</span>
+                    <span className="font-semibold text-slate-800">{formatDob(selectedRef.dateOfBirth) || '—'}</span>
+                  </div>
+                  <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Age & Gender</span>
-                    <span className="font-semibold text-slate-800">{selectedRef.age} years · {selectedRef.gender}</span>
+                    <span className="font-semibold text-slate-800">{ageLabel(selectedRef)} · {selectedRef.gender}</span>
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Contact Number</span>
@@ -438,12 +446,20 @@ const AdminReferrals = () => {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-400 uppercase">Age</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase">Age (auto)</label>
                     <input
-                      type="number" required
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                      value={editForm.age}
-                      onChange={(e) => setEditForm({ ...editForm, age: e.target.value })}
+                      type="text" readOnly disabled
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500 cursor-not-allowed"
+                      value={formatAge(editForm.dateOfBirth)}
+                      title="Auto-calculated from date of birth"
+                    />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase">Date of Birth</label>
+                    <DobPicker
+                      value={editForm.dateOfBirth}
+                      onChange={(iso) => setEditForm({ ...editForm, dateOfBirth: iso, age: ageFromDob(iso) })}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
                     />
                   </div>
                   <div className="space-y-1">

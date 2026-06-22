@@ -5,6 +5,7 @@ import api from '../utils/api';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
 import Loader from '../components/Loader';
 import { downloadPdf } from '../utils/downloadFile';
+import { ageLabel } from '../utils/dob';
 
 const urgencyStyles = {
   emergency: { card: 'border-red-200',   badge: 'bg-red-50 text-red-600 border-red-100',    text: 'text-red-600' },
@@ -168,7 +169,7 @@ const HospitalReferrals = () => {
                         </div>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                           From <span className="font-semibold text-slate-700 dark:text-slate-300">{consultantName}</span>
-                          {' · '}{referral.age}y · {referral.gender}
+                          {' · '}{ageLabel(referral)} · {referral.gender}
                         </p>
                         <div className="flex gap-2 flex-wrap mt-2">
                           {referral.department && (

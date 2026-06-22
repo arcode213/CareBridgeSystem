@@ -8,6 +8,8 @@ const ReferralSchema = new mongoose.Schema(
     consultantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Consultant', required: true },
     // Patient Info
     patientName: { type: String, required: true },
+    /** Source of truth for patient age; `age` is derived from this. */
+    dateOfBirth: { type: Date },
     age: { type: Number, required: true },
     gender: { type: String, enum: ['male', 'female', 'other'], required: true },
     phone: { type: String, required: true },
