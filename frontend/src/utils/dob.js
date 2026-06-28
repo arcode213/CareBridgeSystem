@@ -130,3 +130,44 @@ export function formatDob(dob) {
   if (Number.isNaN(date.getTime())) return '';
   return `${date.getUTCDate()} ${MONTH_ABBR[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
+
+/**
+ * Units for the manual age input. DOB stays the platform-wide source of truth,
+ * so a typed age + unit is converted to an approximate date of birth.
+ */
+export const AGE_UNITS = [
+  { value: 'years', label: 'Years' },
+  { value: 'months', label: 'Months' },
+  { value: 'days', label: 'Days' },
+];
+
+/** Approximate days for one of each unit (years/months use the Gregorian average). */
+const DAYS_PER_UNIT = { days: 1, months: 365.25 / 12, years: 365.25 };
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Convert a manually-entered age (e.g. 1.5) + unit into an ISO 'YYYY-MM-DD'
+ * date of birth, anchored to today. Supports fractional amounts so an infant's
+ * age can be captured precisely. Returns '' when the amount is missing/invalid.
+ */
+export function ageInputToIso(amount, unit = 'years') {
+  if (amount === '' || amount == null) return '';
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n < 0) return '';
+  const days = n * (DAYS_PER_UNIT[unit] ?? DAYS_PER_UNIT.years);
+  const date = new Date(Date.now() - days * MS_PER_DAY);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Best-fit { amount, unit } for an existing DOB so the manual age input can be
+ * pre-populated (edit forms) — days under a month, months under a year, else years.
+ */
+export function isoToAgeInput(dob) {
+  const parts = ageParts(dob);
+  if (!parts) return { amount: '', unit: 'years' };
+  if (parts.years >= 1) return { amount: String(parts.years), unit: 'years' };
+  if (parts.months >= 1) return { amount: String(parts.months), unit: 'months' };
+  return { amount: String(parts.days), unit: 'days' };
+}

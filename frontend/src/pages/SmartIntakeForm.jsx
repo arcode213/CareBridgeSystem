@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../utils/api';
-import DobPicker from '../components/DobPicker';
-import { ageFromDob, formatAge } from '../utils/dob';
+import AgeInput from '../components/AgeInput';
+import { ageFromDob } from '../utils/dob';
 
 const SmartIntakeForm = () => {
   const [step, setStep] = useState(1);
@@ -105,8 +105,9 @@ const SmartIntakeForm = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // DOB drives age — keep the (read-only) age field in sync with the picker.
-  const handleDobChange = (iso) => {
+  // Manual age (amount + unit) is converted to a DOB, which stays the source of
+  // truth; the whole-year `age` is kept in sync from it.
+  const handleAgeChange = (iso) => {
     setFormData((prev) => ({ ...prev, dateOfBirth: iso, age: ageFromDob(iso) }));
   };
 
@@ -285,17 +286,9 @@ const SmartIntakeForm = () => {
                   placeholder="Enter father / husband name"
                 />
               </div>
-              <div className="space-y-2 col-span-2">
-                <label className="text-sm font-semibold text-gray-700">Date of Birth</label>
-                <DobPicker value={formData.dateOfBirth} onChange={handleDobChange} />
-              </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Age <span className="text-gray-400 font-normal">(auto-calculated)</span></label>
-                <input
-                  type="text" value={formatAge(formData.dateOfBirth)} readOnly disabled
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-600 outline-none cursor-not-allowed"
-                  placeholder="Select date of birth"
-                />
+                <label className="text-sm font-semibold text-gray-700">Age</label>
+                <AgeInput value={formData.dateOfBirth} onChange={handleAgeChange} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700">Gender</label>

@@ -10,8 +10,8 @@ import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
 import LabReferralDetailModal from '../components/LabReferralDetailModal';
-import DobPicker from '../components/DobPicker';
-import { ageFromDob, formatAge, ageLabel } from '../utils/dob';
+import AgeInput from '../components/AgeInput';
+import { ageFromDob } from '../utils/dob';
 import { downloadPdf as downloadRecordPdf } from '../utils/downloadFile';
 
 const TABS = [
@@ -88,7 +88,7 @@ const NewReferral = ({ onCreated }) => {
   const submit = async (e) => {
     e.preventDefault();
     if (!selectedLab) return toast.error('Select a laboratory');
-    if (!patient.dateOfBirth) return toast.error('Select the patient’s date of birth');
+    if (!patient.dateOfBirth) return toast.error('Enter the patient’s age');
     const cleanTests = tests.filter((t) => t.testName.trim());
     if (cleanTests.length === 0) return toast.error('Add at least one recommended test');
     try {
@@ -124,14 +124,13 @@ const NewReferral = ({ onCreated }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <input className={inputClass} placeholder="Patient name *" value={patient.patientName} onChange={(e) => setField('patientName', e.target.value)} required />
           <div className="sm:col-span-2 space-y-1">
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Date of Birth *</label>
-            <DobPicker
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Age *</label>
+            <AgeInput
               value={patient.dateOfBirth}
               onChange={(iso) => setPatient((p) => ({ ...p, dateOfBirth: iso, age: ageFromDob(iso) }))}
               className={inputClass}
             />
           </div>
-          <input type="text" className={`${inputClass} bg-slate-50 dark:bg-slate-800/60 cursor-not-allowed`} placeholder="Age" value={formatAge(patient.dateOfBirth)} readOnly disabled title="Auto-calculated from date of birth" />
           <select className={inputClass} value={patient.gender} onChange={(e) => setField('gender', e.target.value)}>
             <option value="male">Male</option>
             <option value="female">Female</option>
