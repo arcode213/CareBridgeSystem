@@ -23,9 +23,22 @@ exports.listPendingReferrals = async (req, res) => {
       .populate({ path: 'consultantId', populate: { path: 'userId', select: 'name email' } })
       .sort({ completedAt: -1 });
 
+    // Read the immutable LabPayout snapshot so the preview == the final settled amount.
+    const payouts = await LabPayout.find({ labReferralId: { $in: referrals.map((r) => r._id) } });
+    const snapByReferral = {};
+    for (const p of payouts) {
+      if (!p.labReferralId) continue;
+      snapByReferral[p.labReferralId.toString()] = p;
+    }
+
     const results = referrals.map((ref) => {
       const doc = ref.toObject();
-      doc.calculatedPlatformCutPaisa = Math.round((doc.billTotalPaisa || 0) * ((lab.deductionPercentage || 20) / 100));
+      const snap = snapByReferral[ref._id.toString()];
+      const fallback = Math.round((doc.billTotalPaisa || 0) * ((lab.deductionPercentage || 20) / 100));
+      doc.platformChargePaisa = snap ? (snap.platformChargePaisa ?? snap.adminSharePaisa ?? 0) : fallback;
+      doc.doctorCommissionPaisa = snap ? (snap.doctorCommissionPaisa ?? snap.amountPaisa ?? 0) : 0;
+      doc.totalCutPaisa = snap ? (snap.totalCutPaisa || snap.platformCutPaisa || 0) : fallback;
+      doc.calculatedPlatformCutPaisa = doc.totalCutPaisa; // total the lab owes (back-compat name)
       return doc;
     });
 
@@ -71,20 +84,33 @@ exports.createSettlement = async (req, res) => {
       weeklySettlementId: null,
     });
 
-    // 3. Compute sums
+    // 3. Compute sums from the immutable payout snapshots (lab owes Σ totalCut).
     const grossAmountPaisa = referrals.reduce((sum, r) => sum + (r.billTotalPaisa || 0), 0);
-    const calculatedPlatformCutPaisa = payouts.reduce((sum, p) => sum + (p.platformCutPaisa || 0), 0);
+    const facilityTotalPayablePaisa = payouts.reduce(
+      (sum, p) => sum + (p.totalCutPaisa || p.platformCutPaisa || 0),
+      0
+    );
+    const doctorCommissionTotalPaisa = payouts.reduce(
+      (sum, p) => sum + (p.doctorCommissionPaisa || p.amountPaisa || 0),
+      0
+    );
+    const platformChargeTotalPaisa = payouts.reduce(
+      (sum, p) => sum + (p.platformChargePaisa || p.adminSharePaisa || 0),
+      0
+    );
+    const calculatedPlatformCutPaisa = facilityTotalPayablePaisa; // what the lab transfers
 
-    // 4. Group payouts by consultant
+    // 4. Group payouts by consultant, snapshotting commission FROM the payout (not live).
     const consultantMap = {};
     for (const payout of payouts) {
       const cIdStr = payout.consultantId.toString();
       if (!consultantMap[cIdStr]) {
-        const consultant = await Consultant.findById(payout.consultantId);
         consultantMap[cIdStr] = {
           consultantId: payout.consultantId,
           amountPaisa: 0,
-          commissionPercentage: consultant ? consultant.commissionPercentage || 60 : 60,
+          commissionPercentage: payout.commissionPercentage || 0,
+          commissionType: payout.commissionType || 'percentage',
+          fixedCommissionPaisa: payout.fixedCommissionPaisa || 0,
           status: 'pending_payout',
         };
       }
@@ -102,6 +128,9 @@ exports.createSettlement = async (req, res) => {
       grossAmountPaisa,
       deductionPercentage: lab.deductionPercentage || 20,
       calculatedPlatformCutPaisa,
+      doctorCommissionTotalPaisa,
+      platformChargeTotalPaisa,
+      facilityTotalPayablePaisa,
       labReceiptFileUrl,
       labPaidAt: new Date(),
       notes,
@@ -208,6 +237,8 @@ exports.listLabSettlements = async (req, res) => {
         doc.consultantPayouts = doc.consultantPayouts.map((p) => {
           delete p.amountPaisa;
           delete p.commissionPercentage;
+          delete p.commissionType;
+          delete p.fixedCommissionPaisa;
           return p;
         });
       }

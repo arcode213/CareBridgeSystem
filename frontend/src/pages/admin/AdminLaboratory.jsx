@@ -43,7 +43,9 @@ const LabDetailModal = ({ labId, onClose, onSaved }) => {
     if (lab && !form) {
       setForm({
         labName: lab.labName || '', registrationNumber: lab.registrationNumber || '', city: lab.city || '', area: lab.area || '',
-        address: lab.address || '', deductionPercentage: lab.deductionPercentage, maxConsultantDiscountPercentage: lab.maxConsultantDiscountPercentage,
+        address: lab.address || '', deductionPercentage: lab.deductionPercentage,
+        platformChargeType: lab.platformChargeType || 'percentage',
+        fixedPlatformChargeRupeesPerTest: (lab.fixedPlatformChargePaisaPerTest || 0) / 100,
       });
     }
   }, [lab, form]);
@@ -96,8 +98,32 @@ const LabDetailModal = ({ labId, onClose, onSaved }) => {
                 <div><label className="text-xs font-bold text-slate-500">City</label><input className={fullInput} value={form.city} onChange={(e) => setF('city', e.target.value)} /></div>
                 <div><label className="text-xs font-bold text-slate-500">Area</label><input className={fullInput} value={form.area} onChange={(e) => setF('area', e.target.value)} /></div>
                 <div className="sm:col-span-2"><label className="text-xs font-bold text-slate-500">Address</label><input className={fullInput} value={form.address} onChange={(e) => setF('address', e.target.value)} /></div>
-                <div><label className="text-xs font-bold text-slate-500">Platform deduction %</label><input type="number" className={fullInput} value={form.deductionPercentage} onChange={(e) => setF('deductionPercentage', Number(e.target.value))} /></div>
-                <div><label className="text-xs font-bold text-slate-500">Max consultant discount %</label><input type="number" className={fullInput} value={form.maxConsultantDiscountPercentage} onChange={(e) => setF('maxConsultantDiscountPercentage', Number(e.target.value))} /></div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-500">Platform charge (Lab → Admin)</label>
+                  <p className="text-[10px] text-slate-400 mt-0.5 mb-1">Choose one type — a percentage of the bill, or a fixed price per test.</p>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+                      <input type="radio" checked={form.platformChargeType === 'percentage'} onChange={() => setF('platformChargeType', 'percentage')} /> Percentage
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+                      <input type="radio" checked={form.platformChargeType === 'fixed'} onChange={() => setF('platformChargeType', 'fixed')} /> Fixed per test
+                    </label>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      {form.platformChargeType === 'fixed' ? (
+                        <>
+                          <span className="text-xs font-bold text-slate-400">Rs</span>
+                          <input type="number" min="0" className="w-24 px-2 py-1.5 text-center text-sm font-bold border border-slate-200 rounded-lg" value={form.fixedPlatformChargeRupeesPerTest} onChange={(e) => setF('fixedPlatformChargeRupeesPerTest', Math.max(0, Number(e.target.value) || 0))} />
+                          <span className="text-[10px] font-medium text-slate-400">/ test</span>
+                        </>
+                      ) : (
+                        <>
+                          <input type="number" min="0" max="100" className="w-20 px-2 py-1.5 text-center text-sm font-bold border border-slate-200 rounded-lg" value={form.deductionPercentage} onChange={(e) => setF('deductionPercentage', Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />
+                          <span className="text-xs font-bold text-slate-400">%</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="flex justify-end">
                 <button onClick={save} disabled={saving} className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-lg disabled:opacity-60"><Save size={15} /> Save</button>
@@ -179,7 +205,6 @@ const LabsPanel = () => {
     try {
       await api.patch(`/admin/labs/${lab._id}`, {
         deductionPercentage: e.deductionPercentage ?? lab.deductionPercentage,
-        maxConsultantDiscountPercentage: e.maxConsultantDiscountPercentage ?? lab.maxConsultantDiscountPercentage,
       });
       toast.success('Updated');
       refresh();
@@ -231,10 +256,6 @@ const LabsPanel = () => {
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Platform deduction %</label>
                   <input type="number" className={inputClass} defaultValue={lab.deductionPercentage} onChange={(ev) => setEdits((s) => ({ ...s, [lab._id]: { ...s[lab._id], deductionPercentage: Number(ev.target.value) } }))} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Max consultant discount %</label>
-                  <input type="number" className={inputClass} defaultValue={lab.maxConsultantDiscountPercentage} onChange={(ev) => setEdits((s) => ({ ...s, [lab._id]: { ...s[lab._id], maxConsultantDiscountPercentage: Number(ev.target.value) } }))} />
                 </div>
                 <button onClick={() => saveEconomics(lab)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 font-bold text-xs rounded-lg hover:bg-slate-200"><Save size={13} /> Save</button>
 

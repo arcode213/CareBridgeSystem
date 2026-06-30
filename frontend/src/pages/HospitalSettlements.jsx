@@ -184,14 +184,16 @@ const HospitalSettlements = () => {
     }
   };
 
-  // Calculate totals for currently selected items
+  // Calculate totals for currently selected items — summed from the backend's per-case
+  // snapshot (platform charge + doctor commission) so the preview == the created settlement.
   const selectedAdmissionsObjects = pendingAdmissions.filter(a => selectedAdmissionIds.includes(a._id));
   const selectedGrossPaisa = selectedAdmissionsObjects.reduce((sum, a) => sum + (a.billTotalPaisa || 0), 0);
-  
-  // Platform cut is based on hospital percentage
-  // We can default show the calculated platforms cut based on average 20% or let hospital profile's actual value show
-  const hospitalDeductionPercent = pendingAdmissions[0]?.hospitalId?.deductionPercentage || 20;
-  const calculatedPlatformCutPaisa = Math.round(selectedGrossPaisa * (hospitalDeductionPercent / 100));
+  const selectedPlatformPaisa = selectedAdmissionsObjects.reduce((sum, a) => sum + (a.platformChargePaisa || 0), 0);
+  const selectedCommissionPaisa = selectedAdmissionsObjects.reduce((sum, a) => sum + (a.doctorCommissionPaisa || 0), 0);
+  // Total the hospital owes the platform = platform charge + doctor commission
+  const calculatedPlatformCutPaisa = selectedAdmissionsObjects.reduce(
+    (sum, a) => sum + (a.calculatedPlatformCutPaisa || 0), 0
+  );
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -358,11 +360,15 @@ const HospitalSettlements = () => {
                     <span className="text-lg font-black tabular-nums">{formatPkr(selectedGrossPaisa)}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400">Platform Cut Rate</span>
-                    <span className="font-bold text-teal-400">{hospitalDeductionPercent}%</span>
+                    <span className="text-slate-400">Platform Charge</span>
+                    <span className="font-bold text-slate-200 tabular-nums">{formatPkr(selectedPlatformPaisa)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Doctor Commission</span>
+                    <span className="font-bold text-slate-200 tabular-nums">{formatPkr(selectedCommissionPaisa)}</span>
                   </div>
                   <div className="flex justify-between items-center border-t border-dashed border-white/10 pt-3">
-                    <span className="text-xs text-slate-350 font-black">Net Platform Fee Due (You Pay Manually)</span>
+                    <span className="text-xs text-slate-350 font-black">Total Due to Platform (You Pay Manually)</span>
                     <span className="text-xl font-extrabold text-teal-400 tabular-nums">{formatPkr(calculatedPlatformCutPaisa)}</span>
                   </div>
                 </div>
@@ -518,16 +524,16 @@ const HospitalSettlements = () => {
                 {/* Grid details */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                   <div>
-                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Gross Revenue</span>
-                    <span className="font-extrabold text-slate-850 dark:text-slate-200 tabular-nums">{formatPkr(settlement.grossAmountPaisa)}</span>
+                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Platform Charge</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300 tabular-nums">{formatPkr(settlement.platformChargeTotalPaisa ?? settlement.calculatedPlatformCutPaisa)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Deduction Cut</span>
-                    <span className="font-bold text-slate-600 dark:text-slate-400">{settlement.deductionPercentage}%</span>
+                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Doctor Commission</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300 tabular-nums">{formatPkr(settlement.doctorCommissionTotalPaisa ?? 0)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Platform Cut Due</span>
-                    <span className="font-black text-teal-600 dark:text-teal-400 tabular-nums">{formatPkr(settlement.calculatedPlatformCutPaisa)}</span>
+                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Total Due</span>
+                    <span className="font-black text-teal-600 dark:text-teal-400 tabular-nums">{formatPkr(settlement.facilityTotalPayablePaisa ?? settlement.calculatedPlatformCutPaisa)}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Cases Included</span>

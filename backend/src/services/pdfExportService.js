@@ -578,7 +578,8 @@ async function buildConsultantFilePdf(res, { user, consultant, referrals, payout
     ['Specialty', consultant.specialty], ['Clinic', consultant.clinicName],
     ['Clinic Address', consultant.clinicAddress], ['City', consultant.city],
     ['Promo Code', consultant.promoCode], ['Verified', consultant.isVerified ? 'Yes' : 'No'],
-    ['Commission %', consultant.commissionPercentage], ['Member Since', fmtDate(user.createdAt)],
+    ['Commission %', consultant.commissionPercentage], ['Max Lab Discount %', consultant.maxLabDiscountPercentage],
+    ['Member Since', fmtDate(user.createdAt)],
   ]);
 
   sectionTitle(doc, 'Accounts & Wallet');
@@ -727,7 +728,7 @@ async function buildLaboratoryFilePdf(res, { user, laboratory, referrals, payout
     ['Contact Phone', user?.phone], ['Account Status', (user?.status || '').toUpperCase()],
     ['Address', laboratory.address], ['City / Area', `${safe(laboratory.city)} / ${safe(laboratory.area)}`],
     ['Active', laboratory.isActive ? 'Yes' : 'No'], ['Registration Verified', laboratory.isRegistrationVerified ? 'Yes' : 'No'],
-    ['Deduction %', laboratory.deductionPercentage], ['Max Consultant Discount %', laboratory.maxConsultantDiscountPercentage],
+    ['Deduction %', laboratory.deductionPercentage],
     ['Avg Response (min)', laboratory.avgResponseTime], ['Acceptance Rate %', laboratory.acceptanceRate],
     ['Rating', laboratory.rating], ['Member Since', fmtDate(laboratory.createdAt)],
   ]);

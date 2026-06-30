@@ -42,9 +42,10 @@ const LaboratorySchema = new mongoose.Schema(
     acceptanceRate: { type: Number, default: 80 }, // percentage
     rating: { type: Number, default: 4.0, min: 0, max: 5 },
     isActive: { type: Boolean, default: false },
-    deductionPercentage: { type: Number, default: 20 }, // platform deduction percentage (e.g. 20%)
-    /** Max discount % a consultant may offer a patient at THIS lab (admin-controlled). */
-    maxConsultantDiscountPercentage: { type: Number, default: 15, min: 0, max: 100 },
+    // ── Platform charge (Lab → Admin) — additive v2; percentage of bill OR flat fee per test ──
+    deductionPercentage: { type: Number, default: 20 }, // platform charge % (also legacy nested cut)
+    platformChargeType: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
+    fixedPlatformChargePaisaPerTest: { type: Number, default: 0, min: 0 }, // flat platform charge per test
     /** Individual JazzCash Merchant Credentials (optional, parallels Hospital). */
     paymentGatewayCredentials: {
       merchantId: { type: String, trim: true },

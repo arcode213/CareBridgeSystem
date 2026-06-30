@@ -3,6 +3,7 @@ const Referral = require('../models/Referral');
 const Consultant = require('../models/Consultant');
 const Payout = require('../models/Payout');
 const PlatformSettings = require('../models/PlatformSettings');
+const commissionService = require('./commissionService');
 
 /**
  * Finalizes an admission:
@@ -18,24 +19,22 @@ exports.finalizeAdmission = async (admissionId, paymentMethod, paymentReference,
   const bill = admission.billTotalPaisa || 0;
   const pm = paymentMethod || admission.paymentMethod || 'manual';
 
-  // 1. Get platform settings & calculate dynamic splits
+  // 1. Get platform settings & calculate the split via the single commission engine.
+  //    Legacy doctors reproduce the original nested numbers exactly; doctors an admin
+  //    has moved to the additive (v2) model get doctorCommission + platformCharge.
   const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
   const Hospital = require('../models/Hospital');
   const hospital = await Hospital.findById(admission.hospitalId);
   const consultant = await Consultant.findById(admission.consultantId);
 
-  const defaultHospitalCut = settings?.defaultHospitalDeductionPercentage ?? 20;
-  const defaultConsultantCut = settings?.defaultConsultantCommissionPercentage ?? 60;
-
-  const deductionPercentage = hospital?.deductionPercentage || defaultHospitalCut;
-  const commissionPercentage = consultant?.commissionPercentage || defaultConsultantCut;
-
   const totalBillPaisa = bill;
-  const platformCutPaisa = Math.round(totalBillPaisa * (deductionPercentage / 100));
-  const consultantSharePaisa = Math.round(platformCutPaisa * (commissionPercentage / 100));
-  const adminSharePaisa = platformCutPaisa - consultantSharePaisa;
-
-  const payoutAmount = consultantSharePaisa;
+  const split = commissionService.computeHospitalSplit({
+    billPaisa: totalBillPaisa,
+    consultant,
+    hospital,
+    settings,
+  });
+  const payoutAmount = split.doctorCommissionPaisa;
 
   // 2. Finalize Admission
   admission.status = 'billed';
@@ -53,19 +52,33 @@ exports.finalizeAdmission = async (admissionId, paymentMethod, paymentReference,
     await referral.save();
   }
 
-  // 4. Create Payout record with full split audit details
+  // 4. Create Payout record with full split audit details (legacy + additive snapshot).
   await Payout.create({
     consultantId: admission.consultantId,
     referralId: refId,
     admissionId: admission._id,
     amountPaisa: payoutAmount,
     totalBillPaisa,
-    deductionPercentage,
-    platformCutPaisa,
-    commissionPercentage,
-    adminSharePaisa,
+    // legacy-compatible fields
+    deductionPercentage: split.deductionPercentage,
+    platformCutPaisa: split.platformCutPaisa,
+    commissionPercentage: split.commissionPercentage,
+    adminSharePaisa: split.adminSharePaisa,
+    // additive (v2) snapshot
+    commissionModel: split.commissionModel,
+    commissionType: split.commissionType,
+    fixedCommissionPaisa: split.fixedCommissionPaisa,
+    platformChargeType: split.platformChargeType,
+    platformChargePercentage: split.platformChargePercentage,
+    fixedPlatformChargePaisa: split.fixedPlatformChargePaisa,
+    doctorCommissionPaisa: split.doctorCommissionPaisa,
+    platformChargePaisa: split.platformChargePaisa,
+    totalCutPaisa: split.totalCutPaisa,
     status: 'accrued',
-    note: `Case closed — bill ${bill/100} PKR (Hospital Cut: ${deductionPercentage}%, Consultant split: ${commissionPercentage}%)`,
+    note:
+      split.commissionModel === 'additive'
+        ? `Case closed — bill ${bill / 100} PKR (Additive: doctor ${split.doctorCommissionPaisa / 100} + platform ${split.platformChargePaisa / 100} = ${split.totalCutPaisa / 100} PKR)`
+        : `Case closed — bill ${bill / 100} PKR (Hospital Cut: ${split.deductionPercentage}%, Consultant split: ${split.commissionPercentage}%)`,
   });
 
   // 5. Consultant wallet balance auto-credits are disabled under the manual weekly settlement workflow.

@@ -63,7 +63,6 @@ exports.getLabSuggestions = async (req, res) => {
         area: l.area,
         address: l.address,
         distanceKm,
-        maxConsultantDiscountPercentage: l.maxConsultantDiscountPercentage,
         deductionPercentage: l.deductionPercentage,
         testCatalog: l.testCatalog,
         rating: l.rating,
@@ -128,13 +127,13 @@ exports.createLabReferral = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Laboratory is not available for referrals' });
     }
 
-    // Validate discount against the lab's admin-set cap
+    // Validate discount against THIS consultant's admin-set cap (per-consultant, not per-lab)
     const discountPercentage = Math.max(0, Number(req.body.discountPercentage) || 0);
-    const cap = lab.maxConsultantDiscountPercentage ?? 0;
+    const cap = consultant.maxLabDiscountPercentage ?? 0;
     if (discountPercentage > cap) {
       return res.status(400).json({
         success: false,
-        message: `Discount cannot exceed ${cap}% for this laboratory`,
+        message: `Discount cannot exceed your ${cap}% limit. Contact the platform admin to raise it.`,
       });
     }
 
@@ -203,7 +202,7 @@ exports.getMyLabReferrals = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Consultant profile not found' });
     }
     const referrals = await LabReferral.find({ consultantId: consultant._id })
-      .populate('targetLaboratoryId', 'labName branding city area maxConsultantDiscountPercentage')
+      .populate('targetLaboratoryId', 'labName branding city area')
       .sort({ createdAt: -1 });
     res.json({ success: true, data: referrals });
   } catch (error) {
@@ -240,8 +239,8 @@ exports.reReferLab = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Laboratory is not available for referrals' });
     }
 
-    // Re-validate discount against the new lab's cap
-    const cap = lab.maxConsultantDiscountPercentage ?? 0;
+    // Re-validate discount against the consultant's admin-set cap
+    const cap = consultant.maxLabDiscountPercentage ?? 0;
     if ((referral.discountPercentage || 0) > cap) {
       referral.discountPercentage = cap;
     }

@@ -53,7 +53,7 @@ exports.listAllUsers = async (req, res) => {
         const base = { ...u };
         if (u.role === 'consultant') {
           base.profile = await Consultant.findOne({ userId: u._id })
-            .select('pmdcNumber specialty clinicName clinicAddress totalEarnings monthlyEarnings walletBalance commissionPercentage promoCode isVerified preferredHospitals verificationDocuments')
+            .select('pmdcNumber specialty clinicName clinicAddress totalEarnings monthlyEarnings walletBalance commissionPercentage maxLabDiscountPercentage promoCode isVerified preferredHospitals verificationDocuments')
             .lean();
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
@@ -696,23 +696,83 @@ exports.adminDeleteUser = async (req, res) => {
 
 exports.adminUpdateConsultantCommission = async (req, res) => {
   try {
+    const { rupeesToPaisa, clampPct } = require('../services/commissionService');
     const { id } = req.params;
-    const { commissionPercentage } = req.body;
-
-    if (commissionPercentage == null || isNaN(commissionPercentage) || commissionPercentage < 0 || commissionPercentage > 100) {
-      return res.status(400).json({ success: false, message: 'Valid commission percentage (0-100) is required' });
-    }
+    const b = req.body || {};
+    const { commissionPercentage, commissionModel } = b;
 
     let consultant = await Consultant.findOne({ userId: id });
     if (!consultant) {
       consultant = await Consultant.findById(id);
     }
-
     if (!consultant) {
       return res.status(404).json({ success: false, message: 'Consultant not found' });
     }
 
-    consultant.commissionPercentage = Number(commissionPercentage);
+    const TYPES = ['percentage', 'fixed'];
+    const bad = (msg) => res.status(400).json({ success: false, message: msg });
+    // Accept a fixed amount as rupees (preferred from UI) or already-paisa.
+    const fixedPaisa = (rupeesKey, paisaKey) => {
+      if (b[paisaKey] !== undefined && b[paisaKey] !== null) return Math.max(0, Math.round(Number(b[paisaKey]) || 0));
+      if (b[rupeesKey] !== undefined && b[rupeesKey] !== null) return rupeesToPaisa(b[rupeesKey]);
+      return undefined;
+    };
+    const setType = (key, val) => {
+      if (val === undefined) return true;
+      if (!TYPES.includes(val)) { bad(`Invalid ${key}`); return false; }
+      consultant[key] = val;
+      return true;
+    };
+    const setPct = (key, val) => {
+      if (val === undefined || val === null) return true;
+      if (isNaN(val) || val < 0 || val > 100) { bad(`${key} must be 0-100`); return false; }
+      consultant[key] = clampPct(val);
+      return true;
+    };
+    const setPaisa = (key, val) => {
+      if (val === undefined) return true;
+      consultant[key] = Math.max(0, Math.round(Number(val) || 0));
+      return true;
+    };
+
+    // Legacy field (kept; still used while a doctor is on the legacy model).
+    if (commissionPercentage !== undefined) {
+      if (isNaN(commissionPercentage) || commissionPercentage < 0 || commissionPercentage > 100) {
+        return bad('Valid commission percentage (0-100) is required');
+      }
+      consultant.commissionPercentage = Number(commissionPercentage);
+    }
+
+    // Commission model switch.
+    if (commissionModel !== undefined) {
+      if (!['legacy', 'additive'].includes(commissionModel)) return bad('Invalid commissionModel');
+      consultant.commissionModel = commissionModel;
+    }
+
+    // ── Doctor COMMISSION only (platform charge lives on the facility) ──
+    let ok = true;
+    // Hospital commission deal
+    ok = ok && setType('hospitalCommissionType', b.hospitalCommissionType);
+    ok = ok && setPct('hospitalCommissionPercentage', b.hospitalCommissionPercentage);
+    ok = ok && setPaisa('hospitalFixedCommissionPaisa', fixedPaisa('hospitalFixedCommissionRupees', 'hospitalFixedCommissionPaisa'));
+    // Lab commission deal (per test)
+    ok = ok && setType('labCommissionType', b.labCommissionType);
+    ok = ok && setPct('labCommissionPercentage', b.labCommissionPercentage);
+    ok = ok && setPaisa('labFixedCommissionPaisaPerTest', fixedPaisa('labFixedCommissionRupeesPerTest', 'labFixedCommissionPaisaPerTest'));
+    if (!ok) return; // a setter already sent a 400
+
+    // Require at least one recognized field so an empty body is a clear error.
+    if (
+      commissionPercentage === undefined &&
+      commissionModel === undefined &&
+      ![
+        'hospitalCommissionType', 'hospitalCommissionPercentage', 'hospitalFixedCommissionRupees', 'hospitalFixedCommissionPaisa',
+        'labCommissionType', 'labCommissionPercentage', 'labFixedCommissionRupeesPerTest', 'labFixedCommissionPaisaPerTest',
+      ].some((k) => b[k] !== undefined)
+    ) {
+      return bad('No commission fields provided');
+    }
+
     await consultant.save();
 
     await logAction({
@@ -720,35 +780,60 @@ exports.adminUpdateConsultantCommission = async (req, res) => {
       action: 'ADMIN_UPDATE_CONSULTANT_COMMISSION',
       entityId: consultant._id,
       entityModel: 'Consultant',
-      details: { commissionPercentage }
+      details: {
+        commissionModel: consultant.commissionModel,
+        commissionPercentage: consultant.commissionPercentage,
+        hospitalCommissionType: consultant.hospitalCommissionType,
+        hospitalCommissionPercentage: consultant.hospitalCommissionPercentage,
+        hospitalFixedCommissionPaisa: consultant.hospitalFixedCommissionPaisa,
+        labCommissionType: consultant.labCommissionType,
+        labCommissionPercentage: consultant.labCommissionPercentage,
+        labFixedCommissionPaisaPerTest: consultant.labFixedCommissionPaisaPerTest,
+      },
     });
 
-    res.json({ success: true, message: 'Consultant commission percentage updated successfully', data: consultant });
+    res.json({ success: true, message: 'Consultant commission updated successfully', data: consultant });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ success: false, message: 'Failed to update commission percentage' });
+    res.status(500).json({ success: false, message: 'Failed to update commission' });
   }
 };
 
 exports.adminUpdateHospitalDeduction = async (req, res) => {
   try {
+    const { rupeesToPaisa } = require('../services/commissionService');
     const { id } = req.params;
-    const { deductionPercentage } = req.body;
-
-    if (deductionPercentage == null || isNaN(deductionPercentage) || deductionPercentage < 0 || deductionPercentage > 100) {
-      return res.status(400).json({ success: false, message: 'Valid deduction percentage (0-100) is required' });
-    }
+    const { deductionPercentage, platformChargeType } = req.body;
 
     let hospital = await Hospital.findOne({ userId: id });
     if (!hospital) {
       hospital = await Hospital.findById(id);
     }
-
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital not found' });
     }
 
-    hospital.deductionPercentage = Number(deductionPercentage);
+    // Platform charge type (percentage of bill OR a flat fee per patient).
+    if (platformChargeType !== undefined) {
+      if (!['percentage', 'fixed'].includes(platformChargeType)) {
+        return res.status(400).json({ success: false, message: 'Invalid platformChargeType' });
+      }
+      hospital.platformChargeType = platformChargeType;
+    }
+    // Percentage value (also the legacy nested cut).
+    if (deductionPercentage !== undefined && deductionPercentage !== null) {
+      if (isNaN(deductionPercentage) || deductionPercentage < 0 || deductionPercentage > 100) {
+        return res.status(400).json({ success: false, message: 'Valid deduction percentage (0-100) is required' });
+      }
+      hospital.deductionPercentage = Number(deductionPercentage);
+    }
+    // Flat platform fee per patient (rupees from UI -> paisa, or direct paisa).
+    if (req.body.fixedPlatformChargePaisa !== undefined && req.body.fixedPlatformChargePaisa !== null) {
+      hospital.fixedPlatformChargePaisa = Math.max(0, Math.round(Number(req.body.fixedPlatformChargePaisa) || 0));
+    } else if (req.body.fixedPlatformChargeRupees !== undefined && req.body.fixedPlatformChargeRupees !== null) {
+      hospital.fixedPlatformChargePaisa = rupeesToPaisa(req.body.fixedPlatformChargeRupees);
+    }
+
     await hospital.save();
 
     await logAction({
@@ -756,13 +841,17 @@ exports.adminUpdateHospitalDeduction = async (req, res) => {
       action: 'ADMIN_UPDATE_HOSPITAL_DEDUCTION',
       entityId: hospital._id,
       entityModel: 'Hospital',
-      details: { deductionPercentage }
+      details: {
+        platformChargeType: hospital.platformChargeType,
+        deductionPercentage: hospital.deductionPercentage,
+        fixedPlatformChargePaisa: hospital.fixedPlatformChargePaisa,
+      },
     });
 
-    res.json({ success: true, message: 'Hospital deduction percentage updated successfully', data: hospital });
+    res.json({ success: true, message: 'Hospital platform charge updated successfully', data: hospital });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ success: false, message: 'Failed to update deduction percentage' });
+    res.status(500).json({ success: false, message: 'Failed to update platform charge' });
   }
 };
 
@@ -1156,12 +1245,17 @@ exports.adminUpdateConsultant = async (req, res) => {
       'city',
       'cnic',
       'commissionPercentage',
+      'maxLabDiscountPercentage',
       'isVerified',
     ];
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
         consultant[key] = req.body[key];
       }
+    }
+    // Clamp the lab discount cap to a sane [0,100] range.
+    if (req.body.maxLabDiscountPercentage !== undefined) {
+      consultant.maxLabDiscountPercentage = Math.max(0, Math.min(100, Number(req.body.maxLabDiscountPercentage) || 0));
     }
     if (req.body.payoutAccount) {
       consultant.payoutAccount = { ...consultant.payoutAccount, ...req.body.payoutAccount };

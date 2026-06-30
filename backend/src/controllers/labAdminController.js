@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Laboratory = require('../models/Laboratory');
 const LabReferral = require('../models/LabReferral');
 const LabPayout = require('../models/LabPayout');
+const Consultant = require('../models/Consultant');
 const User = require('../models/User');
 const { logAction } = require('../utils/logger');
 const { ageFromDob } = require('../utils/age');
@@ -97,9 +98,10 @@ exports.updateLab = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Laboratory not found' });
     }
 
+    const { rupeesToPaisa } = require('../services/commissionService');
     const {
       deductionPercentage,
-      maxConsultantDiscountPercentage,
+      platformChargeType,
       labName,
       registrationNumber,
       city,
@@ -113,12 +115,17 @@ exports.updateLab = async (req, res) => {
       }
       lab.deductionPercentage = d;
     }
-    if (maxConsultantDiscountPercentage != null) {
-      const m = Number(maxConsultantDiscountPercentage);
-      if (!Number.isFinite(m) || m < 0 || m > 100) {
-        return res.status(400).json({ success: false, message: 'maxConsultantDiscountPercentage must be between 0 and 100' });
+    // Platform charge: percentage of bill OR a flat fee per test.
+    if (platformChargeType !== undefined) {
+      if (!['percentage', 'fixed'].includes(platformChargeType)) {
+        return res.status(400).json({ success: false, message: 'Invalid platformChargeType' });
       }
-      lab.maxConsultantDiscountPercentage = m;
+      lab.platformChargeType = platformChargeType;
+    }
+    if (req.body.fixedPlatformChargePaisaPerTest !== undefined && req.body.fixedPlatformChargePaisaPerTest !== null) {
+      lab.fixedPlatformChargePaisaPerTest = Math.max(0, Math.round(Number(req.body.fixedPlatformChargePaisaPerTest) || 0));
+    } else if (req.body.fixedPlatformChargeRupeesPerTest !== undefined && req.body.fixedPlatformChargeRupeesPerTest !== null) {
+      lab.fixedPlatformChargePaisaPerTest = rupeesToPaisa(req.body.fixedPlatformChargeRupeesPerTest);
     }
     // Profile fields (admin-editable)
     if (labName != null && String(labName).trim()) lab.labName = String(labName).trim();
@@ -134,7 +141,11 @@ exports.updateLab = async (req, res) => {
       action: 'LAB_UPDATED',
       entityId: lab._id,
       entityModel: 'Laboratory',
-      details: { deductionPercentage: lab.deductionPercentage, maxConsultantDiscountPercentage: lab.maxConsultantDiscountPercentage },
+      details: {
+        platformChargeType: lab.platformChargeType,
+        deductionPercentage: lab.deductionPercentage,
+        fixedPlatformChargePaisaPerTest: lab.fixedPlatformChargePaisaPerTest,
+      },
     });
 
     res.json({ success: true, data: lab });
@@ -226,7 +237,10 @@ exports.updateLabReferral = async (req, res) => {
         .map((t) => ({ testName: String(t.testName).trim(), note: String(t.note || '').trim() }));
     }
     if (b.discountPercentage != null) {
-      referral.discountPercentage = Math.max(0, Math.min(100, Number(b.discountPercentage) || 0));
+      // Cap admin-set discount to the consultant's per-consultant max as well.
+      const refConsultant = await Consultant.findById(referral.consultantId).select('maxLabDiscountPercentage');
+      const cap = refConsultant?.maxLabDiscountPercentage ?? 100;
+      referral.discountPercentage = Math.max(0, Math.min(cap, Number(b.discountPercentage) || 0));
     }
     if (Array.isArray(b.services)) {
       referral.services = b.services

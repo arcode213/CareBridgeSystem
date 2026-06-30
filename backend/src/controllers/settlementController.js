@@ -27,9 +27,26 @@ exports.listPendingAdmissions = async (req, res) => {
     })
     .sort({ completedAt: -1 });
 
+    // Read the immutable Payout snapshot so the preview == the final settled amount
+    // (legacy: platform cut; additive: doctor commission + platform charge). Never recompute
+    // from a live percentage, which would drift if a rate changed after finalization.
+    const payouts = await Payout.find({ admissionId: { $in: admissions.map((a) => a._id) } });
+    const snapByAdmission = {};
+    for (const p of payouts) {
+      if (!p.admissionId) continue;
+      snapByAdmission[p.admissionId.toString()] = p;
+    }
+
     const results = admissions.map(adm => {
       const doc = adm.toObject();
-      doc.calculatedPlatformCutPaisa = Math.round((doc.billTotalPaisa || 0) * ((hospital.deductionPercentage || 20) / 100));
+      const snap = snapByAdmission[adm._id.toString()];
+      const fallback = Math.round((doc.billTotalPaisa || 0) * ((hospital.deductionPercentage || 20) / 100));
+      // platform charge (admin revenue) + doctor commission = what the hospital owes for this case
+      doc.platformChargePaisa = snap ? (snap.platformChargePaisa ?? snap.adminSharePaisa ?? 0) : fallback;
+      doc.doctorCommissionPaisa = snap ? (snap.doctorCommissionPaisa ?? snap.amountPaisa ?? 0) : 0;
+      doc.totalCutPaisa = snap ? (snap.totalCutPaisa || snap.platformCutPaisa || 0) : fallback;
+      // calculatedPlatformCutPaisa kept = the TOTAL the hospital owes (back-compat field name)
+      doc.calculatedPlatformCutPaisa = doc.totalCutPaisa;
       return doc;
     });
 
@@ -73,21 +90,35 @@ exports.createSettlement = async (req, res) => {
       weeklySettlementId: null
     });
 
-    // 3. Compute sums
+    // 3. Compute sums from the immutable payout snapshots (mode-agnostic identity:
+    //    totalCut == doctorCommission + platformCharge). facility owes Σ totalCut.
     const grossAmountPaisa = admissions.reduce((sum, adm) => sum + (adm.billTotalPaisa || 0), 0);
-    const calculatedPlatformCutPaisa = payouts.reduce((sum, p) => sum + (p.platformCutPaisa || 0), 0);
+    const facilityTotalPayablePaisa = payouts.reduce(
+      (sum, p) => sum + (p.totalCutPaisa || p.platformCutPaisa || 0),
+      0
+    );
+    const doctorCommissionTotalPaisa = payouts.reduce(
+      (sum, p) => sum + (p.doctorCommissionPaisa || p.amountPaisa || 0),
+      0
+    );
+    const platformChargeTotalPaisa = payouts.reduce(
+      (sum, p) => sum + (p.platformChargePaisa || p.adminSharePaisa || 0),
+      0
+    );
+    const calculatedPlatformCutPaisa = facilityTotalPayablePaisa; // what the hospital transfers
 
-    // 4. Group payouts by consultant for the settlement payouts array
+    // 4. Group payouts by consultant, snapshotting the commission FROM the payout
+    //    (not the live consultant) so a mid-cycle rate change can't alter a settled amount.
     const consultantMap = {};
     for (const payout of payouts) {
       const cIdStr = payout.consultantId.toString();
       if (!consultantMap[cIdStr]) {
-        // Fetch consultant commission percentage
-        const consultant = await Consultant.findById(payout.consultantId);
         consultantMap[cIdStr] = {
           consultantId: payout.consultantId,
           amountPaisa: 0,
-          commissionPercentage: consultant ? (consultant.commissionPercentage || 60) : 60,
+          commissionPercentage: payout.commissionPercentage || 0,
+          commissionType: payout.commissionType || 'percentage',
+          fixedCommissionPaisa: payout.fixedCommissionPaisa || 0,
           status: 'pending_payout'
         };
       }
@@ -104,6 +135,9 @@ exports.createSettlement = async (req, res) => {
       grossAmountPaisa,
       deductionPercentage: hospital.deductionPercentage || 20,
       calculatedPlatformCutPaisa,
+      doctorCommissionTotalPaisa,
+      platformChargeTotalPaisa,
+      facilityTotalPayablePaisa,
       billSummaryFileUrl,
       notes,
       status: 'pending_payment',
@@ -207,6 +241,8 @@ exports.listHospitalSettlements = async (req, res) => {
         doc.consultantPayouts = doc.consultantPayouts.map(p => {
           delete p.amountPaisa;
           delete p.commissionPercentage;
+          delete p.commissionType;
+          delete p.fixedCommissionPaisa;
           return p;
         });
       }

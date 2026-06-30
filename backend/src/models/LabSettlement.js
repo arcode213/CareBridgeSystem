@@ -12,8 +12,15 @@ const LabSettlementSchema = new mongoose.Schema(
 
     // Aggregated monetary values (in paisa)
     grossAmountPaisa: { type: Number, required: true, min: 0 },
-    deductionPercentage: { type: Number, required: true }, // Snapshotted from lab deductionPercentage at creation
+    deductionPercentage: { type: Number }, // Snapshot (legacy single %); optional under per-doctor additive
+    // calculatedPlatformCutPaisa = the TOTAL the lab owes the platform for this cycle
+    // (legacy: Σ platform cut; additive: Σ (doctor commission + platform charge)).
     calculatedPlatformCutPaisa: { type: Number, required: true, min: 0 },
+
+    // ── Additive (v2) breakdown — Σ over the cycle's payout snapshots ──
+    doctorCommissionTotalPaisa: { type: Number, default: 0, min: 0 },
+    platformChargeTotalPaisa: { type: Number, default: 0, min: 0 },
+    facilityTotalPayablePaisa: { type: Number, default: 0, min: 0 },
 
     // Optional weekly bill summary document. No longer collected at creation —
     // each referral's own patientBillFileUrl is auto-attached via labReferralIds.
@@ -46,7 +53,9 @@ const LabSettlementSchema = new mongoose.Schema(
       {
         consultantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Consultant', required: true },
         amountPaisa: { type: Number, required: true },
-        commissionPercentage: { type: Number, required: true },
+        commissionPercentage: { type: Number, required: true }, // Snapshotted from the LabPayout snapshot at creation
+        commissionType: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' }, // display badge
+        fixedCommissionPaisa: { type: Number, default: 0 }, // display badge (additive fixed)
         payoutReceiptFileUrl: { type: String },
         paidAt: { type: Date },
         status: {

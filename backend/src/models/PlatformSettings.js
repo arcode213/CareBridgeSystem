@@ -8,6 +8,8 @@ const PlatformSettingsSchema = new mongoose.Schema(
     defaultLabDeductionPercentage: { type: Number, default: 20 },
     defaultLabCommissionPercentage: { type: Number, default: 60 },
     defaultMaxConsultantDiscountPercentage: { type: Number, default: 15 },
+    /** Default commission model applied to brand-new doctors (legacy keeps current behavior). */
+    defaultCommissionModel: { type: String, enum: ['legacy', 'additive'], default: 'legacy' },
     /** Minimum accumulated amount for release (Q14/Q16) - default 10,000 PKR */
     walletThresholdPaisa: { type: Number, default: 1000000 },
     /** Initial hold amount for first-time release - default 9,500 PKR */

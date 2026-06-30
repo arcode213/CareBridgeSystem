@@ -22,6 +22,50 @@ const Field = ({ label, value }) => (
   </div>
 );
 
+/** One additive deal row: a percentage/fixed toggle revealing the relevant input. */
+const DealRow = ({ label, hint, type, onType, pct, onPct, fixed, onFixed, fixedUnit }) => (
+  <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+    <div>
+      <p className="text-xs font-bold text-slate-800">{label}</p>
+      {hint && <p className="text-[10px] text-slate-400 mt-0.5">{hint}</p>}
+    </div>
+    <div className="flex items-center gap-3">
+      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+        <input type="radio" checked={type === 'percentage'} onChange={() => onType('percentage')} />
+        Percentage
+      </label>
+      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+        <input type="radio" checked={type === 'fixed'} onChange={() => onType('fixed')} />
+        Fixed
+      </label>
+      <div className="ml-auto flex items-center gap-1.5">
+        {type === 'percentage' ? (
+          <>
+            <input
+              type="number" min="0" max="100"
+              value={pct}
+              onChange={(e) => onPct(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+              className="w-20 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            <span className="text-xs font-bold text-slate-400">%</span>
+          </>
+        ) : (
+          <>
+            <span className="text-xs font-bold text-slate-400">Rs</span>
+            <input
+              type="number" min="0"
+              value={fixed}
+              onChange={(e) => onFixed(Math.max(0, Number(e.target.value) || 0))}
+              className="w-24 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            <span className="text-[10px] font-medium text-slate-400">{fixedUnit}</span>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
 const AdminConsultants = () => {
   const [consultants, setConsultants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,17 +76,44 @@ const AdminConsultants = () => {
   const [profileData, setProfileData] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [activeTab, setActiveTab] = useState('performance'); // performance or logs
-  const [customComm, setCustomComm] = useState(60);
+  const [commForm, setCommForm] = useState(null);
   const [patients, setPatients] = useState([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [consultantEditOpen, setConsultantEditOpen] = useState(false);
   const [consultantEditForm, setConsultantEditForm] = useState({});
 
   useEffect(() => {
-    if (profileData?.profile?.commissionPercentage != null) {
-      setCustomComm(profileData.profile.commissionPercentage);
-    }
+    const p = profileData?.profile;
+    if (!p) { setCommForm(null); return; }
+    setCommForm({
+      commissionModel: p.commissionModel || 'legacy',
+      commissionPercentage: p.commissionPercentage ?? 60,
+      hospitalCommissionType: p.hospitalCommissionType || 'percentage',
+      hospitalCommissionPercentage: p.hospitalCommissionPercentage ?? 0,
+      hospitalFixedCommissionRupees: (p.hospitalFixedCommissionPaisa || 0) / 100,
+      labCommissionType: p.labCommissionType || 'percentage',
+      labCommissionPercentage: p.labCommissionPercentage ?? 0,
+      labFixedCommissionRupeesPerTest: (p.labFixedCommissionPaisaPerTest || 0) / 100,
+    });
   }, [profileData]);
+
+  const setCf = (patch) => setCommForm((f) => ({ ...f, ...patch }));
+
+  const saveCommission = async () => {
+    if (!commForm) return;
+    try {
+      setActionId(selected._id);
+      await api.post(`/admin/consultants/${selected._id}/commission`, commForm);
+      toast.success('Commission settings updated');
+      const res = await api.get(`/admin/consultants/${selected._id}/profile`);
+      if (res.data.success) setProfileData(res.data.data);
+      await load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update commission');
+    } finally {
+      setActionId(null);
+    }
+  };
 
   useEffect(() => {
     if (!selected) {
@@ -134,6 +205,7 @@ const AdminConsultants = () => {
       city: p.city || '',
       cnic: p.cnic || '',
       commissionPercentage: p.commissionPercentage ?? 60,
+      maxLabDiscountPercentage: p.maxLabDiscountPercentage ?? 15,
       isVerified: p.isVerified === true,
     });
     setConsultantEditOpen(true);
@@ -513,52 +585,95 @@ const AdminConsultants = () => {
                       </div>
                     </div>
 
-                    {/* Commission Split Configuration Card */}
+                    {/* Commission & Platform Charges Configuration (v2 per-doctor) */}
+                    {commForm && (
                     <div className="space-y-3 pt-4 border-t border-slate-100">
                       <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
-                        <Shield size={14} className="text-indigo-500" /> Commission Split Configuration
+                        <Shield size={14} className="text-indigo-500" /> Commission & Platform Charges
                       </h4>
-                      <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                          <p className="text-xs font-bold text-slate-800">Custom Commission Share (%)</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">Define this physician's split percentage from the overall platform referral cut.</p>
+
+                      {/* Model toggle */}
+                      <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">Commission model</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              Lifetime referrals: <span className="font-bold text-slate-600">{profileData.profile.performance?.totalReferrals ?? 0}</span> — use this to negotiate a higher platform charge for high-volume doctors.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+                              <input type="radio" checked={commForm.commissionModel === 'legacy'} onChange={() => setCf({ commissionModel: 'legacy' })} />
+                              Legacy (nested %)
+                            </label>
+                            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+                              <input type="radio" checked={commForm.commissionModel === 'additive'} onChange={() => setCf({ commissionModel: 'additive' })} />
+                              Additive (per-doctor)
+                            </label>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            placeholder="60"
-                            value={customComm}
-                            onChange={(e) => setCustomComm(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                            className="w-20 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                          />
+
+                        {commForm.commissionModel === 'legacy' ? (
+                          <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">Commission share (%)</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Split of the platform cut (original nested model).</p>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number" min="0" max="100"
+                                value={commForm.commissionPercentage}
+                                onChange={(e) => setCf({ commissionPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                                className="w-20 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                              <span className="text-xs font-bold text-slate-400">%</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Hospital commission (per referral)</p>
+                            <DealRow
+                              label="Doctor commission"
+                              hint="% of the patient bill, or a flat amount per referral."
+                              type={commForm.hospitalCommissionType}
+                              onType={(t) => setCf({ hospitalCommissionType: t })}
+                              pct={commForm.hospitalCommissionPercentage}
+                              onPct={(v) => setCf({ hospitalCommissionPercentage: v })}
+                              fixed={commForm.hospitalFixedCommissionRupees}
+                              onFixed={(v) => setCf({ hospitalFixedCommissionRupees: v })}
+                              fixedUnit="/ referral"
+                            />
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 pt-1">Lab commission (per test)</p>
+                            <DealRow
+                              label="Doctor commission"
+                              hint="% of each test, or a flat amount per test."
+                              type={commForm.labCommissionType}
+                              onType={(t) => setCf({ labCommissionType: t })}
+                              pct={commForm.labCommissionPercentage}
+                              onPct={(v) => setCf({ labCommissionPercentage: v })}
+                              fixed={commForm.labFixedCommissionRupeesPerTest}
+                              onFixed={(v) => setCf({ labFixedCommissionRupeesPerTest: v })}
+                              fixedUnit="/ test"
+                            />
+                            <p className="text-[10px] text-slate-400">
+                              The <span className="font-bold">platform charge</span> is set on the hospital / lab. The facility pays the admin
+                              <span className="font-bold"> commission + platform charge</span>; the admin forwards this commission to the doctor.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex justify-end">
                           <button
-                            onClick={async () => {
-                              try {
-                                setActionId(selected._id);
-                                await api.post(`/admin/consultants/${selected._id}/commission`, { commissionPercentage: customComm });
-                                toast.success(`Commission split updated to ${customComm}%`);
-                                // Refresh full consultant info
-                                const res = await api.get(`/admin/consultants/${selected._id}/profile`);
-                                if (res.data.success) {
-                                  setProfileData(res.data.data);
-                                }
-                                await load();
-                              } catch (err) {
-                                toast.error('Failed to update commission split');
-                              } finally {
-                                setActionId(null);
-                              }
-                            }}
+                            onClick={saveCommission}
                             disabled={actionId === selected._id}
                             className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm disabled:opacity-50"
                           >
-                            Update
+                            {actionId === selected._id ? 'Saving…' : 'Save commission settings'}
                           </button>
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -628,7 +743,14 @@ const AdminConsultants = () => {
             <input className="w-full border rounded-xl px-3 py-2 text-sm" placeholder="CNIC" value={consultantEditForm.cnic || ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, cnic: e.target.value })} />
             <input className="w-full border rounded-xl px-3 py-2 text-sm" placeholder="Clinic name" value={consultantEditForm.clinicName || ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, clinicName: e.target.value })} />
             <textarea className="w-full border rounded-xl px-3 py-2 text-sm" rows={2} placeholder="Clinic address" value={consultantEditForm.clinicAddress || ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, clinicAddress: e.target.value })} />
-            <input className="w-full border rounded-xl px-3 py-2 text-sm" type="number" placeholder="Commission %" value={consultantEditForm.commissionPercentage ?? ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, commissionPercentage: Number(e.target.value) })} />
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Commission %</label>
+              <input className="w-full border rounded-xl px-3 py-2 text-sm" type="number" placeholder="Commission %" value={consultantEditForm.commissionPercentage ?? ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, commissionPercentage: Number(e.target.value) })} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Max lab discount % (patient discount this consultant may offer on lab referrals)</label>
+              <input className="w-full border rounded-xl px-3 py-2 text-sm" type="number" min="0" max="100" placeholder="Max lab discount %" value={consultantEditForm.maxLabDiscountPercentage ?? ''} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, maxLabDiscountPercentage: Number(e.target.value) })} />
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={consultantEditForm.isVerified === true} onChange={(e) => setConsultantEditForm({ ...consultantEditForm, isVerified: e.target.checked })} />
               PMDC / profile verified

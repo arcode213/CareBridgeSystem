@@ -55,7 +55,13 @@ const HospitalSchema = new mongoose.Schema(
     acceptanceRate: { type: Number, default: 80 }, // percentage
     rating: { type: Number, default: 4.0, min: 0, max: 5 },
     isActive: { type: Boolean, default: false },
-    deductionPercentage: { type: Number, default: 20 }, // platform deduction percentage (e.g. 20%)
+    // ── Platform charge (Hospital → Admin) — additive v2 (COMMISSION_SYSTEM_V2_PER_DOCTOR.md) ──
+    // The facility owns the platform charge; it may be a percentage of the bill OR a flat
+    // fee per patient. A single hospital's weekly settlement can mix fixed- and percentage-
+    // commission consultants — each case is snapshotted at finalization.
+    deductionPercentage: { type: Number, default: 20 }, // platform charge % (also legacy nested cut)
+    platformChargeType: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
+    fixedPlatformChargePaisa: { type: Number, default: 0, min: 0 }, // flat platform charge per patient/referral
     /** Individual JazzCash Merchant Credentials (SRS §12.3) */
     paymentGatewayCredentials: {
       merchantId: { type: String, trim: true },

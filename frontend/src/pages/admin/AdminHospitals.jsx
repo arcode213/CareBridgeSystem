@@ -28,7 +28,7 @@ const AdminHospitals = () => {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [actionId, setActionId] = useState(null);
-  const [customDeduction, setCustomDeduction] = useState(20);
+  const [platformForm, setPlatformForm] = useState({ platformChargeType: 'percentage', deductionPercentage: 20, fixedPlatformChargeRupees: 0 });
   const [patients, setPatients] = useState([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -37,10 +37,40 @@ const AdminHospitals = () => {
   const [newDoctor, setNewDoctor] = useState({ name: '', specialty: '', consultationFee: '' });
 
   useEffect(() => {
-    if (selected?.profile?.deductionPercentage != null) {
-      setCustomDeduction(selected.profile.deductionPercentage);
-    }
+    const p = selected?.profile;
+    if (!p) return;
+    setPlatformForm({
+      platformChargeType: p.platformChargeType || 'percentage',
+      deductionPercentage: p.deductionPercentage ?? 20,
+      fixedPlatformChargeRupees: (p.fixedPlatformChargePaisa || 0) / 100,
+    });
   }, [selected]);
+
+  const savePlatformCharge = async () => {
+    try {
+      setActionId(selected._id);
+      await api.post(`/admin/hospitals/${selected._id}/deduction`, {
+        platformChargeType: platformForm.platformChargeType,
+        deductionPercentage: Number(platformForm.deductionPercentage) || 0,
+        fixedPlatformChargeRupees: Number(platformForm.fixedPlatformChargeRupees) || 0,
+      });
+      toast.success('Platform charge updated');
+      setSelected((prev) => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          platformChargeType: platformForm.platformChargeType,
+          deductionPercentage: Number(platformForm.deductionPercentage) || 0,
+          fixedPlatformChargePaisa: Math.round((Number(platformForm.fixedPlatformChargeRupees) || 0) * 100),
+        },
+      }));
+      await load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update platform charge');
+    } finally {
+      setActionId(null);
+    }
+  };
 
   useEffect(() => {
     const hospitalId = selected?.profile?._id;
@@ -515,48 +545,61 @@ const AdminHospitals = () => {
                   )}
                 </div>
 
-                {/* Platform Deduction settings */}
+                {/* Platform charge settings (Hospital → Admin) */}
                 <div className="border-t border-slate-100 pt-5">
                   <div className="flex items-center gap-2 text-teal-700 font-bold text-sm mb-3">
-                    🛡️ Platform Deduction Configuration
+                    🛡️ Platform Charge Configuration
                   </div>
-                  <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3">
                     <div>
-                      <p className="text-xs font-bold text-slate-800">Hospital Platform Cut (%)</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Define the platform percentage cut automatically deducted from patient payments at this hospital.</p>
+                      <p className="text-xs font-bold text-slate-800">What this hospital pays the platform</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        Choose <span className="font-semibold">one</span> type — a percentage of each bill, or a fixed price per
+                        referral. It applies to every patient at this hospital. The hospital's weekly total is this platform charge
+                        <span className="font-semibold"> plus</span> each consultant's commission.
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        placeholder="20"
-                        value={customDeduction}
-                        onChange={(e) => setCustomDeduction(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                        className="w-20 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                      />
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+                        <input type="radio" checked={platformForm.platformChargeType === 'percentage'} onChange={() => setPlatformForm((f) => ({ ...f, platformChargeType: 'percentage' }))} />
+                        Percentage
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+                        <input type="radio" checked={platformForm.platformChargeType === 'fixed'} onChange={() => setPlatformForm((f) => ({ ...f, platformChargeType: 'fixed' }))} />
+                        Fixed per referral
+                      </label>
+                      <div className="ml-auto flex items-center gap-1.5">
+                        {platformForm.platformChargeType === 'percentage' ? (
+                          <>
+                            <input
+                              type="number" min="0" max="100"
+                              value={platformForm.deductionPercentage}
+                              onChange={(e) => setPlatformForm((f) => ({ ...f, deductionPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }))}
+                              className="w-20 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                            />
+                            <span className="text-xs font-bold text-slate-400">% of bill</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-xs font-bold text-slate-400">Rs</span>
+                            <input
+                              type="number" min="0"
+                              value={platformForm.fixedPlatformChargeRupees}
+                              onChange={(e) => setPlatformForm((f) => ({ ...f, fixedPlatformChargeRupees: Math.max(0, Number(e.target.value) || 0) }))}
+                              className="w-24 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                            />
+                            <span className="text-[10px] font-medium text-slate-400">/ referral</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
                       <button
-                        onClick={async () => {
-                          try {
-                            setActionId(selected._id);
-                            await api.post(`/admin/hospitals/${selected._id}/deduction`, { deductionPercentage: customDeduction });
-                            toast.success(`Deduction percentage updated to ${customDeduction}%`);
-                            // Re-apply locally
-                            setSelected(prev => ({
-                              ...prev,
-                              profile: { ...prev.profile, deductionPercentage: customDeduction }
-                            }));
-                            await load();
-                          } catch (err) {
-                            toast.error('Failed to update deduction percentage');
-                          } finally {
-                            setActionId(null);
-                          }
-                        }}
+                        onClick={savePlatformCharge}
                         disabled={actionId === selected._id}
                         className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm disabled:opacity-50"
                       >
-                        Update
+                        {actionId === selected._id ? 'Saving…' : 'Update platform charge'}
                       </button>
                     </div>
                   </div>

@@ -11,8 +11,15 @@ const WeeklySettlementSchema = new mongoose.Schema(
     
     // Aggregated monetary values (in paisa)
     grossAmountPaisa: { type: Number, required: true, min: 0 },
-    deductionPercentage: { type: Number, required: true }, // Snapshotted from hospital deductionPercentage at creation
-    calculatedPlatformCutPaisa: { type: Number, required: true, min: 0 }, // grossAmountPaisa * (deductionPercentage / 100)
+    deductionPercentage: { type: Number }, // Snapshot (legacy single %); optional — no single % under per-doctor additive
+    // calculatedPlatformCutPaisa = the TOTAL the hospital owes the platform for this cycle
+    // (legacy: Σ platform cut; additive: Σ (doctor commission + platform charge)).
+    calculatedPlatformCutPaisa: { type: Number, required: true, min: 0 },
+
+    // ── Additive (v2) breakdown — Σ over the cycle's payout snapshots ──
+    doctorCommissionTotalPaisa: { type: Number, default: 0, min: 0 }, // Σ doctor commission
+    platformChargeTotalPaisa: { type: Number, default: 0, min: 0 }, // Σ platform charge (admin revenue)
+    facilityTotalPayablePaisa: { type: Number, default: 0, min: 0 }, // == calculatedPlatformCutPaisa (what hospital transfers)
     
     // Bill summary document uploaded by hospital (PDF or image)
     billSummaryFileUrl: { type: String, required: true },
@@ -43,7 +50,9 @@ const WeeklySettlementSchema = new mongoose.Schema(
       {
         consultantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Consultant', required: true },
         amountPaisa: { type: Number, required: true },
-        commissionPercentage: { type: Number, required: true }, // Snapshotted from consultant commissionPercentage at creation
+        commissionPercentage: { type: Number, required: true }, // Snapshotted from the Payout snapshot at creation
+        commissionType: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' }, // display badge
+        fixedCommissionPaisa: { type: Number, default: 0 }, // display badge (additive fixed)
         payoutReceiptFileUrl: { type: String }, // Screenshot uploaded by admin proving manual bank/JazzCash payout
         paidAt: { type: Date },
         status: {

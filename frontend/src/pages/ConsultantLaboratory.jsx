@@ -48,6 +48,14 @@ const NewReferral = ({ onCreated }) => {
     queryFn: async () => (await api.get('/lab-referrals/suggestions')).data.suggestions || [],
   });
 
+  // The consultant's own admin-set max patient discount (per-consultant cap,
+  // not per-lab). Applies to every lab this consultant refers to.
+  const { data: me } = useQuery({
+    queryKey: ['me'],
+    queryFn: async () => (await api.get('/profile/me')).data.data,
+  });
+  const maxDiscount = me?.profile?.maxLabDiscountPercentage ?? 0;
+
   const setField = (k, v) => setPatient((p) => ({ ...p, [k]: v }));
   const setTest = (i, k, v) => setTests((p) => p.map((t, idx) => (idx === i ? { ...t, [k]: v } : t)));
   const addTest = () => setTests((p) => [...p, { testName: '', note: '' }]);
@@ -82,7 +90,7 @@ const NewReferral = ({ onCreated }) => {
 
   const pickLab = (lab) => {
     setSelectedLab(lab);
-    if (discount > lab.maxConsultantDiscountPercentage) setDiscount(lab.maxConsultantDiscountPercentage);
+    if (discount > maxDiscount) setDiscount(maxDiscount);
   };
 
   const submit = async (e) => {
@@ -217,7 +225,7 @@ const NewReferral = ({ onCreated }) => {
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">{lab.labName || '(Unnamed laboratory)'}</p>
                   <p className="text-xs text-slate-500 flex items-center gap-1">
-                    <MapPin size={11} className="shrink-0" /> {lab.area || lab.city} • {lab.distanceKm} km • max discount {lab.maxConsultantDiscountPercentage}%
+                    <MapPin size={11} className="shrink-0" /> {lab.area || lab.city} • {lab.distanceKm} km
                   </p>
                 </div>
               </label>
@@ -227,18 +235,19 @@ const NewReferral = ({ onCreated }) => {
 
         {selectedLab && (
           <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-            <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mb-1"><Percent size={13} /> Patient discount % (max {selectedLab.maxConsultantDiscountPercentage}%)</label>
+            <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mb-1"><Percent size={13} /> Patient discount % (your max {maxDiscount}%)</label>
             <input
               type="number"
               min={0}
-              max={selectedLab.maxConsultantDiscountPercentage}
+              max={maxDiscount}
               value={discount}
               onChange={(e) => {
-                const v = Math.min(Number(e.target.value) || 0, selectedLab.maxConsultantDiscountPercentage);
+                const v = Math.min(Number(e.target.value) || 0, maxDiscount);
                 setDiscount(v);
               }}
               className={`${inputClass} w-32`}
             />
+            <p className="text-[11px] text-slate-400 mt-1">Your maximum discount is set by the platform admin.</p>
           </div>
         )}
       </div>
@@ -552,12 +561,12 @@ const ConsultantLaboratory = () => {
         </div>
       </div>
 
-      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl w-fit">
+      <div className="flex flex-wrap gap-1 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl w-full sm:w-fit">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${tab === t.key ? 'bg-white dark:bg-slate-900 text-sky-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${tab === t.key ? 'bg-white dark:bg-slate-900 text-sky-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             {t.label}
           </button>

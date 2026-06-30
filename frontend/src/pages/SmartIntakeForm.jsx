@@ -229,15 +229,15 @@ const SmartIntakeForm = () => {
   return (
     <div className="max-w-4xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">New Patient Referral</h1>
-        <p className="text-gray-500">Follow the steps to find the best hospital for your patient.</p>
-        
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">New Patient Referral</h1>
+        <p className="text-sm text-gray-500">Follow the steps to find the best hospital for your patient.</p>
+
         {/* Progress Bar */}
-        <div className="flex items-center gap-4 mt-6">
+        <div className="flex items-center gap-1.5 sm:gap-4 mt-5 sm:mt-6">
           {[1, 2, 3, 4].map((s) => (
-            <div key={s} className="flex-1 flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${step >= s ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+            <div key={s} className="flex-1 flex items-center gap-1.5 sm:gap-2">
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm ${step >= s ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
                 {s}
               </div>
               <div className={`flex-1 h-1 rounded-full ${step > s ? 'bg-blue-600' : 'bg-gray-200'}`} />
@@ -246,11 +246,11 @@ const SmartIntakeForm = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-8">
         {step === 1 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900">Patient Information</h2>
-            <div className="grid grid-cols-2 gap-6">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Patient Information</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700">Full Name</label>
                 <input 
@@ -301,7 +301,7 @@ const SmartIntakeForm = () => {
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div className="space-y-2 col-span-2">
+              <div className="space-y-2 sm:col-span-2">
                 <label className="text-sm font-semibold text-gray-700">Phone Number</label>
                 <input 
                   type="text" name="phone" value={formData.phone} onChange={handleInputChange}
@@ -311,10 +311,10 @@ const SmartIntakeForm = () => {
               </div>
             </div>
             <div className="flex justify-end pt-4">
-              <button 
+              <button
                 onClick={handleStep1Next}
                 disabled={!formData.patientName || !formData.dateOfBirth || !formData.phone || !formData.guardianName}
-                className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
+                className="w-full sm:w-auto bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
               >
                 Next Step
               </button>
@@ -324,8 +324,8 @@ const SmartIntakeForm = () => {
 
         {step === 2 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900">Clinical Assessment</h2>
-            
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Clinical Assessment</h2>
+
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">Symptoms (Comma separated)</label>
               <textarea 
@@ -335,7 +335,7 @@ const SmartIntakeForm = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700">Required Bed / Ward Type</label>
                 <select 
@@ -398,7 +398,7 @@ const SmartIntakeForm = () => {
 
               {/* Uploaded attachments list */}
               {formData.attachments.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                   {formData.attachments.map((url, idx) => {
                     const filename = url.split('/').pop() || `report_${idx + 1}`;
                     return (
@@ -416,16 +416,16 @@ const SmartIntakeForm = () => {
               )}
             </div>
 
-            <div className="flex justify-between pt-4">
-              <button onClick={() => setStep(1)} className="text-gray-500 font-bold px-8 py-3">Back</button>
-              <button onClick={() => setStep(3)} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold">Next Step</button>
+            <div className="flex justify-between items-center pt-4">
+              <button onClick={() => setStep(1)} className="text-gray-500 font-bold px-4 sm:px-8 py-3">Back</button>
+              <button onClick={() => setStep(3)} className="bg-blue-600 text-white px-6 sm:px-8 py-3 rounded-xl font-bold">Next Step</button>
             </div>
           </div>
         )}
 
         {step === 3 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900">Preferences & Location</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Preferences & Location</h2>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">Patient Area (Karachi)</label>
               <input
@@ -434,10 +434,10 @@ const SmartIntakeForm = () => {
                 placeholder="e.g. Gulshan-e-Iqbal"
               />
             </div>
-            <div className="flex justify-between pt-4">
-              <button onClick={() => setStep(2)} className="text-gray-500 font-bold px-8 py-3">Back</button>
-              <button onClick={getSuggestions} disabled={loading} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2">
-                {loading ? 'Analyzing Hospitals...' : 'Find Best Hospitals'}
+            <div className="flex justify-between items-center pt-4">
+              <button onClick={() => setStep(2)} className="text-gray-500 font-bold px-4 sm:px-8 py-3">Back</button>
+              <button onClick={getSuggestions} disabled={loading} className="bg-blue-600 text-white px-6 sm:px-8 py-3 rounded-xl font-bold flex items-center gap-2">
+                {loading ? 'Analyzing…' : 'Find Best Hospitals'}
               </button>
             </div>
           </div>
@@ -445,35 +445,35 @@ const SmartIntakeForm = () => {
 
         {step === 4 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900">Smart Recommendations</h2>
-            <p className="text-sm text-gray-500">Based on your assessment, these are the top 10 hospitals ranked by our scoring engine.</p>
-            
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Smart Recommendations</h2>
+            <p className="text-sm text-gray-500">Based on your assessment, these are the top hospitals ranked by our scoring engine.</p>
+
             <div className="space-y-4">
               {suggestions.map((hospital, idx) => (
-                <div key={idx} className="group relative bg-white border border-gray-100 rounded-2xl p-6 shadow-sm hover:border-blue-300 transition-all cursor-pointer overflow-hidden">
-                    <div className="flex items-center justify-between relative z-10">
-                      <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => {
+                <div key={idx} className="group relative bg-white border border-gray-100 rounded-2xl p-4 sm:p-6 shadow-sm hover:border-blue-300 transition-all overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative z-10">
+                      <div className="flex items-start gap-3 sm:gap-4 cursor-pointer flex-1 min-w-0" onClick={() => {
                         const next = expandedHospitalId === hospital.hospitalId ? null : hospital.hospitalId;
                         setExpandedHospitalId(next);
                         if (next) fetchDoctors(next);
                       }}>
-                        <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-bold text-xl">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-bold text-lg sm:text-xl">
                           {idx + 1}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-gray-900 text-lg">{hospital.hospitalName}</h3>
-                            <button 
-                              onClick={(e) => toggleFavorite(e, hospital.hospitalId)} 
-                              className="text-yellow-400 hover:scale-110 transition-transform focus:outline-none"
+                            <h3 className="font-bold text-gray-900 text-base sm:text-lg break-words">{hospital.hospitalName}</h3>
+                            <button
+                              onClick={(e) => toggleFavorite(e, hospital.hospitalId)}
+                              className="text-yellow-400 hover:scale-110 transition-transform focus:outline-none shrink-0"
                               title="Toggle Favorite"
                             >
                               <Star className={`w-5 h-5 ${favorites.includes(hospital.hospitalId) ? 'fill-current' : 'text-gray-300'}`} />
                             </button>
                           </div>
-                          <div className="flex items-center gap-4 mt-1">
+                          <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1">
                             <span className="text-sm text-gray-500 flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                               </svg>
@@ -483,8 +483,8 @@ const SmartIntakeForm = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <button 
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <button
                           type="button"
                           onClick={() => {
                             if (expandedHospitalId !== hospital.hospitalId) {
@@ -495,7 +495,7 @@ const SmartIntakeForm = () => {
                             submitReferral(hospital);
                           }}
                           disabled={submittingHospitalId !== null}
-                          className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
+                          className="w-full sm:w-auto bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
                         >
                           {submittingHospitalId === hospital.hospitalId
                             ? 'Submitting...'
@@ -560,7 +560,7 @@ const SmartIntakeForm = () => {
                               }
                             }
                             return (
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {filtered.map((doc) => (
                                   <button
                                     key={doc._id}
@@ -587,10 +587,10 @@ const SmartIntakeForm = () => {
                     )}
                    
                    {/* Score Breakdown visualization */}
-                   <div className="mt-4 pt-4 border-t border-gray-50 grid grid-cols-5 gap-2">
+                   <div className="mt-4 pt-4 border-t border-gray-50 grid grid-cols-3 sm:grid-cols-6 gap-2">
                      {Object.entries(hospital.breakdown).map(([key, val]) => (
                        <div key={key} className="text-center">
-                         <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">{key}</div>
+                         <div className="text-[10px] uppercase font-bold text-gray-400 mb-1 truncate" title={key}>{key}</div>
                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                            <div className="h-full bg-blue-500" style={{ width: `${(val / (key === 'beds' ? 25 : 20)) * 100}%` }} />
                          </div>

@@ -47,7 +47,7 @@ const LabReferralSchema = new mongoose.Schema(
     // Target lab (single — manual re-refer if declined)
     targetLaboratoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Laboratory' },
 
-    /** Consultant-offered patient discount % (capped by lab.maxConsultantDiscountPercentage). */
+    /** Consultant-offered patient discount % (capped by consultant.maxLabDiscountPercentage). */
     discountPercentage: { type: Number, default: 0, min: 0, max: 100 },
 
     status: {
