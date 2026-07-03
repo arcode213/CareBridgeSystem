@@ -1,6 +1,9 @@
 // Force IPv4 DNS resolution to fix querySrv ECONNREFUSED on IPv6 networks
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
+// Use public resolvers for the mongodb+srv SRV/TXT lookup. Some local/router
+// DNS servers refuse SRV queries, causing querySrv ECONNREFUSED at startup.
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const express = require('express');
 const helmet = require('helmet');

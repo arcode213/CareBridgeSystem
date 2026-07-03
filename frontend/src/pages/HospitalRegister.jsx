@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Eye, EyeOff, FileCheck } from 'lucide-react';
 import api from '../utils/api';
+import PolicyAgreement from '../components/PolicyAgreement';
 
 const WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burns', 'Maternity', 'Psychiatric', 'Cardiac'];
 
@@ -48,6 +49,7 @@ const HospitalRegister = () => {
   const [bedsInventory, setBedsInventory] = useState(defaultBeds);
   const [registrationDocuments, setRegistrationDocuments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -98,6 +100,10 @@ const HospitalRegister = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!agreedToPolicy) {
+      toast.error('Please read and accept the Privacy Policy & SOP to continue');
+      return;
+    }
     if (departments.length === 0) {
       toast.error('Please select at least one department.');
       return;
@@ -381,8 +387,10 @@ const HospitalRegister = () => {
           </div>
         </div>
 
-        <button type="submit" disabled={isLoading || departments.length === 0}
-          className="w-full py-3.5 px-4 border border-transparent rounded-xl shadow-md hover:shadow-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70">
+        <PolicyAgreement agreed={agreedToPolicy} onChange={setAgreedToPolicy} accent="blue" />
+
+        <button type="submit" disabled={isLoading || departments.length === 0 || !agreedToPolicy}
+          className="w-full py-3.5 px-4 border border-transparent rounded-xl shadow-md hover:shadow-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed">
           {isLoading ? 'Processing...' : 'Register Hospital'}
         </button>
       </form>

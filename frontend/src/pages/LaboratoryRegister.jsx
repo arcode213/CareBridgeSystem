@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Eye, EyeOff, FileCheck, Plus, Trash2, MapPin } from 'lucide-react';
 import api from '../utils/api';
+import PolicyAgreement from '../components/PolicyAgreement';
 
 const LaboratoryRegister = () => {
   const [formData, setFormData] = useState({
@@ -26,6 +27,7 @@ const LaboratoryRegister = () => {
   const [tests, setTests] = useState([{ testName: '', price: '', turnaroundHours: 24 }]);
   const [registrationDocuments, setRegistrationDocuments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -88,6 +90,10 @@ const LaboratoryRegister = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!agreedToPolicy) {
+      toast.error('Please read and accept the Privacy Policy & SOP to continue');
+      return;
+    }
     if (!registrationDocuments.find((d) => d.name === 'Lab License')) {
       toast.error('Please upload your Lab License for verification.');
       return;
@@ -427,10 +433,12 @@ const LaboratoryRegister = () => {
           </div>
         </div>
 
+        <PolicyAgreement agreed={agreedToPolicy} onChange={setAgreedToPolicy} accent="sky" />
+
         <button
           type="submit"
-          disabled={isLoading}
-          className="w-full py-3.5 px-4 border border-transparent rounded-xl shadow-md hover:shadow-lg text-sm font-bold text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-all disabled:opacity-70"
+          disabled={isLoading || !agreedToPolicy}
+          className="w-full py-3.5 px-4 border border-transparent rounded-xl shadow-md hover:shadow-lg text-sm font-bold text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
         >
           {isLoading ? 'Processing...' : 'Register Laboratory'}
         </button>

@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ArrowLeft, FileCheck, Eye, EyeOff } from 'lucide-react';
 import api from '../utils/api';
+import PolicyAgreement from '../components/PolicyAgreement';
 
 const ConsultantRegister = () => {
   const [formData, setFormData] = useState({
@@ -21,6 +22,7 @@ const ConsultantRegister = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [verificationDocuments, setVerificationDocuments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -59,6 +61,9 @@ const ConsultantRegister = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!agreedToPolicy) {
+      return toast.error('Please read and accept the Privacy Policy & SOP to continue');
+    }
     if (!verificationDocuments.find(d => d.name === 'PMDC Certificate')) {
       return toast.error('Please upload your PMDC Certificate for verification');
     }
@@ -255,8 +260,10 @@ const ConsultantRegister = () => {
           </div>
         </div>
 
-        <button type="submit" disabled={isLoading}
-          className="w-full py-3.5 px-4 border border-transparent rounded-xl shadow-md hover:shadow-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70 mt-4">
+        <PolicyAgreement agreed={agreedToPolicy} onChange={setAgreedToPolicy} accent="blue" />
+
+        <button type="submit" disabled={isLoading || !agreedToPolicy}
+          className="w-full py-3.5 px-4 border border-transparent rounded-xl shadow-md hover:shadow-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-4">
           {isLoading ? 'Creating Account...' : 'Complete Registration'}
         </button>
       </form>
