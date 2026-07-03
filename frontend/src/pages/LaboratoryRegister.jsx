@@ -131,11 +131,11 @@ const LaboratoryRegister = () => {
 
     const result = await register(payload);
     if (result.success) {
-      toast.success('Laboratory registered! Your account is pending admin approval.', {
-        duration: 7000,
-        icon: '🧪',
+      toast.success(result.message || 'Laboratory registered! A verification code was sent to your email.', {
+        duration: 6000,
+        icon: '✉️',
       });
-      navigate('/login');
+      navigate('/verify-email', { state: { email: result.email || formData.email } });
     } else {
       toast.error(result.message || 'Registration failed');
     }

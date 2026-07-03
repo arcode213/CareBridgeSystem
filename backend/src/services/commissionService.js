@@ -58,6 +58,29 @@ const component = (type, fixedPaisa, pct, basePaisa) =>
     : Math.round(toPaisaInt(basePaisa) * (clampPct(pct) / 100));
 
 /**
+ * Look up this consultant's platform-charge override for a specific facility, if the admin has
+ * set one (consultant.facilityPlatformOverrides[]). Returns null when there is no override, so
+ * callers fall back to the facility's own platform charge. This is the ONLY thing that varies
+ * the platform fee per consultant — the doctor's commission is never affected.
+ * @returns {{ type:'percentage'|'fixed', fixedPaisa:number, pct:number } | null}
+ */
+const findFacilityOverride = (scope, consultant, facility) => {
+  const facilityId = facility && facility._id ? String(facility._id) : null;
+  const overrides = Array.isArray(consultant?.facilityPlatformOverrides)
+    ? consultant.facilityPlatformOverrides
+    : [];
+  const ov = overrides.find(
+    (o) => o && o.facilityType === scope && facilityId && String(o.facilityId) === facilityId && o.platformChargeType
+  );
+  if (!ov) return null;
+  return {
+    type: ov.platformChargeType,
+    fixedPaisa: ov.fixedPlatformChargePaisa || 0,
+    pct: ov.platformChargePercentage || 0,
+  };
+};
+
+/**
  * Resolve the platform charge (facility → admin) for one referral. The charge is owned by the
  * FACILITY (Hospital/Laboratory), which the admin sets to ONE type — percentage OR fixed —
  * applied to every referral at that facility regardless of the consultant. Resolution order:
@@ -68,20 +91,8 @@ const component = (type, fixedPaisa, pct, basePaisa) =>
  * @returns {{ type:'percentage'|'fixed', fixedPaisa:number, pct:number }}
  */
 const resolvePlatformCharge = (scope, consultant, facility, settings) => {
-  const facilityId = facility && facility._id ? String(facility._id) : null;
-  const overrides = Array.isArray(consultant?.facilityPlatformOverrides)
-    ? consultant.facilityPlatformOverrides
-    : [];
-  const ov = overrides.find(
-    (o) => o && o.facilityType === scope && facilityId && String(o.facilityId) === facilityId && o.platformChargeType
-  );
-  if (ov) {
-    return {
-      type: ov.platformChargeType,
-      fixedPaisa: ov.fixedPlatformChargePaisa || 0,
-      pct: ov.platformChargePercentage || 0,
-    };
-  }
+  const ov = findFacilityOverride(scope, consultant, facility);
+  if (ov) return ov;
 
   const fallbackPct =
     (scope === 'lab' ? settings?.defaultLabDeductionPercentage : settings?.defaultHospitalDeductionPercentage) ??
@@ -130,6 +141,30 @@ const computeHospitalSplit = ({ billPaisa, consultant, hospital, settings }) => 
     const commissionPercentage = (consultant && consultant.commissionPercentage) || (settings?.defaultConsultantCommissionPercentage ?? DEFAULT_COMMISSION_PCT);
     const platformCutPaisa = Math.round(bill * (deductionPercentage / 100));
     const doctorCommissionPaisa = Math.round(platformCutPaisa * (commissionPercentage / 100));
+
+    // Per-consultant platform-fee override: the admin has set a special platform fee for this
+    // doctor at this hospital. It changes ONLY the platform charge (admin revenue) and therefore
+    // the hospital's total — the doctor's nested commission above is preserved exactly. The case
+    // becomes additive-shaped (facility owes commission + platform fee). Without an override the
+    // math is byte-for-byte the original nested split.
+    const override = findFacilityOverride('hospital', consultant, hospital);
+    if (override) {
+      const platformChargePaisa = component(override.type, override.fixedPaisa, override.pct, bill);
+      return makeResult({
+        billPaisa: bill,
+        doctorCommissionPaisa,
+        platformChargePaisa,
+        platformCutPaisa: platformChargePaisa, // additive-shaped mirror == admin revenue
+        commissionModel: 'legacy',
+        commissionType: 'percentage',
+        commissionPercentage,
+        platformChargeType: override.type,
+        platformChargePercentage: override.type === 'percentage' ? clampPct(override.pct) : 0,
+        fixedPlatformChargePaisa: override.type === 'fixed' ? toPaisaInt(override.fixedPaisa) : 0,
+        deductionPercentage: override.type === 'percentage' ? clampPct(override.pct) : 0,
+      });
+    }
+
     const platformChargePaisa = platformCutPaisa - doctorCommissionPaisa;
     return makeResult({
       billPaisa: bill,
@@ -189,6 +224,34 @@ const computeLabSplit = ({ tests, discountPercentage, consultant, lab, settings 
     const commissionPercentage = (consultant && consultant.commissionPercentage) || (settings?.defaultLabCommissionPercentage ?? DEFAULT_COMMISSION_PCT);
     const platformCutPaisa = Math.round(billTotal * (deductionPercentage / 100));
     const doctorCommissionPaisa = Math.round(platformCutPaisa * (commissionPercentage / 100));
+
+    // Per-consultant platform-fee override (per test): changes ONLY the platform charge for this
+    // doctor at this lab; the nested doctor commission above is preserved exactly. Without an
+    // override the math is byte-for-byte the original nested split.
+    const override = findFacilityOverride('lab', consultant, lab);
+    if (override) {
+      const discFactor = 1 - discountPct / 100;
+      let platformChargePaisa = 0;
+      for (const t of lines) {
+        const base = Math.round(toPaisaInt(t && t.amountPaisa) * discFactor); // discounted line price
+        platformChargePaisa += component(override.type, override.fixedPaisa, override.pct, base);
+      }
+      return makeResult({
+        billPaisa: billTotal,
+        doctorCommissionPaisa, // nested, unchanged
+        platformChargePaisa,
+        platformCutPaisa: platformChargePaisa, // additive-shaped mirror == admin revenue
+        testCount: lines.length,
+        commissionModel: 'legacy',
+        commissionType: 'percentage',
+        commissionPercentage,
+        platformChargeType: override.type,
+        platformChargePercentage: override.type === 'percentage' ? clampPct(override.pct) : 0,
+        fixedPlatformChargePaisa: override.type === 'fixed' ? toPaisaInt(override.fixedPaisa) : 0,
+        deductionPercentage: override.type === 'percentage' ? clampPct(override.pct) : 0,
+      });
+    }
+
     const platformChargePaisa = platformCutPaisa - doctorCommissionPaisa;
     return makeResult({
       billPaisa: billTotal,
@@ -245,6 +308,7 @@ module.exports = {
   clampPct,
   toPaisaInt,
   isAdditive,
+  findFacilityOverride,
   DEFAULT_DEDUCTION_PCT,
   DEFAULT_COMMISSION_PCT,
 };

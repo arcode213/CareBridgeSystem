@@ -49,7 +49,6 @@ import LabInbox from './pages/lab/LabInbox';
 import LabReferrals from './pages/lab/LabReferrals';
 import LabSettlements from './pages/lab/LabSettlements';
 import LabTestCatalog from './pages/lab/LabTestCatalog';
-import VerifyPhone from './pages/VerifyPhone';
 const RoleGuard = ({ children, roles }) => {
   const { user, token } = useAuth();
 
@@ -119,7 +118,6 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/verify-phone" element={<VerifyPhone />} />
 
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />

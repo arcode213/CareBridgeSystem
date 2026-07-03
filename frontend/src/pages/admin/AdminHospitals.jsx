@@ -35,6 +35,12 @@ const AdminHospitals = () => {
   const [editForm, setEditForm] = useState({});
   const [adminDoctors, setAdminDoctors] = useState([]);
   const [newDoctor, setNewDoctor] = useState({ name: '', specialty: '', consultationFee: '' });
+  // Per-consultant platform-fee overrides for the selected hospital.
+  const [ovList, setOvList] = useState([]);
+  const [ovLoading, setOvLoading] = useState(false);
+  const [ovSearch, setOvSearch] = useState('');
+  const [ovDraft, setOvDraft] = useState({}); // consultantId -> { type, pct, rupees }
+  const [ovSavingId, setOvSavingId] = useState(null);
 
   useEffect(() => {
     const p = selected?.profile;
@@ -69,6 +75,69 @@ const AdminHospitals = () => {
       toast.error(err.response?.data?.message || 'Failed to update platform charge');
     } finally {
       setActionId(null);
+    }
+  };
+
+  const loadOverrides = useCallback(async (hospitalRef) => {
+    if (!hospitalRef) return;
+    setOvLoading(true);
+    try {
+      const res = await api.get(`/admin/hospitals/${hospitalRef}/consultant-overrides`);
+      if (res.data.success) {
+        const list = res.data.data || [];
+        setOvList(list);
+        const draft = {};
+        for (const c of list) {
+          draft[c.consultantId] = c.override
+            ? { type: c.override.platformChargeType, pct: c.override.platformChargePercentage || 0, rupees: c.override.fixedPlatformChargeRupees || 0 }
+            : { type: 'percentage', pct: 0, rupees: 0 };
+        }
+        setOvDraft(draft);
+      }
+    } catch {
+      toast.error('Failed to load consultant platform fees');
+    } finally {
+      setOvLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selected?._id && selected?.profile?._id) loadOverrides(selected._id);
+    else { setOvList([]); setOvDraft({}); setOvSearch(''); }
+  }, [selected?._id, selected?.profile?._id, loadOverrides]);
+
+  const setDraft = (consultantId, patch) =>
+    setOvDraft((m) => ({ ...m, [consultantId]: { ...(m[consultantId] || { type: 'percentage', pct: 0, rupees: 0 }), ...patch } }));
+
+  const saveOverride = async (consultantId) => {
+    const d = ovDraft[consultantId] || { type: 'percentage', pct: 0, rupees: 0 };
+    setOvSavingId(consultantId);
+    try {
+      await api.post(`/admin/hospitals/${selected._id}/consultant-overrides`, {
+        consultantId,
+        platformChargeType: d.type,
+        platformChargePercentage: d.type === 'percentage' ? Number(d.pct) || 0 : 0,
+        fixedPlatformChargeRupees: d.type === 'fixed' ? Number(d.rupees) || 0 : 0,
+      });
+      toast.success('Special platform fee saved');
+      await loadOverrides(selected._id);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save platform fee');
+    } finally {
+      setOvSavingId(null);
+    }
+  };
+
+  const clearOverride = async (consultantId) => {
+    setOvSavingId(consultantId);
+    try {
+      await api.post(`/admin/hospitals/${selected._id}/consultant-overrides`, { consultantId, remove: true });
+      toast.success('Reverted to the hospital default fee');
+      await loadOverrides(selected._id);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to revert');
+    } finally {
+      setOvSavingId(null);
     }
   };
 
@@ -603,6 +672,121 @@ const AdminHospitals = () => {
                       </button>
                     </div>
                   </div>
+                </div>
+
+                {/* Special platform fee for specific consultants (overrides the hospital default) */}
+                <div className="border-t border-slate-100 pt-5">
+                  <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm mb-1">
+                    🎯 Special Platform Fee for Specific Consultants
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-3">
+                    Optionally charge <span className="font-semibold">certain consultants</span> a different platform fee for their
+                    referrals to this hospital. The doctor's commission never changes — only the platform fee (and so the hospital's
+                    total) differs. Consultants without a special fee keep the hospital default above. Applies to new referrals only.
+                  </p>
+
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input
+                      value={ovSearch}
+                      onChange={(e) => setOvSearch(e.target.value)}
+                      placeholder="Search consultants by name or specialty…"
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+
+                  {ovLoading ? (
+                    <p className="text-xs text-slate-400 py-4 text-center">Loading consultants…</p>
+                  ) : (
+                    <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                      {ovList
+                        .filter((c) => {
+                          const q = ovSearch.trim().toLowerCase();
+                          if (!q) return true;
+                          return c.name.toLowerCase().includes(q) || (c.specialty || '').toLowerCase().includes(q);
+                        })
+                        .map((c) => {
+                          const d = ovDraft[c.consultantId] || { type: 'percentage', pct: 0, rupees: 0 };
+                          const hasOverride = !!c.override;
+                          return (
+                            <div
+                              key={c.consultantId}
+                              className={`rounded-xl p-3 border ${hasOverride ? 'border-indigo-200 bg-indigo-50/50' : 'border-slate-200 bg-white'}`}
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-slate-800 truncate">{c.name}</p>
+                                  <p className="text-[10px] text-slate-400 truncate">
+                                    {c.specialty || '—'} · <span className="font-semibold text-slate-500">{c.referralCount}</span> referrals here
+                                  </p>
+                                </div>
+                                {hasOverride ? (
+                                  <span className="shrink-0 text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
+                                    Special: {c.override.platformChargeType === 'percentage' ? `${c.override.platformChargePercentage}%` : `Rs ${c.override.fixedPlatformChargeRupees}`}
+                                  </span>
+                                ) : (
+                                  <span className="shrink-0 text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Default fee</span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <label className="flex items-center gap-1 text-[11px] font-medium text-slate-600 cursor-pointer">
+                                  <input type="radio" checked={d.type === 'percentage'} onChange={() => setDraft(c.consultantId, { type: 'percentage' })} />
+                                  %
+                                </label>
+                                <label className="flex items-center gap-1 text-[11px] font-medium text-slate-600 cursor-pointer">
+                                  <input type="radio" checked={d.type === 'fixed'} onChange={() => setDraft(c.consultantId, { type: 'fixed' })} />
+                                  Fixed
+                                </label>
+                                {d.type === 'percentage' ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number" min="0" max="100"
+                                      value={d.pct}
+                                      onChange={(e) => setDraft(c.consultantId, { pct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                                      className="w-16 px-2 py-1 text-center text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                    <span className="text-[10px] font-bold text-slate-400">% of bill</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] font-bold text-slate-400">Rs</span>
+                                    <input
+                                      type="number" min="0"
+                                      value={d.rupees}
+                                      onChange={(e) => setDraft(c.consultantId, { rupees: Math.max(0, Number(e.target.value) || 0) })}
+                                      className="w-20 px-2 py-1 text-center text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                    <span className="text-[10px] font-medium text-slate-400">/ referral</span>
+                                  </div>
+                                )}
+                                <div className="ml-auto flex items-center gap-1.5">
+                                  {hasOverride && (
+                                    <button
+                                      onClick={() => clearOverride(c.consultantId)}
+                                      disabled={ovSavingId === c.consultantId}
+                                      className="px-2.5 py-1 text-[11px] font-bold text-slate-500 hover:text-red-600 disabled:opacity-50"
+                                    >
+                                      Clear
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => saveOverride(c.consultantId)}
+                                    disabled={ovSavingId === c.consultantId}
+                                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold transition-all shadow-sm disabled:opacity-50"
+                                  >
+                                    {ovSavingId === c.consultantId ? 'Saving…' : hasOverride ? 'Update' : 'Set fee'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      {ovList.length === 0 && (
+                        <p className="text-xs text-slate-400 py-4 text-center">No consultants found.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             )}

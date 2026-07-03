@@ -4,6 +4,8 @@ const path = require('path');
 const { sendViaResend, isResendConfigured } = require('./resendEmail');
 const {
   verificationEmailHtml,
+  verificationOtpEmailHtml,
+  verificationOtpEmailText,
   resetPasswordEmailHtml,
   verificationEmailText,
   resetPasswordEmailText,
@@ -145,6 +147,16 @@ const sendVerificationEmail = async (user, token) => {
   });
 };
 
+/** Send a 6-digit email-verification OTP to the user's email. */
+const sendEmailOtp = async (user, otp) => {
+  return sendEmail({
+    to: user.email,
+    subject: 'Your verification code — CareBridge Health',
+    html: verificationOtpEmailHtml(user, otp),
+    text: verificationOtpEmailText(user, otp),
+  });
+};
+
 const sendResetPasswordEmail = async (user, token) => {
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
   return sendEmail({
@@ -179,6 +191,7 @@ const sendActionEmail = async ({ to, subject, ...templateArgs }) => {
 module.exports = {
   sendEmail,
   sendVerificationEmail,
+  sendEmailOtp,
   sendResetPasswordEmail,
   sendNotificationEmail,
   sendActionEmail,

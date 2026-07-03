@@ -855,6 +855,120 @@ exports.adminUpdateHospitalDeduction = async (req, res) => {
   }
 };
 
+/**
+ * List every consultant with their per-consultant platform-fee override (if any) for a specific
+ * hospital, plus how many referrals they've sent there — so the admin can decide who gets a
+ * special platform fee. `:id` may be the hospital's userId or _id.
+ */
+exports.adminListHospitalConsultantOverrides = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let hospital = await Hospital.findOne({ userId: id });
+    if (!hospital) hospital = await Hospital.findById(id);
+    if (!hospital) return res.status(404).json({ success: false, message: 'Hospital not found' });
+
+    const hospitalId = String(hospital._id);
+    const consultants = await Consultant.find()
+      .populate('userId', 'name email status')
+      .select('specialty referralHistoryCount facilityPlatformOverrides userId')
+      .lean();
+
+    const data = consultants
+      .filter((c) => c.userId)
+      .map((c) => {
+        const ov = (c.facilityPlatformOverrides || []).find(
+          (o) => o && o.facilityType === 'hospital' && String(o.facilityId) === hospitalId
+        );
+        // referralHistoryCount is a Mongoose Map; under .lean() it may be a native Map or a plain object.
+        const rhc = c.referralHistoryCount;
+        const referralCount = rhc instanceof Map ? Number(rhc.get(hospitalId) || 0) : Number((rhc || {})[hospitalId] || 0);
+        return {
+          consultantId: c._id,
+          name: c.userId?.name || 'Unknown',
+          email: c.userId?.email || '',
+          status: c.userId?.status || '',
+          specialty: c.specialty || '',
+          referralCount,
+          override: ov
+            ? {
+                platformChargeType: ov.platformChargeType,
+                platformChargePercentage: ov.platformChargePercentage || 0,
+                fixedPlatformChargeRupees: (ov.fixedPlatformChargePaisa || 0) / 100,
+              }
+            : null,
+        };
+      })
+      .sort((a, b) => b.referralCount - a.referralCount);
+
+    res.json({ success: true, data });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: 'Failed to load consultant overrides' });
+  }
+};
+
+/**
+ * Set (or clear, with `remove: true`) one consultant's platform-fee override for a specific
+ * hospital. This ONLY changes the platform charge (admin revenue / what the hospital pays) for
+ * that consultant's referrals to this hospital — the doctor's commission is never touched.
+ * `:id` may be the hospital's userId or _id.
+ */
+exports.adminSetHospitalConsultantOverride = async (req, res) => {
+  try {
+    const { rupeesToPaisa, clampPct } = require('../services/commissionService');
+    const { id } = req.params;
+    const { consultantId, platformChargeType, platformChargePercentage, fixedPlatformChargeRupees, remove } = req.body || {};
+
+    let hospital = await Hospital.findOne({ userId: id });
+    if (!hospital) hospital = await Hospital.findById(id);
+    if (!hospital) return res.status(404).json({ success: false, message: 'Hospital not found' });
+
+    if (!consultantId) return res.status(400).json({ success: false, message: 'consultantId is required' });
+    const consultant = await Consultant.findById(consultantId);
+    if (!consultant) return res.status(404).json({ success: false, message: 'Consultant not found' });
+
+    const hospitalId = String(hospital._id);
+    // Replace, never duplicate: drop any existing override for this hospital first.
+    consultant.facilityPlatformOverrides = (consultant.facilityPlatformOverrides || []).filter(
+      (o) => !(o && o.facilityType === 'hospital' && String(o.facilityId) === hospitalId)
+    );
+
+    if (!remove) {
+      if (!['percentage', 'fixed'].includes(platformChargeType)) {
+        return res.status(400).json({ success: false, message: 'platformChargeType must be percentage or fixed' });
+      }
+      const entry = { facilityType: 'hospital', facilityId: hospital._id, platformChargeType };
+      if (platformChargeType === 'percentage') {
+        const pct = Number(platformChargePercentage);
+        if (isNaN(pct) || pct < 0 || pct > 100) {
+          return res.status(400).json({ success: false, message: 'platformChargePercentage must be 0-100' });
+        }
+        entry.platformChargePercentage = clampPct(pct);
+        entry.fixedPlatformChargePaisa = 0;
+      } else {
+        entry.fixedPlatformChargePaisa = rupeesToPaisa(fixedPlatformChargeRupees);
+        entry.platformChargePercentage = 0;
+      }
+      consultant.facilityPlatformOverrides.push(entry);
+    }
+
+    await consultant.save();
+
+    await logAction({
+      req,
+      action: remove ? 'ADMIN_CLEAR_CONSULTANT_PLATFORM_OVERRIDE' : 'ADMIN_SET_CONSULTANT_PLATFORM_OVERRIDE',
+      entityId: consultant._id,
+      entityModel: 'Consultant',
+      details: { hospitalId, platformChargeType, platformChargePercentage, fixedPlatformChargeRupees, remove: !!remove },
+    });
+
+    res.json({ success: true, message: remove ? 'Special platform fee removed' : 'Special platform fee saved' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: 'Failed to save consultant platform fee' });
+  }
+};
+
 exports.updateReferralFull = async (req, res) => {
   try {
     const { id } = req.params;

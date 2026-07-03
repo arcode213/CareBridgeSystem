@@ -14,11 +14,11 @@ router.post('/register', authLimiter, authController.register);
 router.post('/login', authLimiter, authController.login);
 router.post('/refresh', authLimiter, authController.refresh);
 
-// Phone (WhatsApp) verification — primary flow
-router.post('/verify-phone', authLimiter, authController.verifyPhone);
-router.post('/resend-phone-otp', authLimiter, authController.resendPhoneOtp);
+// Email verification via OTP — primary flow
+router.post('/verify-email-otp', authLimiter, authController.verifyEmailOtp);
+router.post('/resend-email-otp', authLimiter, authController.resendEmailOtp);
 
-// Email verification — kept for legacy/backward compat
+// Legacy email verification (link-based) — kept for backward compat
 router.get('/verify-email', authController.verifyEmail);
 router.post('/resend-verification', authController.resendVerification);
 

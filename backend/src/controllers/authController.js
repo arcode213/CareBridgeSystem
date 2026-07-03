@@ -5,9 +5,9 @@ const Laboratory = require('../models/Laboratory');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendVerificationEmail, sendResetPasswordEmail } = require('../utils/emailService');
-const { sendOtpWhatsApp, sendWhatsApp, normalisePhone } = require('../utils/whatsappService');
-const { generateOtp, verifyOtp, hasLiveOtp } = require('../utils/otpService');
+const { sendVerificationEmail, sendEmailOtp, sendResetPasswordEmail } = require('../utils/emailService');
+const { normalisePhone } = require('../utils/whatsappService');
+const { generateOtp, verifyOtp } = require('../utils/otpService');
 const notificationService = require('../services/notificationService');
 
 const ALLOWED_WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burns', 'Maternity', 'Psychiatric', 'Cardiac'];
@@ -130,26 +130,11 @@ exports.register = async (req, res) => {
       passwordHash,
       role,
       status: 'pending',
-      // VERIFICATION DISABLED: both flags set to true so users can log in immediately.
-      // Re-enable by setting these to false and restoring the blocks below.
+      // Phone (WhatsApp) verification is not used — email is the only verification
+      // channel, so the phone flag is left true and the email flag starts false.
       isPhoneVerified: true,
-      isEmailVerified: true,
+      isEmailVerified: false,
     });
-
-    // VERIFICATION DISABLED: Email & WhatsApp OTP steps skipped.
-    // To re-enable, uncomment the block below:
-    // const emailToken = crypto.randomBytes(32).toString('hex');
-    // const emailTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    // user.emailVerificationToken = emailToken;
-    // user.emailVerificationExpires = emailTokenExpires;
-    // await user.save();
-    // sendVerificationEmail(user, emailToken).catch((err) =>
-    //   console.error('Failed to send verification email:', err.message || err)
-    // );
-    // const otp = generateOtp(e164Phone);
-    // sendOtpWhatsApp(e164Phone, otp, name.trim()).then((wa) => {
-    //   if (!wa.success) console.error('[REG] WhatsApp OTP failed:', wa.error);
-    // });
 
     if (role === 'consultant') {
       const pmdc = String(req.body.pmdcNumber || '').trim();
@@ -295,6 +280,12 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Send a 6-digit email verification OTP (keyed by the user's email).
+    const emailOtp = generateOtp(user.email);
+    sendEmailOtp(user, emailOtp).then((r) => {
+      if (!r.success) console.error('[REG] Email OTP send failed:', r.error);
+    }).catch((err) => console.error('[REG] Email OTP send error:', err.message || err));
+
     // Alert admins so the pending approval surfaces in real time.
     notificationService.notifyNewRegistration(user).catch((err) =>
       console.error('New registration admin notification failed:', err.message)
@@ -302,8 +293,8 @@ exports.register = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful. We sent a verification code to your WhatsApp and a verification link to your email.',
-      data: { userId: user._id, role: user.role, status: user.status, phone: phoneClean },
+      message: 'Registration successful. We sent a 6-digit verification code to your email.',
+      data: { userId: user._id, role: user.role, status: user.status, email: user.email },
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -325,23 +316,16 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // VERIFICATION DISABLED: Phone & email checks skipped.
-    // To re-enable, uncomment the blocks below:
-    // if (!user.isPhoneVerified) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: 'Please verify your WhatsApp number before logging in.',
-    //     needsPhoneVerification: true,
-    //     phone: user.phone,
-    //   });
-    // }
-    // if (!user.isEmailVerified) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: 'Please verify your email address before logging in.',
-    //     needsEmailVerification: true,
-    //   });
-    // }
+    // Email verification is required before login. Phone (WhatsApp) verification
+    // is no longer used.
+    if (!user.isEmailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your email address before logging in.',
+        needsEmailVerification: true,
+        email: user.email,
+      });
+    }
 
     if (user.status === 'pending') {
       return res.status(403).json({ success: false, message: 'Account is pending approval' });
@@ -402,86 +386,76 @@ exports.verifyEmail = async (req, res) => {
 };
 
 /**
- * Verify phone number with a WhatsApp OTP.
- * POST /auth/verify-phone   { phone, otp }
+ * Verify email with a 6-digit OTP.
+ * POST /auth/verify-email-otp   { email, otp }
  */
-exports.verifyPhone = async (req, res) => {
+exports.verifyEmailOtp = async (req, res) => {
   try {
-    const { phone, otp } = req.body;
-    if (!phone || !otp) {
-      return res.status(400).json({ success: false, message: 'Phone and OTP are required' });
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
     }
 
-    const e164 = normalisePhone(phone);
-    const result = verifyOtp(e164, otp);
-
+    const emailKey = String(email).toLowerCase().trim();
+    const result = verifyOtp(emailKey, otp);
     if (!result.valid) {
       return res.status(400).json({ success: false, message: result.reason });
     }
 
-    const user = await User.findOne({ phone: { $in: [e164, phone] } });
+    const user = await User.findOne({ email: emailKey });
     if (!user) {
-      // Try without country code prefix
-      const altPhone = phone.replace(/^\+92/, '0');
-      const altUser = await User.findOne({ phone: { $in: [phone, altPhone, e164] } });
-      if (!altUser) {
-        return res.status(404).json({ success: false, message: 'User not found for this phone number' });
-      }
-      altUser.isPhoneVerified = true;
-      await altUser.save();
-      return res.status(200).json({ success: true, message: 'Phone verified! You can now log in.' });
+      return res.status(404).json({ success: false, message: 'User not found for this email' });
     }
 
-    user.isPhoneVerified = true;
+    user.isEmailVerified = true;
     await user.save();
 
-    res.status(200).json({ success: true, message: 'Phone verified successfully. You can now log in.' });
+    res.status(200).json({ success: true, message: 'Email verified successfully. You can now log in.' });
   } catch (error) {
-    console.error('Phone verification error:', error);
-    res.status(500).json({ success: false, message: 'Server error during phone verification' });
+    console.error('Email OTP verification error:', error);
+    res.status(500).json({ success: false, message: 'Server error during email verification' });
   }
 };
 
 /**
- * Resend phone OTP via WhatsApp.
- * POST /auth/resend-phone-otp   { phone }
+ * Resend the email verification OTP.
+ * POST /auth/resend-email-otp   { email }
  */
-exports.resendPhoneOtp = async (req, res) => {
+exports.resendEmailOtp = async (req, res) => {
   try {
-    const { phone } = req.body;
-    if (!phone) {
-      return res.status(400).json({ success: false, message: 'Phone number is required' });
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
-    const e164 = normalisePhone(phone);
-    const user = await User.findOne({ phone: { $in: [phone, e164, phone.replace(/^\+92/, '0')] } });
+    const emailKey = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: emailKey });
     if (!user) {
-      return res.status(404).json({ success: false, message: 'No account found for this phone number' });
+      return res.status(404).json({ success: false, message: 'No account found for this email' });
     }
 
-    if (user.isPhoneVerified) {
-      return res.status(400).json({ success: false, message: 'Phone number is already verified' });
+    if (user.isEmailVerified) {
+      return res.status(400).json({ success: false, message: 'Email is already verified' });
     }
 
-    // Rate limit: only allow resend if no live OTP (or after 60s)
-    const otp = generateOtp(e164);
-    const wa = await sendOtpWhatsApp(e164, otp, user.name);
-    if (!wa.success) {
+    const otp = generateOtp(emailKey);
+    const sent = await sendEmailOtp(user, otp);
+    if (!sent.success) {
       return res.status(502).json({
         success: false,
-        message: 'Could not send WhatsApp verification code. Please try again in a moment.',
+        message: 'Could not send the verification code. Please try again in a moment.',
       });
     }
 
     res.status(200).json({
       success: true,
-      message: wa.mocked
-        ? 'Verification code generated (dev mock — see server console).'
-        : 'A new verification code has been sent to your WhatsApp.',
-      mocked: Boolean(wa.mocked),
+      message: sent.mocked
+        ? 'Verification code generated (dev mock — see server console / uploads/emails).'
+        : 'A new verification code has been sent to your email.',
+      mocked: Boolean(sent.mocked),
     });
   } catch (error) {
-    console.error('Resend phone OTP error:', error);
+    console.error('Resend email OTP error:', error);
     res.status(500).json({ success: false, message: 'Server error during OTP resend' });
   }
 };

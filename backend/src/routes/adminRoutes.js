@@ -15,6 +15,8 @@ router.get('/consultants/:id/patients', adminController.getConsultantPatients);
 router.get('/hospitals/:id/patients', adminController.getHospitalPatients);
 router.post('/consultants/:id/commission', adminController.adminUpdateConsultantCommission);
 router.post('/hospitals/:id/deduction', adminController.adminUpdateHospitalDeduction);
+router.get('/hospitals/:id/consultant-overrides', adminController.adminListHospitalConsultantOverrides);
+router.post('/hospitals/:id/consultant-overrides', adminController.adminSetHospitalConsultantOverride);
 router.patch('/hospitals/:id', adminController.adminUpdateHospital);
 router.get('/hospitals/:id/doctors', adminController.adminListHospitalDoctors);
 router.post('/hospitals/:id/doctors', adminController.adminAddHospitalDoctor);

@@ -450,6 +450,40 @@ const verificationEmailHtml = (user, verificationUrl) =>
       '<strong style="color:#475569;">Security tip:</strong> If you did not create a CareBridge account, you can safely ignore this message.',
   });
 
+const otpCodeBlock = (otp) => `
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:28px auto;">
+  <tr>
+    <td align="center" style="background-color:#f8fafc;border:1px solid ${BRAND.border};border-radius:12px;padding:20px 40px;">
+      <span style="font-size:34px;font-weight:800;letter-spacing:0.4em;color:${BRAND.text};font-family:'Courier New',monospace;">${escapeHtml(otp)}</span>
+    </td>
+  </tr>
+</table>`;
+
+const verificationOtpEmailHtml = (user, otp) =>
+  buildActionEmail({
+    preheader: `Your ${BRAND.name} email verification code is ${otp}.`,
+    category: 'Email verification',
+    title: 'Verify your email address',
+    name: user.name,
+    paragraphs: [
+      `Thank you for registering with <strong style="color:${BRAND.text};">${BRAND.name}</strong>. Enter the 6-digit code below to confirm your email address and activate your account.`,
+      otpCodeBlock(otp),
+      'This code expires in <strong>10 minutes</strong>. Do not share it with anyone.',
+    ],
+    footnote:
+      '<strong style="color:#475569;">Security tip:</strong> If you did not create a CareBridge account, you can safely ignore this message.',
+  });
+
+const verificationOtpEmailText = (user, otp) =>
+  buildActionEmailText({
+    title: 'Verify your email address',
+    name: user.name,
+    paragraphs: [
+      `Your CareBridge email verification code is: ${otp}`,
+      'This code expires in 10 minutes. Do not share it with anyone.',
+    ],
+  });
+
 const resetPasswordEmailHtml = (user, resetUrl) =>
   buildActionEmail({
     preheader: `Reset your ${BRAND.name} password securely.`,
@@ -581,6 +615,8 @@ module.exports = {
   buildNotificationEmailText,
   notificationEmailSubject,
   verificationEmailHtml,
+  verificationOtpEmailHtml,
+  verificationOtpEmailText,
   resetPasswordEmailHtml,
   verificationEmailText,
   resetPasswordEmailText,

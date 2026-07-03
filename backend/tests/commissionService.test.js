@@ -115,6 +115,103 @@ test('additive lab high-volume: per-facility override raises platform/test, comm
   assert.strictEqual(r.totalCutPaisa, 75000);
 });
 
+// ───────────── per-consultant hospital platform-fee override ─────────────
+
+test('additive hospital: per-consultant override changes ONLY the platform fee, commission unchanged', () => {
+  const hospital = { _id: 'h1', platformChargeType: 'fixed', deductionPercentage: 20, fixedPlatformChargePaisa: 300000 }; // default Rs 3,000
+  const base = { commissionModel: 'additive', hospitalCommissionType: 'percentage', hospitalCommissionPercentage: 15 };
+  const overridden = {
+    ...base,
+    facilityPlatformOverrides: [
+      { facilityType: 'hospital', facilityId: 'h1', platformChargeType: 'fixed', fixedPlatformChargePaisa: 500000 }, // Rs 5,000
+    ],
+  };
+  const a = svc.computeHospitalSplit({ billPaisa: 5000000, consultant: base, hospital, settings });
+  const b = svc.computeHospitalSplit({ billPaisa: 5000000, consultant: overridden, hospital, settings });
+  // Same doctor commission (15% of 50,000 = 7,500) in both cases.
+  assert.strictEqual(a.doctorCommissionPaisa, 750000);
+  assert.strictEqual(b.doctorCommissionPaisa, 750000);
+  // Platform fee: default 3,000 vs override 5,000.
+  assert.strictEqual(a.platformChargePaisa, 300000);
+  assert.strictEqual(b.platformChargePaisa, 500000);
+  // Hospital pays commission + platform fee.
+  assert.strictEqual(a.totalCutPaisa, 1050000);
+  assert.strictEqual(b.totalCutPaisa, 1250000);
+});
+
+test('legacy hospital: per-consultant override applies additively, nested commission preserved', () => {
+  const hospital = { _id: 'h1', deductionPercentage: 20 };
+  const base = { commissionPercentage: 60 }; // legacy
+  const overridden = {
+    ...base,
+    facilityPlatformOverrides: [
+      { facilityType: 'hospital', facilityId: 'h1', platformChargeType: 'percentage', platformChargePercentage: 10 },
+    ],
+  };
+  const a = svc.computeHospitalSplit({ billPaisa: 1000000, consultant: base, hospital, settings });
+  const b = svc.computeHospitalSplit({ billPaisa: 1000000, consultant: overridden, hospital, settings });
+  // Doctor commission is the SAME nested value (bill 20% cut, 60% of it = 120,000) with or without override.
+  assert.strictEqual(a.doctorCommissionPaisa, 120000);
+  assert.strictEqual(b.doctorCommissionPaisa, 120000);
+  // Platform fee: default nested admin share (80,000) vs override 10% of bill (100,000).
+  assert.strictEqual(a.platformChargePaisa, 80000);
+  assert.strictEqual(b.platformChargePaisa, 100000);
+  // With override the hospital owes commission + fee (additive-shaped).
+  assert.strictEqual(b.totalCutPaisa, 220000);
+  assert.strictEqual(b.totalCutPaisa, b.doctorCommissionPaisa + b.platformChargePaisa);
+});
+
+test('override for a DIFFERENT hospital does not apply', () => {
+  const hospital = { _id: 'h1', platformChargeType: 'percentage', deductionPercentage: 20 };
+  const consultant = {
+    commissionModel: 'additive', hospitalCommissionType: 'percentage', hospitalCommissionPercentage: 15,
+    facilityPlatformOverrides: [
+      { facilityType: 'hospital', facilityId: 'h2', platformChargeType: 'fixed', fixedPlatformChargePaisa: 999999 },
+    ],
+  };
+  const r = svc.computeHospitalSplit({ billPaisa: 5000000, consultant, hospital, settings });
+  assert.strictEqual(r.platformChargePaisa, 1000000); // hospital default 20% of 50,000, override ignored
+});
+
+// ───────────── per-consultant LAB platform-fee override (per test) ─────────────
+
+test('additive lab: per-consultant override changes ONLY the per-test platform fee', () => {
+  const lab = { _id: 'lab1', platformChargeType: 'fixed', deductionPercentage: 20, fixedPlatformChargePaisaPerTest: 10000 }; // default Rs 100/test
+  const base = { commissionModel: 'additive', labCommissionType: 'fixed', labFixedCommissionPaisaPerTest: 10000 };
+  const overridden = {
+    ...base,
+    facilityPlatformOverrides: [
+      { facilityType: 'lab', facilityId: 'lab1', platformChargeType: 'fixed', fixedPlatformChargePaisa: 15000 }, // Rs 150/test
+    ],
+  };
+  const a = svc.computeLabSplit({ tests: tests3, discountPercentage: 0, consultant: base, lab, settings });
+  const b = svc.computeLabSplit({ tests: tests3, discountPercentage: 0, consultant: overridden, lab, settings });
+  assert.strictEqual(a.doctorCommissionPaisa, 30000); // 100 x 3, unchanged
+  assert.strictEqual(b.doctorCommissionPaisa, 30000);
+  assert.strictEqual(a.platformChargePaisa, 30000); // default 100 x 3
+  assert.strictEqual(b.platformChargePaisa, 45000); // override 150 x 3
+  assert.strictEqual(b.totalCutPaisa, 75000);
+});
+
+test('legacy lab: per-consultant override applies per-test additively, commission preserved', () => {
+  const lab = { _id: 'lab1', deductionPercentage: 20 };
+  const base = { commissionPercentage: 60 }; // legacy
+  const overridden = {
+    ...base,
+    facilityPlatformOverrides: [
+      { facilityType: 'lab', facilityId: 'lab1', platformChargeType: 'fixed', fixedPlatformChargePaisa: 20000 }, // Rs 200/test
+    ],
+  };
+  // 3 tests of Rs 2,000 = 6,000 gross, no discount.
+  const a = svc.computeLabSplit({ tests: tests3, discountPercentage: 0, consultant: base, lab, settings });
+  const b = svc.computeLabSplit({ tests: tests3, discountPercentage: 0, consultant: overridden, lab, settings });
+  // Nested commission: cut = 6,000 x 20% = 1,200; doctor = 60% = 720 -> 72000 paisa. Same both.
+  assert.strictEqual(a.doctorCommissionPaisa, 72000);
+  assert.strictEqual(b.doctorCommissionPaisa, 72000);
+  assert.strictEqual(b.platformChargePaisa, 60000); // 200 x 3 tests
+  assert.strictEqual(b.totalCutPaisa, b.doctorCommissionPaisa + b.platformChargePaisa);
+});
+
 // ───────────── reconciliation & edge cases ─────────────
 test('identity totalCut === doctorCommission + platformCharge across modes', () => {
   const cases = [

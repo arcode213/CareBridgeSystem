@@ -1,13 +1,14 @@
 /**
  * OTP Service
- * Generates 6-digit numeric OTPs for phone verification.
+ * Generates 6-digit numeric OTPs for verification. The store key is any stable
+ * identifier — an E.164 phone number or a lowercased email address.
  * Stores them in memory with a 10-minute TTL.
  * In production, replace the in-memory store with Redis.
  */
 
 const crypto = require('crypto');
 
-// In-memory store: Map<phone, { otp, expiresAt, attempts }>
+// In-memory store: Map<key, { otp, expiresAt, attempts }>  (key = phone or email)
 const otpStore = new Map();
 
 const OTP_TTL_MS = 10 * 60 * 1000;    // 10 minutes

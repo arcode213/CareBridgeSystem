@@ -127,9 +127,8 @@ export const AuthProvider = ({ children }) => {
       return {
         success: false,
         message: data.message,
-        needsPhoneVerification: data.needsPhoneVerification,
         needsEmailVerification: data.needsEmailVerification,
-        phone: data.phone,
+        email: data.email,
       };
     } catch {
       return { success: false, message: 'Server error' };
@@ -150,7 +149,7 @@ export const AuthProvider = ({ children }) => {
       return {
         success: data.success,
         message: data.message || data.error || 'Registration failed',
-        phone: data.data?.phone,
+        email: data.data?.email,
       };
     } catch {
       return { success: false, message: 'Server error' };
