@@ -59,6 +59,32 @@ const persistAndPush = async ({ userId, role, type, message, data = {} }) => {
   }
 };
 
+/**
+ * All active user accounts that belong to a facility: the profile owner plus
+ * every team sub-user linked to it. Returned as lean objects with just the
+ * fields the alert channels need. Used to fan notifications out to the whole
+ * team (owner + added staff) instead of only the owner account.
+ */
+const getHospitalTeam = async (hospital) => {
+  if (!hospital?._id) return [];
+  return User.find({
+    status: 'active',
+    $or: [{ _id: hospital.userId }, { hospitalId: hospital._id }],
+  })
+    .select('name email phone role')
+    .lean();
+};
+
+const getLabTeam = async (lab) => {
+  if (!lab?._id) return [];
+  return User.find({
+    status: 'active',
+    $or: [{ _id: lab.userId }, { labId: lab._id }],
+  })
+    .select('name email phone role')
+    .lean();
+};
+
 const notifyAllAdmins = async (type, message, extraData = {}) => {
   const admins = await User.find({ role: 'admin', status: 'active' })
     .select('name email phone')
@@ -234,6 +260,20 @@ exports.sendAlert = async ({ userId, role, type, message, data = {} }) => {
 };
 
 // ─── Convenience helpers ─────────────────────────────────────────────────────
+
+exports.getHospitalTeam = getHospitalTeam;
+exports.getLabTeam = getLabTeam;
+
+/**
+ * Fan a NEW_REFERRAL alert out to every member of a hospital's team
+ * (owner + added sub-users). Falls back to nothing if the team is empty.
+ */
+exports.notifyHospitalNewReferral = async (referral, hospital) => {
+  const team = await getHospitalTeam(hospital);
+  return Promise.allSettled(
+    team.map((u) => exports.notifyNewReferral(referral, u))
+  );
+};
 
 exports.notifyNewReferral = async (referral, recipient) => {
   return exports.sendAlert({

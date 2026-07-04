@@ -49,6 +49,9 @@ import LabInbox from './pages/lab/LabInbox';
 import LabReferrals from './pages/lab/LabReferrals';
 import LabSettlements from './pages/lab/LabSettlements';
 import LabTestCatalog from './pages/lab/LabTestCatalog';
+import HospitalTeam from './pages/HospitalTeam';
+import LabTeam from './pages/lab/LabTeam';
+import AdminTeam from './pages/admin/AdminTeam';
 const RoleGuard = ({ children, roles }) => {
   const { user, token } = useAuth();
 
@@ -147,12 +150,14 @@ function App() {
             <Route path="/hospital/departments" element={<RoleGuard roles={['hospital']}><HospitalDepartments /></RoleGuard>} />
             <Route path="/hospital/ledger" element={<RoleGuard roles={['hospital']}><HospitalLedger /></RoleGuard>} />
             <Route path="/hospital/settlements" element={<RoleGuard roles={['hospital']}><HospitalSettlements /></RoleGuard>} />
+            <Route path="/hospital/team" element={<RoleGuard roles={['hospital']}><HospitalTeam /></RoleGuard>} />
 
             <Route path="/lab/dashboard" element={<RoleGuard roles={['laboratory']}><LabDashboard /></RoleGuard>} />
             <Route path="/lab/inbox" element={<RoleGuard roles={['laboratory']}><LabInbox /></RoleGuard>} />
             <Route path="/lab/referrals" element={<RoleGuard roles={['laboratory']}><LabReferrals /></RoleGuard>} />
             <Route path="/lab/settlements" element={<RoleGuard roles={['laboratory']}><LabSettlements /></RoleGuard>} />
             <Route path="/lab/tests" element={<RoleGuard roles={['laboratory']}><LabTestCatalog /></RoleGuard>} />
+            <Route path="/lab/team" element={<RoleGuard roles={['laboratory']}><LabTeam /></RoleGuard>} />
 
             <Route path="/admin/overview" element={<RoleGuard roles={['admin']}><AdminOverview /></RoleGuard>} />
             <Route path="/admin/approvals" element={<RoleGuard roles={['admin']}><AdminApprovals /></RoleGuard>} />
@@ -167,6 +172,7 @@ function App() {
             <Route path="/admin/beds" element={<RoleGuard roles={['admin']}><AdminBeds /></RoleGuard>} />
             <Route path="/admin/audit" element={<RoleGuard roles={['admin']}><AdminAudit /></RoleGuard>} />
             <Route path="/admin/laboratory" element={<RoleGuard roles={['admin']}><AdminLaboratory /></RoleGuard>} />
+            <Route path="/admin/admins" element={<RoleGuard roles={['admin']}><AdminTeam /></RoleGuard>} />
             <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
           </Route>
         </Routes>

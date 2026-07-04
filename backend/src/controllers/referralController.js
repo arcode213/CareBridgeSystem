@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getHospitalForUser } = require('../utils/resolveOrg');
 const Referral = require('../models/Referral');
 const Hospital = require('../models/Hospital');
 const Consultant = require('../models/Consultant');
@@ -31,7 +32,7 @@ exports.getHospitalDoctors = async (req, res) => {
     const { id } = req.params;
 
     if (req.user.role === 'hospital') {
-      const ownHospital = await Hospital.findOne({ userId: req.user.id });
+      const ownHospital = await getHospitalForUser(req.user);
       if (!ownHospital || ownHospital._id.toString() !== id) {
         return res.status(403).json({ success: false, message: 'Not authorized to view doctors for this hospital' });
       }
@@ -334,25 +335,30 @@ exports.createReferral = async (req, res) => {
       console.error('Consultant referral email notification failed:', err.message);
     }
 
-    // 2. Send alert email to Target Hospital (async)
+    // 2. Send alert email + notifications to the WHOLE target-hospital team
+    //    (owner account + added sub-users) — not just the owner.
     try {
-      sendEmail({
-        to: targetOwner.email,
-        subject: `New referral received — ${referral.referralCode} — CareBridge Health`,
-        html: referralReceivedHospitalEmail({
-          hospitalName: targetHospital.hospitalName,
-          patientName: referral.patientName,
-          referralCode: referral.referralCode,
-          urgency,
-        }),
-        text: `New referral ${referral.referralCode} for ${referral.patientName}.`,
-      });
+      const team = await notificationService.getHospitalTeam(targetHospital);
+      for (const member of team) {
+        if (!member.email) continue;
+        sendEmail({
+          to: member.email,
+          subject: `New referral received — ${referral.referralCode} — CareBridge Health`,
+          html: referralReceivedHospitalEmail({
+            hospitalName: targetHospital.hospitalName,
+            patientName: referral.patientName,
+            referralCode: referral.referralCode,
+            urgency,
+          }),
+          text: `New referral ${referral.referralCode} for ${referral.patientName}.`,
+        });
+      }
     } catch (err) {
       console.error('Hospital new referral email notification failed:', err.message);
     }
 
-    notificationService.notifyNewReferral(referral, targetOwner).catch((err) =>
-      console.error('Hospital new referral WhatsApp notification failed:', err.message)
+    notificationService.notifyHospitalNewReferral(referral, targetHospital).catch((err) =>
+      console.error('Hospital new referral notification failed:', err.message)
     );
 
     const io = req.app.get('io');
@@ -416,7 +422,7 @@ exports.getMyReferrals = async (req, res) => {
 
 exports.getHospitalInbox = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -446,7 +452,7 @@ exports.getHospitalInbox = async (req, res) => {
 
 exports.getHospitalReferrals = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -488,7 +494,7 @@ exports.getReferralDetails = async (req, res) => {
     }
 
     const consultant = await Consultant.findOne({ userId: req.user.id });
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
 
     const referralConsultantId = referral.consultantId?._id
       ? referral.consultantId._id.toString()
@@ -535,7 +541,7 @@ exports.updateReferralStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
 
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
 
     const referral = await Referral.findOne({
       _id: req.params.id,
@@ -845,7 +851,7 @@ exports.addClinicalNote = async (req, res) => {
 
     // Authorization check: Only assigned hospital or the referring consultant can add notes
     const consultant = await Consultant.findOne({ userId: req.user.id });
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
 
     const isConsultant = consultant && referral.consultantId && referral.consultantId._id.toString() === consultant._id.toString();
     const isHospital = hospital && referral.targetHospitalId && referral.targetHospitalId._id.toString() === hospital._id.toString();
@@ -887,11 +893,13 @@ exports.addClinicalNote = async (req, res) => {
         }
       }
     } else if (isConsultant) {
-      const hospitalUser = referral.targetHospitalId?.userId;
-      if (hospitalUser) {
-        try {
+      // Fan the clinical-note email out to the whole hospital team (owner + sub-users).
+      try {
+        const team = await notificationService.getHospitalTeam(referral.targetHospitalId);
+        for (const member of team) {
+          if (!member.email) continue;
           sendEmail({
-            to: hospitalUser.email,
+            to: member.email,
             subject: `New clinical note — ${referral.referralCode} — CareBridge Health`,
             html: clinicalNoteEmail({
               recipientName: referral.targetHospitalId?.hospitalName || 'Clinical Staff',
@@ -903,9 +911,9 @@ exports.addClinicalNote = async (req, res) => {
             }),
             text: `New clinical note on referral ${referral.referralCode}.`,
           });
-        } catch (err) {
-          console.error('Clinical note email notification failed:', err.message);
         }
+      } catch (err) {
+        console.error('Clinical note email notification failed:', err.message);
       }
     }
 

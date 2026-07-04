@@ -1,11 +1,12 @@
 const Hospital = require('../models/Hospital');
+const { getHospitalForUser } = require('../utils/resolveOrg');
 const Referral = require('../models/Referral');
 const Admission = require('../models/Admission');
 const HospitalDoctor = require('../models/HospitalDoctor');
 
 exports.listDoctors = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -18,7 +19,7 @@ exports.listDoctors = async (req, res) => {
 
 exports.addDoctor = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     const { name, specialty, pmdcNumber, consultationFee, phone, email } = req.body;
     
     const doctor = await HospitalDoctor.create({
@@ -40,7 +41,7 @@ exports.addDoctor = async (req, res) => {
 
 exports.updateDoctor = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     const { id } = req.params;
     const updates = { ...req.body };
     if (updates.consultationFee) updates.consultationFee *= 100;
@@ -60,7 +61,7 @@ exports.updateDoctor = async (req, res) => {
 
 exports.deleteDoctor = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     const { id } = req.params;
     
     const doctor = await HospitalDoctor.findOneAndDelete({ _id: id, hospitalId: hospital._id });
@@ -74,7 +75,7 @@ exports.deleteDoctor = async (req, res) => {
 
 exports.getDashboardStats = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -111,7 +112,7 @@ exports.getDashboardStats = async (req, res) => {
 /** FR-25 — conversion, response proxy, monthly billing totals (simplified). */
 exports.getHospitalAnalytics = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -169,7 +170,7 @@ exports.getHospitalAnalytics = async (req, res) => {
 /** Accepted / admitted referrals for admissions workflow */
 exports.getReferralPipeline = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -206,7 +207,7 @@ exports.getReferralPipeline = async (req, res) => {
 
 exports.getBeds = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     res.json({ success: true, data: hospital.bedsInventory });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching bed inventory' });
@@ -216,7 +217,7 @@ exports.getBeds = async (req, res) => {
 exports.updateBeds = async (req, res) => {
   try {
     const { ward, availableBeds, totalBeds, occupiedBeds } = req.body;
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
 
     const wardIndex = hospital.bedsInventory.findIndex((b) => b.ward === ward);
     if (wardIndex > -1) {
@@ -261,7 +262,7 @@ exports.updateDepartments = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid departments array' });
     }
 
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -277,7 +278,7 @@ exports.updateDepartments = async (req, res) => {
 
 exports.getFinancialLedger = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }

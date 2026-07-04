@@ -128,6 +128,7 @@ const DashboardLayout = () => {
             <NavLink to="/hospital/beds" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Beds</NavLink>
             <NavLink to="/hospital/departments" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Depts</NavLink>
             <NavLink to="/hospital/doctors" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Docs</NavLink>
+            <NavLink to="/hospital/team" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Team</NavLink>
             <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
         )}
@@ -151,6 +152,7 @@ const DashboardLayout = () => {
             <NavLink to="/admin/settings" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Setup</NavLink>
             <NavLink to="/admin/audit" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Audit</NavLink>
             <NavLink to="/admin/laboratory" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Lab</NavLink>
+            <NavLink to="/admin/admins" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Admins</NavLink>
             <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
         )}
@@ -161,6 +163,7 @@ const DashboardLayout = () => {
             <NavLink to="/lab/referrals" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Referrals</NavLink>
             <NavLink to="/lab/settlements" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Settlements</NavLink>
             <NavLink to="/lab/tests" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Tests</NavLink>
+            <NavLink to="/lab/team" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Team</NavLink>
             <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
         )}
@@ -208,6 +211,7 @@ const DashboardLayout = () => {
               <BrandNavLink to="/hospital/beds"><span>Bed management</span></BrandNavLink>
               <BrandNavLink to="/hospital/departments"><span>Departments</span></BrandNavLink>
               <BrandNavLink to="/hospital/doctors"><span>Manage doctors</span></BrandNavLink>
+              <BrandNavLink to="/hospital/team"><span>Team &amp; logins</span></BrandNavLink>
               <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>
           )}
@@ -236,6 +240,7 @@ const DashboardLayout = () => {
               <BrandNavLink to="/admin/settings"><span>Settings</span></BrandNavLink>
               <BrandNavLink to="/admin/audit"><span>Audit Logs</span></BrandNavLink>
               <BrandNavLink to="/admin/laboratory"><span>Laboratory</span></BrandNavLink>
+              <BrandNavLink to="/admin/admins"><span>Admin Team</span></BrandNavLink>
               <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>
           )}
@@ -247,6 +252,7 @@ const DashboardLayout = () => {
               <BrandNavLink to="/lab/referrals"><span>Referrals & Billing</span></BrandNavLink>
               <BrandNavLink to="/lab/settlements"><span>Weekly Settlements</span></BrandNavLink>
               <BrandNavLink to="/lab/tests"><span>Test Catalog</span></BrandNavLink>
+              <BrandNavLink to="/lab/team"><span>Team &amp; logins</span></BrandNavLink>
               <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>
           )}

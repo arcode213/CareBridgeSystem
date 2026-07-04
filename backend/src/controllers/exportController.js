@@ -16,6 +16,7 @@ const Laboratory = require('../models/Laboratory');
 const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
 const WeeklySettlement = require('../models/WeeklySettlement');
+const { getHospitalForUser, getLabForUser } = require('../utils/resolveOrg');
 const pdf = require('../services/pdfExportService');
 
 /** Fetch admission + best-effort related lab referrals for a single referral. */
@@ -97,7 +98,7 @@ exports.consultantReferralsRoster = async (req, res) => {
 /** GET /v1/exports/hospital/referrals/:id — individual patient record PDF. */
 exports.hospitalReferralRecord = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) return res.status(404).json({ success: false, message: 'Hospital profile not found' });
 
     const referral = await Referral.findById(req.params.id);
@@ -117,7 +118,7 @@ exports.hospitalReferralRecord = async (req, res) => {
 /** GET /v1/exports/hospital/records — combined PDF of all hospital patient records. */
 exports.hospitalRecords = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) return res.status(404).json({ success: false, message: 'Hospital profile not found' });
 
     const referrals = await Referral.find({ targetHospitalId: hospital._id })
@@ -247,7 +248,7 @@ exports.consultantLabReferralsRoster = async (req, res) => {
 /** GET /v1/exports/lab/referrals/:id — laboratory's individual lab record. */
 exports.labReferralRecord = async (req, res) => {
   try {
-    const lab = await Laboratory.findOne({ userId: req.user.id });
+    const lab = await getLabForUser(req.user);
     if (!lab) return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
 
     const referral = await LabReferral.findById(req.params.id).populate('targetLaboratoryId', 'labName city area');
@@ -266,7 +267,7 @@ exports.labReferralRecord = async (req, res) => {
 /** GET /v1/exports/lab/records — laboratory's combined lab roster. */
 exports.labRecords = async (req, res) => {
   try {
-    const lab = await Laboratory.findOne({ userId: req.user.id });
+    const lab = await getLabForUser(req.user);
     if (!lab) return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
 
     const referrals = await LabReferral.find({ targetLaboratoryId: lab._id })

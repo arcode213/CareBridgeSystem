@@ -1,4 +1,5 @@
 const LabSettlement = require('../models/LabSettlement');
+const { getLabForUser } = require('../utils/resolveOrg');
 const LabReferral = require('../models/LabReferral');
 const LabPayout = require('../models/LabPayout');
 const Laboratory = require('../models/Laboratory');
@@ -10,7 +11,7 @@ const notificationService = require('../services/notificationService');
 // 1. Lab lists referrals eligible for weekly settlement (closed and not settled)
 exports.listPendingReferrals = async (req, res) => {
   try {
-    const lab = await Laboratory.findOne({ userId: req.user.id });
+    const lab = await getLabForUser(req.user);
     if (!lab) {
       return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
     }
@@ -60,7 +61,7 @@ exports.createSettlement = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required settlement parameters' });
     }
 
-    const lab = await Laboratory.findOne({ userId: req.user.id });
+    const lab = await getLabForUser(req.user);
     if (!lab) {
       return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
     }
@@ -176,7 +177,7 @@ exports.uploadLabReceipt = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Receipt URL is required' });
     }
 
-    const lab = await Laboratory.findOne({ userId: req.user.id });
+    const lab = await getLabForUser(req.user);
     if (!lab) {
       return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
     }
@@ -220,7 +221,7 @@ exports.uploadLabReceipt = async (req, res) => {
 // 4. Lab lists its settlements
 exports.listLabSettlements = async (req, res) => {
   try {
-    const lab = await Laboratory.findOne({ userId: req.user.id });
+    const lab = await getLabForUser(req.user);
     if (!lab) {
       return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
     }

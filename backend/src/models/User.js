@@ -25,6 +25,29 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // ── Sub-user linkage (team members added from inside a portal) ──
+    // A hospital/lab staff account carries its parent facility id here and owns
+    // NO Hospital/Laboratory document of its own — so it is never treated as a
+    // separate facility. Owner accounts leave these unset and resolve via their
+    // profile's userId, exactly as before.
+    hospitalId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Hospital',
+      default: null,
+      index: true,
+    },
+    labId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Laboratory',
+      default: null,
+      index: true,
+    },
+    // Who created this account (owner/admin who added the sub-user). Optional.
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
     status: {
       type: String,
       enum: ['pending', 'active', 'suspended'],

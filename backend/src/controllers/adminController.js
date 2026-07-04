@@ -42,7 +42,11 @@ exports.listPendingUsers = async (req, res) => {
 exports.listAllUsers = async (req, res) => {
   console.log(`[ADMIN] listAllUsers hit: role=${req.query.role}, status=${req.query.status}`);
   try {
-    const filter = { status: { $ne: 'pending' } };
+    // Exclude team sub-users (hospital/lab staff logins) — they own no facility
+    // document and must never be listed as a hospital/laboratory. `field: null`
+    // matches both null and legacy documents where the field is absent, so real
+    // owner accounts are unaffected.
+    const filter = { status: { $ne: 'pending' }, hospitalId: null, labId: null };
     if (req.query.role) filter.role = req.query.role;
     console.log('[ADMIN] Filter:', filter);
     const users = await User.find(filter).select('-passwordHash').sort({ createdAt: -1 }).lean();
@@ -678,9 +682,22 @@ exports.adminDeleteUser = async (req, res) => {
     if (user.role === 'consultant') {
       await Consultant.deleteOne({ userId: user._id });
     } else if (user.role === 'hospital') {
-      await Hospital.deleteOne({ userId: user._id });
+      // Facility owner → remove its Hospital and every linked team sub-user login
+      // so no orphaned accounts remain. Sub-users (no Hospital doc) skip this.
+      const hospital = await Hospital.findOne({ userId: user._id });
+      if (hospital) {
+        await User.deleteMany({ hospitalId: hospital._id });
+        await Hospital.deleteOne({ _id: hospital._id });
+      }
+    } else if (user.role === 'laboratory') {
+      const Laboratory = require('../models/Laboratory');
+      const lab = await Laboratory.findOne({ userId: user._id });
+      if (lab) {
+        await User.deleteMany({ labId: lab._id });
+        await Laboratory.deleteOne({ _id: lab._id });
+      }
     }
-    
+
     await User.deleteOne({ _id: user._id });
 
     await logAction({

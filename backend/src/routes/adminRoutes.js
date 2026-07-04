@@ -3,9 +3,15 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const adminController = require('../controllers/adminController');
 const whatsappController = require('../controllers/whatsappController');
+const teamController = require('../controllers/teamController');
 
 router.use(protect);
 router.use(authorize(['admin']));
+
+// Admin team management (any admin can add/remove other admins)
+router.get('/admins', teamController.listAdmins);
+router.post('/admins', teamController.addAdmin);
+router.delete('/admins/:id', teamController.removeAdmin);
 
 router.get('/users', adminController.listAllUsers);
 router.get('/users/pending', adminController.listPendingUsers);

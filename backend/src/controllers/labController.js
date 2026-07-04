@@ -1,9 +1,10 @@
 const Laboratory = require('../models/Laboratory');
+const { getLabForUser } = require('../utils/resolveOrg');
 const LabReferral = require('../models/LabReferral');
 const LabPayout = require('../models/LabPayout');
 
 async function ownLab(req, res) {
-  const lab = await Laboratory.findOne({ userId: req.user.id });
+  const lab = await getLabForUser(req.user);
   if (!lab) {
     res.status(404).json({ success: false, message: 'Laboratory profile not found' });
     return null;

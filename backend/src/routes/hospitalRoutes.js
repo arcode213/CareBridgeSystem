@@ -12,10 +12,16 @@ const {
   deleteDoctor,
 } = require('../controllers/hospitalController');
 const admissionController = require('../controllers/admissionController');
+const teamController = require('../controllers/teamController');
 const { protect, authorize } = require('../middleware/auth');
 
 router.use(protect);
 router.use(authorize(['hospital']));
+
+// Team / staff logins for this hospital (owner + added sub-users, equal access)
+router.get('/users', teamController.listHospitalUsers);
+router.post('/users', teamController.addHospitalUser);
+router.delete('/users/:id', teamController.removeHospitalUser);
 
 router.get('/dashboard', getDashboardStats);
 router.get('/analytics', getHospitalAnalytics);

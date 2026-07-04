@@ -1,4 +1,5 @@
 const WeeklySettlement = require('../models/WeeklySettlement');
+const { getHospitalForUser } = require('../utils/resolveOrg');
 const Admission = require('../models/Admission');
 const Payout = require('../models/Payout');
 const Hospital = require('../models/Hospital');
@@ -10,7 +11,7 @@ const notificationService = require('../services/notificationService');
 // 1. List admissions eligible for weekly settlement (Billed and not settled)
 exports.listPendingAdmissions = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -66,7 +67,7 @@ exports.createSettlement = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required settlement parameters' });
     }
 
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -178,7 +179,7 @@ exports.uploadHospitalReceipt = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Receipt URL is required' });
     }
 
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -222,7 +223,7 @@ exports.uploadHospitalReceipt = async (req, res) => {
 // 4. Hospital lists its settlements
 exports.listHospitalSettlements = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -318,17 +319,16 @@ exports.adminVerifyHospitalReceipt = async (req, res) => {
     });
 
     const hospital = await Hospital.findById(settlement.hospitalId);
-    const hospitalUser = hospital
-      ? await User.findOne({ _id: hospital.userId, role: 'hospital' })
-      : null;
-    if (hospitalUser) {
+    // Notify the whole hospital team (owner + added sub-users).
+    const team = hospital ? await notificationService.getHospitalTeam(hospital) : [];
+    for (const member of team) {
       if (action === 'approve') {
-        notificationService.notifySettlementVerified(hospitalUser).catch((err) =>
-          console.error('Settlement verified WhatsApp failed:', err.message)
+        notificationService.notifySettlementVerified(member).catch((err) =>
+          console.error('Settlement verified notification failed:', err.message)
         );
       } else {
-        notificationService.notifySettlementRejected(hospitalUser, rejectionReason).catch((err) =>
-          console.error('Settlement rejected WhatsApp failed:', err.message)
+        notificationService.notifySettlementRejected(member, rejectionReason).catch((err) =>
+          console.error('Settlement rejected notification failed:', err.message)
         );
       }
     }

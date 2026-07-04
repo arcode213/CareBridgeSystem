@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getHospitalForUser } = require('../utils/resolveOrg');
 const Admission = require('../models/Admission');
 const Referral = require('../models/Referral');
 const Hospital = require('../models/Hospital');
@@ -9,7 +10,7 @@ const PlatformSettings = require('../models/PlatformSettings');
 
 exports.listAdmissions = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -28,7 +29,7 @@ exports.listAdmissions = async (req, res) => {
 /** Start admission for an accepted referral (marks referral admitted). */
 exports.createAdmission = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -110,7 +111,7 @@ exports.createAdmission = async (req, res) => {
 
 exports.updateAdmission = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
@@ -206,7 +207,7 @@ const billingService = require('../services/billingService');
 /** Finalize billing: closes referral, accrues consultant payout (SRS §12.2). */
 exports.completeAdmission = async (req, res) => {
   try {
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }

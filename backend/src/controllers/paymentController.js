@@ -1,4 +1,5 @@
 const Admission = require('../models/Admission');
+const { getHospitalForUser } = require('../utils/resolveOrg');
 const Hospital = require('../models/Hospital');
 const { createJazzCashRequest, verifyJazzCashHash } = require('../services/jazzCashService');
 const { logAction } = require('../utils/logger');
@@ -6,7 +7,7 @@ const { logAction } = require('../utils/logger');
 exports.initiateJazzCashPayment = async (req, res) => {
   try {
     const { admissionId } = req.params;
-    const hospital = await Hospital.findOne({ userId: req.user.id });
+    const hospital = await getHospitalForUser(req.user);
     
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital not found' });

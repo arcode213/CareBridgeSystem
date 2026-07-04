@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getLabForUser } = require('../utils/resolveOrg');
 const LabReferral = require('../models/LabReferral');
 const Laboratory = require('../models/Laboratory');
 const Consultant = require('../models/Consultant');
@@ -176,14 +177,16 @@ exports.createLabReferral = async (req, res) => {
         laboratoryId: lab._id.toString(),
       });
     }
-    if (labOwner) {
+    // Notify the whole lab team (owner + added sub-users).
+    const labTeam = await notificationService.getLabTeam(lab);
+    for (const member of labTeam) {
       notificationService
         .sendAlert({
-          userId: labOwner._id,
+          userId: member._id,
           role: 'laboratory',
           type: 'NEW_LAB_REFERRAL',
           message: `New lab referral received: ${referral.referralCode}`,
-          data: { email: labOwner.email, phone: labOwner.phone, name: labOwner.name, referralCode: referral.referralCode },
+          data: { email: member.email, phone: member.phone, name: member.name, referralCode: referral.referralCode },
         })
         .catch((err) => console.error('Lab referral notify failed:', err.message));
     }
@@ -282,7 +285,7 @@ exports.getLabReferralDetails = async (req, res) => {
         return res.status(403).json({ success: false, message: 'Not authorized to view this referral' });
       }
     } else if (req.user.role === 'laboratory') {
-      const lab = await Laboratory.findOne({ userId: req.user.id });
+      const lab = await getLabForUser(req.user);
       if (!lab || referral.targetLaboratoryId?._id?.toString() !== lab._id.toString()) {
         return res.status(403).json({ success: false, message: 'Not authorized to view this referral' });
       }
@@ -299,7 +302,7 @@ exports.getLabReferralDetails = async (req, res) => {
 // ─── Laboratory ──────────────────────────────────────────────────────────────
 
 async function ownLab(req, res) {
-  const lab = await Laboratory.findOne({ userId: req.user.id });
+  const lab = await getLabForUser(req.user);
   if (!lab) {
     res.status(404).json({ success: false, message: 'Laboratory profile not found' });
     return null;

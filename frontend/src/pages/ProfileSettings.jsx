@@ -161,7 +161,7 @@ const ProfileSettings = () => {
     }
     setChangingPassword(true);
     try {
-      const res = await api.put('/profile/change-password', {
+      const res = await api.post('/profile/change-password', {
         currentPassword: passwords.currentPassword,
         newPassword: passwords.newPassword,
       });
