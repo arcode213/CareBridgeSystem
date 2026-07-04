@@ -166,6 +166,14 @@ exports.register = async (req, res) => {
         return res.status(400).json({ success: false, message: 'PMDC number already registered' });
       }
 
+      // Optional geo (auto-detected location)
+      const cLat = parseFloat(req.body.lat);
+      const cLng = parseFloat(req.body.lng);
+      const cLocation =
+        Number.isFinite(cLat) && Number.isFinite(cLng)
+          ? { type: 'Point', coordinates: [cLng, cLat] }
+          : undefined;
+
       await Consultant.create({
         userId: user._id,
         pmdcNumber: pmdc,
@@ -173,6 +181,7 @@ exports.register = async (req, res) => {
         specialty: (req.body.specialty || 'General').trim(),
         clinicName: req.body.clinicName?.trim(),
         clinicAddress: req.body.clinicAddress?.trim(),
+        ...(cLocation ? { location: cLocation } : {}),
         verificationDocuments,
       });
     } else if (role === 'hospital') {

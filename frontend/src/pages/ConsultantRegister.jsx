@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, FileCheck, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, FileCheck, Eye, EyeOff, MapPin } from 'lucide-react';
 import api from '../utils/api';
 import PolicyAgreement from '../components/PolicyAgreement';
 
@@ -17,12 +17,15 @@ const ConsultantRegister = () => {
     specialty: 'General Physician',
     clinicName: '',
     clinicAddress: '',
+    lat: '',
+    lng: '',
     role: 'consultant'
   });
   const [showPassword, setShowPassword] = useState(false);
   const [verificationDocuments, setVerificationDocuments] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
   const { register, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -57,6 +60,29 @@ const ConsultantRegister = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      return toast.error('Geolocation is not supported by your browser');
+    }
+    setIsDetecting(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormData((prev) => ({
+          ...prev,
+          lat: pos.coords.latitude.toFixed(6),
+          lng: pos.coords.longitude.toFixed(6),
+        }));
+        setIsDetecting(false);
+        toast.success('Location detected');
+      },
+      () => {
+        setIsDetecting(false);
+        toast.error('Could not detect location. Please allow location access and try again.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -156,6 +182,35 @@ const ConsultantRegister = () => {
             <input name="clinicAddress" type="text" value={formData.clinicAddress} onChange={handleChange}
               className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
               placeholder="Street, area, city" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Clinic Location</label>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <div className="grid grid-cols-2 gap-4 flex-1">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Latitude</label>
+                  <input name="lat" type="text" readOnly value={formData.lat}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 cursor-not-allowed outline-none transition-all shadow-sm"
+                    placeholder="Not detected" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">Longitude</label>
+                  <input name="lng" type="text" readOnly value={formData.lng}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 cursor-not-allowed outline-none transition-all shadow-sm"
+                    placeholder="Not detected" />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={detectLocation}
+                disabled={isDetecting}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-blue-200 text-blue-700 font-semibold text-sm hover:bg-blue-50 transition-colors disabled:opacity-60 whitespace-nowrap"
+              >
+                <MapPin size={16} /> {isDetecting ? 'Detecting…' : 'Detect Location'}
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1.5">Tap “Detect Location” to automatically capture your clinic’s coordinates.</p>
           </div>
 
           <div>

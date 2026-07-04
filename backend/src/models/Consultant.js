@@ -8,6 +8,10 @@ const ConsultantSchema = new mongoose.Schema(
     specialty: { type: String, required: true },
     clinicName: { type: String },
     clinicAddress: { type: String },
+    location: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], default: [67.0099, 24.8607] }, // [lng, lat] - default Karachi
+    },
     city: { type: String, default: 'Karachi' },
     promoCode: { type: String, unique: true, sparse: true },
     preferredHospitals: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Hospital' }],
@@ -82,5 +86,7 @@ const ConsultantSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+ConsultantSchema.index({ location: '2dsphere' });
 
 module.exports = mongoose.model('Consultant', ConsultantSchema);
