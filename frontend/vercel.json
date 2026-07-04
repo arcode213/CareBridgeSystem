@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "framework": "vite",
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
   "rewrites": [
     {
       "source": "/((?!assets|favicon.ico|robots.txt).*)",
