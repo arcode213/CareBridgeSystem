@@ -85,12 +85,16 @@ exports.updateUserStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    user.status = status;
-
-    if (status === 'active') {
-      user.isPhoneVerified = true;
-      user.isEmailVerified = true;
+    // Enforce the flow: a user must verify their email via OTP before an admin
+    // can approve them. Approval must never be a back door around OTP.
+    if (status === 'active' && !user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: 'User must verify their email via OTP before approval.',
+      });
     }
+
+    user.status = status;
 
     await user.save();
 
