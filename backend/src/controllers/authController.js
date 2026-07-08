@@ -14,7 +14,12 @@ const ALLOWED_WARDS = ['General', 'Private', 'ICU', 'NICU', 'PICU', 'HDU', 'Burn
 
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user._id.toString(), role: user.role, name: user.name },
+    {
+      id: user._id.toString(),
+      role: user.role,
+      name: user.name,
+      createdBy: user.createdBy ? user.createdBy.toString() : null,
+    },
     process.env.JWT_SECRET,
     { expiresIn: '1h' }
   );
@@ -361,6 +366,7 @@ exports.login = async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          createdBy: user.createdBy,
         },
       },
     });

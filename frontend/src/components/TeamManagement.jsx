@@ -72,6 +72,16 @@ const TeamManagement = ({ endpoint, title, subtitle, memberNoun = 'team member' 
     }
   };
 
+  const isAncestor = (memberId) => {
+    let currentId = user?.createdBy;
+    while (currentId) {
+      if (String(currentId) === String(memberId)) return true;
+      const parent = members.find((m) => String(m._id) === String(currentId));
+      currentId = parent?.createdBy;
+    }
+    return false;
+  };
+
   if (loading) return <Loader message="Loading team..." />;
 
   return (
@@ -108,7 +118,7 @@ const TeamManagement = ({ endpoint, title, subtitle, memberNoun = 'team member' 
                 <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center font-bold text-lg">
                   {m.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
-                {String(m._id) !== String(user?.id) && (
+                {String(m._id) !== String(user?.id) && m.createdBy && !isAncestor(m._id) && (
                   <button
                     onClick={() => handleDelete(m)}
                     className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-400 hover:text-red-600 rounded-xl transition-colors"

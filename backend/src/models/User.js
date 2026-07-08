@@ -71,4 +71,18 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+UserSchema.methods.isAncestorOf = async function (otherUserId) {
+  if (!otherUserId) return false;
+  let currentId = otherUserId;
+  while (currentId) {
+    const user = await this.constructor.findById(currentId).select('createdBy');
+    if (!user) break;
+    if (user.createdBy && user.createdBy.toString() === this._id.toString()) {
+      return true;
+    }
+    currentId = user.createdBy;
+  }
+  return false;
+};
+
 module.exports = mongoose.model('User', UserSchema);

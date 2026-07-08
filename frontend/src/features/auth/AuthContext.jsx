@@ -80,7 +80,12 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        setUser({ id: payload.id || payload._id, role: payload.role, name: payload.name });
+        setUser({
+          id: payload.id || payload._id,
+          role: payload.role,
+          name: payload.name,
+          createdBy: payload.createdBy,
+        });
 
         // Proactively refresh before expiry so the user is never kicked out mid-session.
         if (payload.exp) {

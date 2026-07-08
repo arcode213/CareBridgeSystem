@@ -153,6 +153,17 @@ exports.removeHospitalUser = async (req, res) => {
     const target = await User.findOne({ _id: req.params.id, hospitalId: hospital._id });
     if (!target) return res.status(404).json({ success: false, message: 'Team member not found' });
 
+    if (!target.createdBy) {
+      return res.status(400).json({ success: false, message: 'You cannot remove the main/primary user account' });
+    }
+
+    if (await target.isAncestorOf(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot remove a user who is the creator (or ancestor creator) of your account',
+      });
+    }
+
     await User.deleteOne({ _id: target._id });
     await logAction({
       req,
@@ -213,6 +224,17 @@ exports.removeLabUser = async (req, res) => {
     }
     const target = await User.findOne({ _id: req.params.id, labId: lab._id });
     if (!target) return res.status(404).json({ success: false, message: 'Team member not found' });
+
+    if (!target.createdBy) {
+      return res.status(400).json({ success: false, message: 'You cannot remove the main/primary user account' });
+    }
+
+    if (await target.isAncestorOf(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot remove a user who is the creator (or ancestor creator) of your account',
+      });
+    }
 
     await User.deleteOne({ _id: target._id });
     await logAction({
@@ -296,6 +318,17 @@ exports.removeAdmin = async (req, res) => {
     }
     const target = await User.findOne({ _id: req.params.id, role: 'admin' });
     if (!target) return res.status(404).json({ success: false, message: 'Admin not found' });
+
+    if (!target.createdBy) {
+      return res.status(400).json({ success: false, message: 'You cannot remove the main/primary user account' });
+    }
+
+    if (await target.isAncestorOf(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot remove a user who is the creator (or ancestor creator) of your account',
+      });
+    }
 
     // Never allow removing the last admin.
     const adminCount = await User.countDocuments({ role: 'admin' });

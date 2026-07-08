@@ -679,6 +679,17 @@ exports.adminDeleteUser = async (req, res) => {
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
+    if (user.role === 'admin' && !user.createdBy) {
+      return res.status(400).json({ success: false, message: 'You cannot remove the main/primary user account' });
+    }
+
+    if (await user.isAncestorOf(req.user.id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot remove a user who is the creator (or ancestor creator) of your account',
+      });
+    }
+
     if (user.role === 'consultant') {
       await Consultant.deleteOne({ userId: user._id });
     } else if (user.role === 'hospital') {
