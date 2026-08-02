@@ -74,13 +74,12 @@ const ConsultantEarnings = () => {
             onClick={async () => {
               if (data) {
                 try {
-                  const headers = ['Date', 'Referral', 'Patient', 'Status', 'Amount (PKR)'];
+                  const headers = ['Date', 'Referral', 'Patient', 'Status'];
                   const rows = (data.payouts || []).map(p => [
                     new Date(p.createdAt).toLocaleDateString(),
                     p.referralId?.referralCode || 'N/A',
                     p.referralId?.patientName || 'N/A',
-                    p.status,
-                    (p.amountPaisa / 100).toFixed(2)
+                    p.status
                   ]);
                   const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
                   const blob = new Blob([csvContent], { type: 'text/csv' });

@@ -393,7 +393,6 @@ function writeReferralDetail(doc, referral, admission, labReferrals) {
       ['Status', (admission.status || '').toUpperCase()],
       ['Payment Method', admission.paymentMethod],
       ['Payment Reference', admission.paymentReference],
-      ['Bill Total', admission.billTotalPaisa != null ? formatPkr(admission.billTotalPaisa) : null],
     ]);
     if (admission.services && admission.services.length) {
       const svcRows = admission.services.map((s) => [safe(s.description), formatPkr(s.amountPaisa)]);
@@ -482,7 +481,6 @@ function writeLabReferralDetail(doc, referral, labPayout) {
     ['Bill Total', referral.billTotalPaisa != null ? formatPkr(referral.billTotalPaisa) : null],
     ['Payment Method', referral.paymentMethod],
     ['Payment Reference', referral.paymentReference],
-    ['Consultant Commission', labPayout ? formatPkr(labPayout.amountPaisa) : null],
   ]);
 
   if (referral.reportFiles && referral.reportFiles.length) {
@@ -578,16 +576,13 @@ async function buildConsultantFilePdf(res, { user, consultant, referrals, payout
     ['Specialty', consultant.specialty], ['Clinic', consultant.clinicName],
     ['Clinic Address', consultant.clinicAddress], ['City', consultant.city],
     ['Promo Code', consultant.promoCode], ['Verified', consultant.isVerified ? 'Yes' : 'No'],
-    ['Commission %', consultant.commissionPercentage], ['Max Lab Discount %', consultant.maxLabDiscountPercentage],
+    ['Max Lab Discount %', consultant.maxLabDiscountPercentage],
     ['Member Since', fmtDate(user.createdAt)],
   ]);
 
   sectionTitle(doc, 'Accounts & Wallet');
   const pa = consultant.payoutAccount || {};
   keyValues(doc, [
-    ['Wallet Balance', formatPkr(consultant.walletBalance)],
-    ['Total Earnings', formatPkr(consultant.totalEarnings)],
-    ['Monthly Earnings', formatPkr(consultant.monthlyEarnings)],
     ['Payout Type', pa.accountType], ['Account Holder', pa.accountHolder],
     ['Account Number', pa.accountNumber], ['Bank', pa.bankName],
   ]);
@@ -602,15 +597,6 @@ async function buildConsultantFilePdf(res, { user, consultant, referrals, payout
   ] }, referrals.map((r) => [
     safe(r.referralCode), fmtDate(r.createdAt), safe(r.patientName),
     safe(r.targetHospitalId?.hospitalName), (r.status || '').toUpperCase(),
-  ]));
-
-  sectionTitle(doc, `Payouts (${payouts.length})`);
-  drawTable(doc, { columns: [
-    { label: 'Date', width: 80 }, { label: 'Referral', width: 90 }, { label: 'Amount', width: 110 },
-    { label: 'Status', width: 100 }, { label: 'Note', width: 115 },
-  ] }, payouts.map((p) => [
-    fmtDate(p.createdAt), safe(p.referralId?.referralCode), formatPkr(p.amountPaisa),
-    (p.status || '').toUpperCase(), safe(p.note),
   ]));
 
   sectionTitle(doc, `Activity Log (${auditLogs.length})`);
@@ -665,18 +651,18 @@ async function buildHospitalFilePdf(res, { user, hospital, referrals, admissions
 
   sectionTitle(doc, `Admissions (${admissions.length})`);
   drawTable(doc, { columns: [
-    { label: 'Admit Date', width: 90 }, { label: 'Room/Bed', width: 90 }, { label: 'Department', width: 120 }, { label: 'Bill Total', width: 100 }, { label: 'Status', width: 95 },
+    { label: 'Admit Date', width: 90 }, { label: 'Room/Bed', width: 90 }, { label: 'Department', width: 220 }, { label: 'Status', width: 95 },
   ] }, admissions.map((a) => [
     fmtDate(a.admitDate), `${safe(a.roomNumber)}/${safe(a.bedNumber)}`, safe(a.admissionDepartment),
-    a.billTotalPaisa != null ? formatPkr(a.billTotalPaisa) : '—', (a.status || '').toUpperCase(),
+    (a.status || '').toUpperCase(),
   ]));
 
   sectionTitle(doc, `Settlements (${settlements.length})`);
   drawTable(doc, { columns: [
-    { label: 'Period', width: 150 }, { label: 'Gross', width: 110 }, { label: 'Platform Cut', width: 120 }, { label: 'Status', width: 115 },
+    { label: 'Period', width: 150 }, { label: 'Platform Cut', width: 230 }, { label: 'Status', width: 115 },
   ] }, settlements.map((s) => [
     `${fmtDate(s.billingPeriodStart)} – ${fmtDate(s.billingPeriodEnd)}`,
-    formatPkr(s.grossAmountPaisa), formatPkr(s.calculatedPlatformCutPaisa), (s.status || '').replace(/_/g, ' ').toUpperCase(),
+    formatPkr(s.calculatedPlatformCutPaisa), (s.status || '').replace(/_/g, ' ').toUpperCase(),
   ]));
 
   sectionTitle(doc, `Activity Log (${auditLogs.length})`);
@@ -747,14 +733,6 @@ async function buildLaboratoryFilePdf(res, { user, laboratory, referrals, payout
   ] }, referrals.map((r) => [
     safe(r.referralCode), fmtDate(r.createdAt), safe(r.patientName),
     (r.status || '').toUpperCase(), r.billTotalPaisa != null ? formatPkr(r.billTotalPaisa) : '—',
-  ]));
-
-  sectionTitle(doc, `Consultant Payouts (${payouts.length})`);
-  drawTable(doc, { columns: [
-    { label: 'Date', width: 80 }, { label: 'Lab Referral', width: 100 }, { label: 'Amount', width: 110 }, { label: 'Status', width: 100 }, { label: 'Note', width: 105 },
-  ] }, payouts.map((p) => [
-    fmtDate(p.createdAt), safe(p.labReferralId?.referralCode), formatPkr(p.amountPaisa),
-    (p.status || '').toUpperCase(), safe(p.note),
   ]));
 
   sectionTitle(doc, `Activity Log (${auditLogs.length})`);

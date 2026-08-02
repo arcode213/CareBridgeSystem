@@ -352,7 +352,7 @@ const AdminConsultants = () => {
                 </td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                    {['info@carebridgesystem.com', 'admin@carebridge.com', 'admin@carebridge.local'].includes(loggedInUser?.email) && (
+                    {loggedInUser?.email === 'admin@carebridge.local' && (
                       <button 
                         onClick={() => setSetPassUser(c)}
                         title={c.hasRecordPassword ? "Password Protection Active (Click to Manage)" : "Set Record Access Password"}
@@ -426,7 +426,7 @@ const AdminConsultants = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {['info@carebridgesystem.com', 'admin@carebridge.com', 'admin@carebridge.local'].includes(loggedInUser?.email) && (
+                  {loggedInUser?.email === 'admin@carebridge.local' && (
                     <button 
                       onClick={() => setSetPassUser(selected)}
                       title={selected.hasRecordPassword ? "Password Protection Active (Click to Manage)" : "Set Record Access Password"}

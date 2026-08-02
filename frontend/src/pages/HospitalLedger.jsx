@@ -43,17 +43,13 @@ const HospitalLedger = () => {
 
   const handleExportCSV = () => {
     try {
-      const headers = ['Date', 'Case Code', 'Patient', 'Consultant', 'Billed Amount (PKR)', 'Platform Cut (PKR)', 'Net Revenue (PKR)'];
+      const headers = ['Date', 'Case Code', 'Patient', 'Consultant'];
       const rows = payouts.map(p => {
-        const hNet = (p.totalBillPaisa || 0) - (p.platformCutPaisa || 0);
         return [
           new Date(p.createdAt).toLocaleDateString(),
           p.referralId?.referralCode || 'N/A',
           p.referralId?.patientName || 'N/A',
-          p.consultantId?.userId?.name || 'N/A',
-          ((p.totalBillPaisa || 0) / 100).toFixed(2),
-          ((p.platformCutPaisa || 0) / 100).toFixed(2),
-          (hNet / 100).toFixed(2)
+          p.consultantId?.userId?.name || 'N/A'
         ];
       });
       const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');

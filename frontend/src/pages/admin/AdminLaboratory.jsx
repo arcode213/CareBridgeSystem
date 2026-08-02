@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useAuth } from '../../features/auth/AuthContext';
 import {
   FlaskConical, CheckCircle2, Ban, Save, FileText, Upload, Receipt, Users, ClipboardList, X, Eye, Download, Lock
 } from 'lucide-react';
@@ -395,7 +396,7 @@ const LabsPanel = () => {
                   <p className="text-xs text-slate-500">{lab.userId?.email} • {lab.city}{lab.area ? `, ${lab.area}` : ''} • Reg: {lab.registrationNumber || '—'}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {['info@carebridgesystem.com', 'admin@carebridge.com', 'admin@carebridge.local'].includes(loggedInUser?.email) && (
+                  {loggedInUser?.email === 'admin@carebridge.local' && (
                     <button 
                       onClick={() => setSetPassUser(lab.userId)}
                       title={lab.userId?.hasRecordPassword ? "Password Protection Active (Click to Manage)" : "Set Record Access Password"}

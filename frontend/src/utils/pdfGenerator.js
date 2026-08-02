@@ -30,9 +30,6 @@ export const generateEarningsPDF = (consultant, referrals, payouts) => {
   doc.text(`Name: ${consultant.userId?.name || 'N/A'}`, 14, 48);
   doc.text(`PMDC: ${consultant.pmdcNumber || 'N/A'}`, 14, 53);
   doc.text(`Specialty: ${consultant.specialty || 'N/A'}`, 14, 58);
-  
-  doc.text(`Total Lifetime Earnings: ${formatPkr(consultant.totalEarnings || 0)}`, pageWidth - 14, 48, { align: 'right' });
-  doc.text(`Current Month Earnings: ${formatPkr(consultant.monthlyEarnings || 0)}`, pageWidth - 14, 53, { align: 'right' });
 
   // Referrals Table
   doc.setFontSize(12);
@@ -44,39 +41,15 @@ export const generateEarningsPDF = (consultant, referrals, payouts) => {
     new Date(r.createdAt).toLocaleDateString(),
     r.patientName,
     r.targetHospitalId?.hospitalName || 'N/A',
-    r.status.toUpperCase(),
-    r.status === 'closed' ? '1,000 PKR' : 'Pending'
+    r.status.toUpperCase()
   ]);
 
   autoTable(doc, {
     startY: 76,
-    head: [['Code', 'Date', 'Patient', 'Hospital', 'Status', 'Payout']],
+    head: [['Code', 'Date', 'Patient', 'Hospital', 'Status']],
     body: referralRows,
     theme: 'striped',
     headStyles: { fillColor: [59, 130, 246] }, // blue-500
-    styles: { fontSize: 9 }
-  });
-
-  // Payouts Table
-  const finalY = doc.lastAutoTable.finalY || 150;
-  doc.setFontSize(12);
-  doc.setFont(undefined, 'bold');
-  doc.text('Disbursement History', 14, finalY + 15);
-
-  const payoutRows = payouts.map(p => [
-    new Date(p.createdAt).toLocaleDateString(),
-    p.referralId?.referralCode || 'N/A',
-    formatPkr(p.amountPaisa),
-    p.status.toUpperCase(),
-    p.note || '-'
-  ]);
-
-  autoTable(doc, {
-    startY: finalY + 19,
-    head: [['Date', 'Ref Code', 'Amount', 'Status', 'Note']],
-    body: payoutRows,
-    theme: 'grid',
-    headStyles: { fillColor: [16, 185, 129] }, // emerald-500
     styles: { fontSize: 9 }
   });
 

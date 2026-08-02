@@ -692,7 +692,7 @@ exports.setRecordPassword = async (req, res) => {
     const { id } = req.params;
     const { password } = req.body;
     const adminUser = await User.findById(req.user.id);
-    if (!adminUser || (adminUser.email !== 'info@carebridgesystem.com' && adminUser.email !== 'admin@carebridge.com' && adminUser.email !== 'admin@carebridge.local')) {
+    if (!adminUser || adminUser.email !== 'admin@carebridge.local') {
       return res.status(403).json({ success: false, message: 'Only authorized administrators can set or update passwords.' });
     }
 
