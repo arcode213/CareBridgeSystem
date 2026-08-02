@@ -108,12 +108,21 @@ const LabReferralSchema = new mongoose.Schema(
 LabReferralSchema.pre('save', async function () {
   if (!this.referralCode) {
     const year = new Date().getFullYear();
-    const doc = await Counter.findOneAndUpdate(
-      { _id: `labReferralCode_${year}` },
-      { $inc: { seq: 1 } },
-      { new: true, upsert: true }
-    );
-    this.referralCode = `LAB-${year}-${String(doc.seq).padStart(4, '0')}`;
+    let isUnique = false;
+    let code = '';
+    while (!isUnique) {
+      const doc = await Counter.findOneAndUpdate(
+        { _id: `labReferralCode_${year}` },
+        { $inc: { seq: 1 } },
+        { returnDocument: 'after', upsert: true }
+      );
+      code = `LAB-${year}-${String(doc.seq).padStart(4, '0')}`;
+      const existing = await this.constructor.findOne({ referralCode: code }).select('_id').lean();
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+    this.referralCode = code;
   }
 });
 

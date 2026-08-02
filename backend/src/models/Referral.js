@@ -94,12 +94,21 @@ const ReferralSchema = new mongoose.Schema(
 ReferralSchema.pre('save', async function () {
   if (!this.referralCode) {
     const year = new Date().getFullYear();
-    const doc = await Counter.findOneAndUpdate(
-      { _id: `referralCode_${year}` },
-      { $inc: { seq: 1 } },
-      { new: true, returnDocument: 'after', upsert: true }
-    );
-    this.referralCode = `CB-${year}-${String(doc.seq).padStart(4, '0')}`;
+    let isUnique = false;
+    let code = '';
+    while (!isUnique) {
+      const doc = await Counter.findOneAndUpdate(
+        { _id: `referralCode_${year}` },
+        { $inc: { seq: 1 } },
+        { returnDocument: 'after', upsert: true }
+      );
+      code = `CB-${year}-${String(doc.seq).padStart(4, '0')}`;
+      const existing = await this.constructor.findOne({ referralCode: code }).select('_id').lean();
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+    this.referralCode = code;
   }
 });
 
