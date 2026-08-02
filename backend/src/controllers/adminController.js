@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Consultant = require('../models/Consultant');
 const Hospital = require('../models/Hospital');
+const Laboratory = require('../models/Laboratory');
 const Referral = require('../models/Referral');
 const Admission = require('../models/Admission');
 const Payout = require('../models/Payout');
@@ -26,6 +27,10 @@ exports.listPendingUsers = async (req, res) => {
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
             .select('hospitalName registrationNumber representativeCnic departments bedsInventory address registrationDocuments isRegistrationVerified')
+            .lean();
+        } else if (u.role === 'laboratory') {
+          base.profile = await Laboratory.findOne({ userId: u._id })
+            .select('labName registrationNumber representativeCnic address registrationDocuments isRegistrationVerified')
             .lean();
         }
         return base;
@@ -54,7 +59,8 @@ exports.listAllUsers = async (req, res) => {
 
     const enriched = await Promise.all(
       users.map(async (u) => {
-        const base = { ...u };
+        const base = { ...u, hasRecordPassword: !!u.recordPasswordHash };
+        delete base.recordPasswordHash;
         if (u.role === 'consultant') {
           base.profile = await Consultant.findOne({ userId: u._id })
             .select('pmdcNumber specialty clinicName clinicAddress totalEarnings monthlyEarnings walletBalance commissionPercentage maxLabDiscountPercentage promoCode isVerified preferredHospitals verificationDocuments')
@@ -62,6 +68,10 @@ exports.listAllUsers = async (req, res) => {
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
             .select('hospitalName registrationNumber representativeCnic departments bedsInventory address city area deductionPercentage isActive isRegistrationVerified registrationDocuments ratePackages')
+            .lean();
+        } else if (u.role === 'laboratory') {
+          base.profile = await Laboratory.findOne({ userId: u._id })
+            .select('labName registrationNumber representativeCnic address city area deductionPercentage isActive isRegistrationVerified registrationDocuments testCatalog')
             .lean();
         }
         return base;
@@ -115,6 +125,15 @@ exports.updateUserStatus = async (req, res) => {
       await Consultant.updateOne(
         { userId: user._id },
         { isVerified: status === 'active' }
+      );
+    }
+    if (user.role === 'laboratory') {
+      await Laboratory.updateOne(
+        { userId: user._id },
+        {
+          isActive: status === 'active',
+          ...(status === 'active' ? { isRegistrationVerified: true } : { isRegistrationVerified: false }),
+        }
       );
     }
 
@@ -305,7 +324,6 @@ exports.updatePlatformSettings = async (req, res) => {
   try {
     const {
       defaultHospitalDeductionPercentage,
-      defaultConsultantCommissionPercentage,
       walletThresholdPaisa,
       walletInitialHoldPaisa,
       platformName,
@@ -320,9 +338,6 @@ exports.updatePlatformSettings = async (req, res) => {
 
     if (defaultHospitalDeductionPercentage != null) {
       doc.defaultHospitalDeductionPercentage = Math.max(0, Math.min(100, Number(defaultHospitalDeductionPercentage)));
-    }
-    if (defaultConsultantCommissionPercentage != null) {
-      doc.defaultConsultantCommissionPercentage = Math.max(0, Math.min(100, Number(defaultConsultantCommissionPercentage)));
     }
     if (walletThresholdPaisa != null) {
       doc.walletThresholdPaisa = Math.max(0, Number(walletThresholdPaisa));
@@ -345,7 +360,6 @@ exports.updatePlatformSettings = async (req, res) => {
       entityModel: 'PlatformSettings',
       details: {
         defaultHospitalDeductionPercentage,
-        defaultConsultantCommissionPercentage,
         walletThresholdPaisa,
         walletInitialHoldPaisa,
         platformName,
@@ -670,6 +684,77 @@ exports.adminChangePassword = async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ success: false, message: 'Failed to change password' });
+  }
+};
+
+exports.setRecordPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    const adminUser = await User.findById(req.user.id);
+    if (!adminUser || (adminUser.email !== 'info@carebridgesystem.com' && adminUser.email !== 'admin@carebridge.com' && adminUser.email !== 'admin@carebridge.local')) {
+      return res.status(403).json({ success: false, message: 'Only authorized administrators can set or update passwords.' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User record not found' });
+    }
+
+    if (!password || !password.trim()) {
+      user.recordPasswordHash = null;
+    } else {
+      const bcrypt = require('bcrypt');
+      user.recordPasswordHash = await bcrypt.hash(password.trim(), 10);
+    }
+    await user.save();
+
+    await logAction({
+      req,
+      action: 'ADMIN_SET_RECORD_PASSWORD',
+      entityId: user._id,
+      entityModel: 'User',
+      details: { email: user.email, hasRecordPassword: !!user.recordPasswordHash }
+    });
+
+    res.json({
+      success: true,
+      hasRecordPassword: !!user.recordPasswordHash,
+      message: user.recordPasswordHash ? 'Record password set successfully' : 'Record password protection removed',
+    });
+  } catch (error) {
+    console.error('setRecordPassword error:', error);
+    res.status(500).json({ success: false, message: 'Failed to set record password' });
+  }
+};
+
+exports.verifyRecordPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User record not found' });
+    }
+
+    if (!user.recordPasswordHash) {
+      return res.json({ success: true, verified: true });
+    }
+
+    if (!password) {
+      return res.status(400).json({ success: false, verified: false, message: 'Record password is required' });
+    }
+
+    const bcrypt = require('bcrypt');
+    const isMatch = await bcrypt.compare(password.trim(), user.recordPasswordHash);
+    if (!isMatch) {
+      return res.status(403).json({ success: false, verified: false, message: 'Incorrect record password' });
+    }
+
+    res.json({ success: true, verified: true });
+  } catch (error) {
+    console.error('verifyRecordPassword error:', error);
+    res.status(500).json({ success: false, message: 'Failed to verify record password' });
   }
 };
 

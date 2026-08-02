@@ -292,6 +292,13 @@ exports.getLabReferralDetails = async (req, res) => {
     }
     // admin: full access
 
+    if (referral.status === 'closed') {
+      return res.status(403).json({
+        success: false,
+        message: 'This referral is closed and locked forever. Details cannot be viewed.',
+      });
+    }
+
     res.json({ success: true, data: referral });
   } catch (error) {
     console.error('[GET_LAB_REFERRAL_DETAILS_ERROR]', error);

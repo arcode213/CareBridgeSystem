@@ -138,9 +138,8 @@ const computeHospitalSplit = ({ billPaisa, consultant, hospital, settings }) => 
   if (!isAdditive(consultant)) {
     // ── LEGACY (nested) — byte-for-byte the original billingService math ──
     const deductionPercentage = (hospital && hospital.deductionPercentage) || (settings?.defaultHospitalDeductionPercentage ?? DEFAULT_DEDUCTION_PCT);
-    const commissionPercentage = (consultant && consultant.commissionPercentage) || (settings?.defaultConsultantCommissionPercentage ?? DEFAULT_COMMISSION_PCT);
     const platformCutPaisa = Math.round(bill * (deductionPercentage / 100));
-    const doctorCommissionPaisa = Math.round(platformCutPaisa * (commissionPercentage / 100));
+    const doctorCommissionPaisa = 0; // Consultant commission is removed
 
     // Per-consultant platform-fee override: the admin has set a special platform fee for this
     // doctor at this hospital. It changes ONLY the platform charge (admin revenue) and therefore
@@ -152,12 +151,12 @@ const computeHospitalSplit = ({ billPaisa, consultant, hospital, settings }) => 
       const platformChargePaisa = component(override.type, override.fixedPaisa, override.pct, bill);
       return makeResult({
         billPaisa: bill,
-        doctorCommissionPaisa,
+        doctorCommissionPaisa: 0,
         platformChargePaisa,
         platformCutPaisa: platformChargePaisa, // additive-shaped mirror == admin revenue
         commissionModel: 'legacy',
         commissionType: 'percentage',
-        commissionPercentage,
+        commissionPercentage: 0,
         platformChargeType: override.type,
         platformChargePercentage: override.type === 'percentage' ? clampPct(override.pct) : 0,
         fixedPlatformChargePaisa: override.type === 'fixed' ? toPaisaInt(override.fixedPaisa) : 0,
@@ -168,23 +167,19 @@ const computeHospitalSplit = ({ billPaisa, consultant, hospital, settings }) => 
     const platformChargePaisa = platformCutPaisa - doctorCommissionPaisa;
     return makeResult({
       billPaisa: bill,
-      doctorCommissionPaisa,
+      doctorCommissionPaisa: 0,
       platformChargePaisa,
       platformCutPaisa, // legacy: facility owes the platform cut (== commission + charge)
       commissionModel: 'legacy',
       commissionType: 'percentage',
-      commissionPercentage,
+      commissionPercentage: 0,
       platformChargeType: 'percentage',
       platformChargePercentage: 0,
       deductionPercentage,
     });
   }
 
-  // ── ADDITIVE (v2, per referral) ──
-  const cType = consultant.hospitalCommissionType || 'percentage';
-  const cPct = consultant.hospitalCommissionPercentage ?? 0;
-  const cFix = consultant.hospitalFixedCommissionPaisa || 0;
-  const doctorCommissionPaisa = component(cType, cFix, cPct, bill);
+  const doctorCommissionPaisa = 0; // Consultant commission is removed
 
   // Platform charge = the hospital's single chosen type (percentage of bill OR fixed per referral).
   const plat = resolvePlatformCharge('hospital', consultant, hospital, settings);
@@ -196,9 +191,9 @@ const computeHospitalSplit = ({ billPaisa, consultant, hospital, settings }) => 
     platformChargePaisa,
     platformCutPaisa: platformChargePaisa, // additive: legacy mirror == admin revenue
     commissionModel: 'additive',
-    commissionType: cType,
-    commissionPercentage: cType === 'percentage' ? clampPct(cPct) : 0,
-    fixedCommissionPaisa: cType === 'fixed' ? toPaisaInt(cFix) : 0,
+    commissionType: 'percentage',
+    commissionPercentage: 0,
+    fixedCommissionPaisa: 0,
     platformChargeType: plat.type,
     platformChargePercentage: plat.type === 'percentage' ? clampPct(plat.pct) : 0,
     fixedPlatformChargePaisa: plat.type === 'fixed' ? toPaisaInt(plat.fixedPaisa) : 0,
@@ -222,7 +217,13 @@ const computeLabSplit = ({ tests, discountPercentage, consultant, lab, settings 
     // ── LEGACY (nested) — byte-for-byte the original labBillingService math ──
     const deductionPercentage = (lab && lab.deductionPercentage) || (settings?.defaultLabDeductionPercentage ?? DEFAULT_DEDUCTION_PCT);
     const commissionPercentage = (consultant && consultant.commissionPercentage) || (settings?.defaultLabCommissionPercentage ?? DEFAULT_COMMISSION_PCT);
-    const platformCutPaisa = Math.round(billTotal * (deductionPercentage / 100));
+    
+    let platformCutPaisa = 0;
+    if (lab && lab.platformChargeType === 'fixed') {
+      platformCutPaisa = lines.length * (lab.fixedPlatformChargePaisaPerTest || 0);
+    } else {
+      platformCutPaisa = Math.round(billTotal * (deductionPercentage / 100));
+    }
     const doctorCommissionPaisa = Math.round(platformCutPaisa * (commissionPercentage / 100));
 
     // Per-consultant platform-fee override (per test): changes ONLY the platform charge for this
@@ -262,9 +263,10 @@ const computeLabSplit = ({ tests, discountPercentage, consultant, lab, settings 
       commissionModel: 'legacy',
       commissionType: 'percentage',
       commissionPercentage,
-      platformChargeType: 'percentage',
-      platformChargePercentage: 0,
-      deductionPercentage,
+      platformChargeType: lab?.platformChargeType || 'percentage',
+      platformChargePercentage: lab?.platformChargeType === 'fixed' ? 0 : clampPct(deductionPercentage),
+      fixedPlatformChargePaisa: lab?.platformChargeType === 'fixed' ? toPaisaInt(lab.fixedPlatformChargePaisaPerTest) : 0,
+      deductionPercentage: lab?.platformChargeType === 'fixed' ? 0 : clampPct(deductionPercentage),
     });
   }
 

@@ -84,8 +84,25 @@ export const AuthProvider = ({ children }) => {
           id: payload.id || payload._id,
           role: payload.role,
           name: payload.name,
+          email: payload.email,
           createdBy: payload.createdBy,
         });
+
+        if (!payload.email) {
+          fetch(`${API_BASE}/profile/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+            .then(res => res.json())
+            .then(resData => {
+              if (resData.success && resData.data?.user?.email) {
+                setUser(prev => prev ? {
+                  ...prev,
+                  email: resData.data.user.email
+                } : null);
+              }
+            })
+            .catch(err => console.error('Failed to fetch user email:', err));
+        }
 
         // Proactively refresh before expiry so the user is never kicked out mid-session.
         if (payload.exp) {

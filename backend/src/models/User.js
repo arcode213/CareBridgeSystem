@@ -67,6 +67,11 @@ const UserSchema = new mongoose.Schema(
     },
     resetPasswordToken: String,
     resetPasswordExpires: Date,
+    // Optional password protection set by Admin for this specific user record
+    recordPasswordHash: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

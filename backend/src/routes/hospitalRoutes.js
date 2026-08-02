@@ -10,6 +10,8 @@ const {
   addDoctor,
   updateDoctor,
   deleteDoctor,
+  setDoctorRecordPassword,
+  verifyDoctorRecordPassword,
 } = require('../controllers/hospitalController');
 const admissionController = require('../controllers/admissionController');
 const teamController = require('../controllers/teamController');
@@ -35,6 +37,8 @@ router.get('/doctors', listDoctors);
 router.post('/doctors', addDoctor);
 router.patch('/doctors/:id', updateDoctor);
 router.delete('/doctors/:id', deleteDoctor);
+router.post('/doctors/:id/record-password', authorize(['hospital', 'admin']), setDoctorRecordPassword);
+router.post('/doctors/:id/verify-record-password', authorize(['hospital', 'admin']), verifyDoctorRecordPassword);
 
 router.get('/admissions', admissionController.listAdmissions);
 router.post('/admissions', admissionController.createAdmission);

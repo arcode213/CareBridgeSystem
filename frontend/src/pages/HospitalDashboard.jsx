@@ -38,7 +38,6 @@ const HospitalDashboard = () => {
     { label: 'Total referrals', value: stats.totalReferrals, accent: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'Pending inbox', value: stats.pendingReferrals, accent: 'text-amber-600', bg: 'bg-amber-50' },
     { label: 'Admitted', value: stats.admittedReferrals ?? 0, accent: 'text-violet-600', bg: 'bg-violet-50' },
-    { label: 'Billed revenue', value: formatPkr(stats.revenuePaisa || 0), accent: 'text-emerald-600', bg: 'bg-emerald-50', isText: true },
   ];
 
   return (
@@ -48,7 +47,7 @@ const HospitalDashboard = () => {
         <p className="text-slate-500 mt-1 text-sm sm:text-base">Live KPIs and bed snapshot (FR-20).</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {kpis.map((k) => (
           <div
             key={k.label}

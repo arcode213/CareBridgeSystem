@@ -104,7 +104,6 @@ const DashboardLayout = () => {
             <NavLink to="/dashboard" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Home</NavLink>
             <NavLink to="/referrals/new" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>New</NavLink>
             <NavLink to="/referrals" className={({ isActive }) => mobileNavClass(isActive || location.pathname === '/referrals/new')} style={({ isActive }) => mobileNavStyle(isActive || location.pathname === '/referrals/new')}>List</NavLink>
-            <NavLink to="/earnings" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Earn</NavLink>
             <NavLink to="/lab-referrals" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Lab</NavLink>
             <NavLink to="/profile" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Profile</NavLink>
           </>
@@ -123,7 +122,6 @@ const DashboardLayout = () => {
             </NavLink>
             <NavLink to="/hospital/referrals" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Referrals</NavLink>
             <NavLink to="/hospital/admissions" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Admit</NavLink>
-            <NavLink to="/hospital/ledger" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Ledger</NavLink>
             <NavLink to="/hospital/settlements" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Settlements</NavLink>
             <NavLink to="/hospital/beds" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Beds</NavLink>
             <NavLink to="/hospital/departments" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Depts</NavLink>
@@ -147,7 +145,6 @@ const DashboardLayout = () => {
             </NavLink>
             <NavLink to="/admin/consultants" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Consultants</NavLink>
             <NavLink to="/admin/hospitals" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Hospitals</NavLink>
-            <NavLink to="/admin/payouts" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Payouts</NavLink>
             <NavLink to="/admin/settlements" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Settlements</NavLink>
             <NavLink to="/admin/settings" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Setup</NavLink>
             <NavLink to="/admin/audit" className={({ isActive }) => mobileNavClass(isActive)} style={({ isActive }) => mobileNavStyle(isActive)}>Audit</NavLink>
@@ -182,7 +179,6 @@ const DashboardLayout = () => {
               <BrandNavLink to="/dashboard"><span>Dashboard</span></BrandNavLink>
               <BrandNavLink to="/referrals/new" end><span>New referral</span></BrandNavLink>
               <BrandNavLink to="/referrals" end><span>My referrals</span></BrandNavLink>
-              <BrandNavLink to="/earnings"><span>Earnings</span></BrandNavLink>
               <BrandNavLink to="/lab-referrals"><span>Laboratory</span></BrandNavLink>
               <BrandNavLink to="/profile"><span>Profile settings</span></BrandNavLink>
             </>
@@ -206,7 +202,6 @@ const DashboardLayout = () => {
               </BrandNavLink>
               <BrandNavLink to="/hospital/referrals"><span>All Referrals</span></BrandNavLink>
               <BrandNavLink to="/hospital/admissions"><span>Admissions & billing</span></BrandNavLink>
-              <BrandNavLink to="/hospital/ledger"><span>Financial Ledger</span></BrandNavLink>
               <BrandNavLink to="/hospital/settlements"><span>Weekly Settlements</span></BrandNavLink>
               <BrandNavLink to="/hospital/beds"><span>Bed management</span></BrandNavLink>
               <BrandNavLink to="/hospital/departments"><span>Departments</span></BrandNavLink>
@@ -233,7 +228,6 @@ const DashboardLayout = () => {
               </BrandNavLink>
               <BrandNavLink to="/admin/consultants"><span>Consultants</span></BrandNavLink>
               <BrandNavLink to="/admin/hospitals"><span>Hospitals</span></BrandNavLink>
-              <BrandNavLink to="/admin/payouts"><span>Payouts</span></BrandNavLink>
               <BrandNavLink to="/admin/settlements"><span>Settlements Queue</span></BrandNavLink>
               <BrandNavLink to="/admin/scoring"><span>Scoring weights</span></BrandNavLink>
               <BrandNavLink to="/admin/departments"><span>Departments</span></BrandNavLink>

@@ -4,7 +4,7 @@ import api from '../utils/api';
 import { SOCKET_URL } from '../config';
 import DetailModal from '../components/DetailModal';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
-import { FileText, User, Clock, Activity, Pencil, X, XCircle, Search, Download } from 'lucide-react';
+import { FileText, User, Clock, Activity, Pencil, X, XCircle, Search, Download, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Loader from '../components/Loader';
 import { downloadPdf } from '../utils/downloadFile';
@@ -193,8 +193,12 @@ const ReferralsList = () => {
                   const urg = urgencyConfig[r.urgency] || urgencyConfig.routine;
                   return (
                     <tr key={r._id}
-                      className="hover:bg-blue-50/40 transition-all cursor-pointer"
+                      className={`transition-all cursor-pointer ${r.status === 'closed' ? 'hover:bg-slate-100/60 bg-slate-50/40' : 'hover:bg-blue-50/40'}`}
                       onClick={async () => {
+                        if (r.status === 'closed') {
+                          toast.error('This referral is closed and locked forever. Details cannot be viewed.');
+                          return;
+                        }
                         setIsEditing(false);
                         setSelected(r);
                         try {
@@ -203,7 +207,8 @@ const ReferralsList = () => {
                             setSelected(res.data.data);
                           }
                         } catch (err) {
-                          console.error('Failed to load referral details:', err);
+                          toast.error(err.response?.data?.message || 'Failed to load referral details');
+                          setSelected(null);
                         }
                       }}
                     >
@@ -226,7 +231,8 @@ const ReferralsList = () => {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold capitalize ${st.cls}`}>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold capitalize ${st.cls}`}>
+                          {r.status === 'closed' && <Lock size={12} className="text-slate-500" />}
                           {st.label}
                         </span>
                       </td>
@@ -433,6 +439,7 @@ const ReferralsList = () => {
                   referralId={selected._id} 
                   initialNotes={selected.clinicalNotes} 
                   onNoteAdded={() => fetchReferrals()} 
+                  isClosed={selected.status === 'closed'}
                 />
               </div>
 

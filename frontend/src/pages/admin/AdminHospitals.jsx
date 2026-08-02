@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Building2, Eye, Search, BedDouble, Stethoscope, Download } from 'lucide-react';
+import { Building2, Eye, Search, BedDouble, Stethoscope, Download, Lock } from 'lucide-react';
 import { downloadPdf } from '../../utils/downloadFile';
 import api from '../../utils/api';
 import Loader from '../../components/Loader';
 import toast from 'react-hot-toast';
 import DetailModal from '../../components/DetailModal';
+import { SetRecordPasswordModal, VerifyRecordPasswordModal } from '../../components/RecordPasswordModal';
+import { useAuth } from '../../features/auth/AuthContext';
 
 const statusBadge = (status) => {
   const map = {
@@ -23,6 +25,7 @@ const Field = ({ label, value }) => (
 );
 
 const AdminHospitals = () => {
+  const { user: loggedInUser } = useAuth();
   const [hospitals, setHospitals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -42,12 +45,32 @@ const AdminHospitals = () => {
   const [ovDraft, setOvDraft] = useState({}); // consultantId -> { type, pct, rupees }
   const [ovSavingId, setOvSavingId] = useState(null);
 
+  // Password Protection States
+  const [unlockedRecords, setUnlockedRecords] = useState({});
+  const [setPassUser, setSetPassUser] = useState(null);
+  const [verifyModal, setVerifyModal] = useState({ isOpen: false, user: null, actionName: '', onVerified: null });
+
+  const protectedAction = (user, actionName, callback) => {
+    if (!user || !user.hasRecordPassword || unlockedRecords[user._id]) {
+      callback();
+    } else {
+      setVerifyModal({
+        isOpen: true,
+        user,
+        actionName,
+        onVerified: () => {
+          setUnlockedRecords(prev => ({ ...prev, [user._id]: true }));
+          callback();
+        }
+      });
+    }
+  };
+
   useEffect(() => {
     const p = selected?.profile;
     if (!p) return;
     setPlatformForm({
-      platformChargeType: p.platformChargeType || 'percentage',
-      deductionPercentage: p.deductionPercentage ?? 20,
+      platformChargeType: 'fixed',
       fixedPlatformChargeRupees: (p.fixedPlatformChargePaisa || 0) / 100,
     });
   }, [selected]);
@@ -56,8 +79,8 @@ const AdminHospitals = () => {
     try {
       setActionId(selected._id);
       await api.post(`/admin/hospitals/${selected._id}/deduction`, {
-        platformChargeType: platformForm.platformChargeType,
-        deductionPercentage: Number(platformForm.deductionPercentage) || 0,
+        platformChargeType: 'fixed',
+        deductionPercentage: 0,
         fixedPlatformChargeRupees: Number(platformForm.fixedPlatformChargeRupees) || 0,
       });
       toast.success('Platform charge updated');
@@ -65,8 +88,8 @@ const AdminHospitals = () => {
         ...prev,
         profile: {
           ...prev.profile,
-          platformChargeType: platformForm.platformChargeType,
-          deductionPercentage: Number(platformForm.deductionPercentage) || 0,
+          platformChargeType: 'fixed',
+          deductionPercentage: 0,
           fixedPlatformChargePaisa: Math.round((Number(platformForm.fixedPlatformChargeRupees) || 0) * 100),
         },
       }));
@@ -89,8 +112,8 @@ const AdminHospitals = () => {
         const draft = {};
         for (const c of list) {
           draft[c.consultantId] = c.override
-            ? { type: c.override.platformChargeType, pct: c.override.platformChargePercentage || 0, rupees: c.override.fixedPlatformChargeRupees || 0 }
-            : { type: 'percentage', pct: 0, rupees: 0 };
+            ? { type: 'fixed', rupees: c.override.fixedPlatformChargeRupees || 0 }
+            : { type: 'fixed', rupees: 0 };
         }
         setOvDraft(draft);
       }
@@ -107,17 +130,17 @@ const AdminHospitals = () => {
   }, [selected?._id, selected?.profile?._id, loadOverrides]);
 
   const setDraft = (consultantId, patch) =>
-    setOvDraft((m) => ({ ...m, [consultantId]: { ...(m[consultantId] || { type: 'percentage', pct: 0, rupees: 0 }), ...patch } }));
+    setOvDraft((m) => ({ ...m, [consultantId]: { ...(m[consultantId] || { type: 'fixed', rupees: 0 }), ...patch } }));
 
   const saveOverride = async (consultantId) => {
-    const d = ovDraft[consultantId] || { type: 'percentage', pct: 0, rupees: 0 };
+    const d = ovDraft[consultantId] || { type: 'fixed', rupees: 0 };
     setOvSavingId(consultantId);
     try {
       await api.post(`/admin/hospitals/${selected._id}/consultant-overrides`, {
         consultantId,
-        platformChargeType: d.type,
-        platformChargePercentage: d.type === 'percentage' ? Number(d.pct) || 0 : 0,
-        fixedPlatformChargeRupees: d.type === 'fixed' ? Number(d.rupees) || 0 : 0,
+        platformChargeType: 'fixed',
+        platformChargePercentage: 0,
+        fixedPlatformChargeRupees: Number(d.rupees) || 0,
       });
       toast.success('Special platform fee saved');
       await loadOverrides(selected._id);
@@ -367,7 +390,7 @@ const AdminHospitals = () => {
               return (
                 <tr key={h._id}
                   className="hover:bg-teal-50/30 transition-colors cursor-pointer"
-                  onClick={() => setSelected(h)}
+                  onClick={() => protectedAction(h, 'view hospital details', () => setSelected(h))}
                 >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -375,7 +398,14 @@ const AdminHospitals = () => {
                         {(h.profile?.hospitalName || h.name)?.charAt(0)}
                       </div>
                       <div>
-                        <p className="font-semibold text-slate-900">{h.profile?.hospitalName || h.name}</p>
+                        <p className="font-semibold text-slate-900 flex items-center gap-1.5">
+                          {h.profile?.hospitalName || h.name}
+                          {h.hasRecordPassword && (
+                            <span title="Password Protected Record" className="text-amber-500">
+                              <Lock size={13} />
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-slate-500">{h.email}</p>
                       </div>
                     </div>
@@ -405,17 +435,30 @@ const AdminHospitals = () => {
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => setSelected(h)}
+                      {['info@carebridgesystem.com', 'admin@carebridge.com', 'admin@carebridge.local'].includes(loggedInUser?.email) && (
+                        <button 
+                          onClick={() => setSetPassUser(h)}
+                          title={h.hasRecordPassword ? "Password Protection Active (Click to Manage)" : "Set Record Access Password"}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            h.hasRecordPassword 
+                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400' 
+                              : 'hover:bg-slate-100 text-slate-400 hover:text-amber-600'
+                          }`}
+                        >
+                          <Lock size={16} />
+                        </button>
+                      )}
+                      <button onClick={() => protectedAction(h, 'view hospital details', () => setSelected(h))}
                         className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-teal-600 transition-colors">
                         <Eye size={16} />
                       </button>
-                      <button onClick={() => downloadPdf(`/exports/admin/hospitals/${h._id}`, `Hospital_${(h.profile?.hospitalName || h.name || 'file').replace(/\s+/g, '_')}.pdf`)}
+                      <button onClick={() => protectedAction(h, 'download hospital file', () => downloadPdf(`/exports/admin/hospitals/${h._id}`, `Hospital_${(h.profile?.hospitalName || h.name || 'file').replace(/\s+/g, '_')}.pdf`))}
                         title="Download complete file"
                         className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-teal-600 transition-colors">
                         <Download size={16} />
                       </button>
                       <button
-                        onClick={() => toggleStatus(h._id, h.status)}
+                        onClick={() => protectedAction(h, h.status === 'active' ? 'suspend hospital' : 'activate hospital', () => toggleStatus(h._id, h.status))}
                         disabled={actionId === h._id}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 ${
                           h.status === 'active'
@@ -437,7 +480,16 @@ const AdminHospitals = () => {
       {/* Detail Slide-over */}
       <DetailModal
         isOpen={!!selected}
-        onClose={() => setSelected(null)}
+        onClose={() => {
+          if (selected) {
+            setUnlockedRecords(prev => {
+              const next = { ...prev };
+              delete next[selected._id];
+              return next;
+            });
+          }
+          setSelected(null);
+        }}
         title={selected?.profile?.hospitalName || selected?.name || ''}
         subtitle={`Hospital · Admin: ${selected?.name} · ${selected?.email}`}
         wide
@@ -459,8 +511,22 @@ const AdminHospitals = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {['info@carebridgesystem.com', 'admin@carebridge.com', 'admin@carebridge.local'].includes(loggedInUser?.email) && (
+                    <button 
+                      onClick={() => setSetPassUser(selected)}
+                      title={selected.hasRecordPassword ? "Password Protection Active (Click to Manage)" : "Set Record Access Password"}
+                      className={`p-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+                        selected.hasRecordPassword 
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400' 
+                          : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-600'
+                      }`}
+                    >
+                      <Lock size={14} />
+                      {selected.hasRecordPassword ? 'Protected' : 'Set Lock'}
+                    </button>
+                  )}
                   <button
-                    onClick={() => toggleStatus(selected._id, selected.status)}
+                    onClick={() => protectedAction(selected, selected.status === 'active' ? 'suspend hospital' : 'activate hospital', () => toggleStatus(selected._id, selected.status))}
                     disabled={actionId === selected._id}
                     className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                       selected.status === 'active'
@@ -472,26 +538,26 @@ const AdminHospitals = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={openFacilityEdit}
+                    onClick={() => protectedAction(selected, 'edit hospital details', () => openFacilityEdit())}
                     className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition-all"
                   >
                     Edit facility
                   </button>
                   <button
                     type="button"
-                    onClick={() => downloadPdf(`/exports/admin/hospitals/${selected._id}`, `Hospital_${(selected.profile?.hospitalName || selected.name || 'file').replace(/\s+/g, '_')}.pdf`)}
+                    onClick={() => protectedAction(selected, 'download hospital file', () => downloadPdf(`/exports/admin/hospitals/${selected._id}`, `Hospital_${(selected.profile?.hospitalName || selected.name || 'file').replace(/\s+/g, '_')}.pdf`))}
                     className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white hover:bg-teal-700 rounded-xl text-xs font-bold transition-all"
                   >
                     <Download size={14} /> Download File
                   </button>
                   <button
-                    onClick={() => handleChangePassword(selected._id)}
+                    onClick={() => protectedAction(selected, 'change user password', () => handleChangePassword(selected._id))}
                     className="px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
                   >
                     🔑 Password
                   </button>
                   <button
-                    onClick={() => handleDelete(selected._id)}
+                    onClick={() => protectedAction(selected, 'delete hospital record', () => handleDelete(selected._id))}
                     className="px-3 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold transition-all"
                   >
                     🗑️ Delete
@@ -623,43 +689,19 @@ const AdminHospitals = () => {
                     <div>
                       <p className="text-xs font-bold text-slate-800">What this hospital pays the platform</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">
-                        Choose <span className="font-semibold">one</span> type — a percentage of each bill, or a fixed price per
-                        referral. It applies to every patient at this hospital. The hospital's weekly total is this platform charge
-                        <span className="font-semibold"> plus</span> each consultant's commission.
+                        Default fixed platform fee charged per patient referral for this hospital. If a doctor has no special fee set below, this default fee will apply.
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
-                        <input type="radio" checked={platformForm.platformChargeType === 'percentage'} onChange={() => setPlatformForm((f) => ({ ...f, platformChargeType: 'percentage' }))} />
-                        Percentage
-                      </label>
-                      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
-                        <input type="radio" checked={platformForm.platformChargeType === 'fixed'} onChange={() => setPlatformForm((f) => ({ ...f, platformChargeType: 'fixed' }))} />
-                        Fixed per referral
-                      </label>
-                      <div className="ml-auto flex items-center gap-1.5">
-                        {platformForm.platformChargeType === 'percentage' ? (
-                          <>
-                            <input
-                              type="number" min="0" max="100"
-                              value={platformForm.deductionPercentage}
-                              onChange={(e) => setPlatformForm((f) => ({ ...f, deductionPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)) }))}
-                              className="w-20 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                            />
-                            <span className="text-xs font-bold text-slate-400">% of bill</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-xs font-bold text-slate-400">Rs</span>
-                            <input
-                              type="number" min="0"
-                              value={platformForm.fixedPlatformChargeRupees}
-                              onChange={(e) => setPlatformForm((f) => ({ ...f, fixedPlatformChargeRupees: Math.max(0, Number(e.target.value) || 0) }))}
-                              className="w-24 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                            />
-                            <span className="text-[10px] font-medium text-slate-400">/ referral</span>
-                          </>
-                        )}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-400">Rs</span>
+                        <input
+                          type="number" min="0"
+                          value={platformForm.fixedPlatformChargeRupees}
+                          onChange={(e) => setPlatformForm((f) => ({ ...f, fixedPlatformChargeRupees: Math.max(0, Number(e.target.value) || 0) }))}
+                          className="w-28 px-2 py-1.5 text-center text-sm font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                        />
+                        <span className="text-xs font-medium text-slate-400">/ referral</span>
                       </div>
                     </div>
                     <div className="flex justify-end">
@@ -680,9 +722,7 @@ const AdminHospitals = () => {
                     🎯 Special Platform Fee for Specific Consultants
                   </div>
                   <p className="text-[11px] text-slate-500 mb-3">
-                    Optionally charge <span className="font-semibold">certain consultants</span> a different platform fee for their
-                    referrals to this hospital. The doctor's commission never changes — only the platform fee (and so the hospital's
-                    total) differs. Consultants without a special fee keep the hospital default above. Applies to new referrals only.
+                    Optionally set a custom platform fee for referrals from specific consultants to this hospital. If an amount is set for a doctor, it overrides the default platform fee above. Consultants without a special fee will automatically use the hospital's default platform fee above.
                   </p>
 
                   <div className="relative mb-3">
@@ -722,7 +762,7 @@ const AdminHospitals = () => {
                                 </div>
                                 {hasOverride ? (
                                   <span className="shrink-0 text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
-                                    Special: {c.override.platformChargeType === 'percentage' ? `${c.override.platformChargePercentage}%` : `Rs ${c.override.fixedPlatformChargeRupees}`}
+                                    Special: Rs {c.override.fixedPlatformChargeRupees} / referral
                                   </span>
                                 ) : (
                                   <span className="shrink-0 text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Default fee</span>
@@ -730,36 +770,16 @@ const AdminHospitals = () => {
                               </div>
 
                               <div className="flex items-center gap-2 flex-wrap">
-                                <label className="flex items-center gap-1 text-[11px] font-medium text-slate-600 cursor-pointer">
-                                  <input type="radio" checked={d.type === 'percentage'} onChange={() => setDraft(c.consultantId, { type: 'percentage' })} />
-                                  %
-                                </label>
-                                <label className="flex items-center gap-1 text-[11px] font-medium text-slate-600 cursor-pointer">
-                                  <input type="radio" checked={d.type === 'fixed'} onChange={() => setDraft(c.consultantId, { type: 'fixed' })} />
-                                  Fixed
-                                </label>
-                                {d.type === 'percentage' ? (
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      type="number" min="0" max="100"
-                                      value={d.pct}
-                                      onChange={(e) => setDraft(c.consultantId, { pct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
-                                      className="w-16 px-2 py-1 text-center text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    />
-                                    <span className="text-[10px] font-bold text-slate-400">% of bill</span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-bold text-slate-400">Rs</span>
-                                    <input
-                                      type="number" min="0"
-                                      value={d.rupees}
-                                      onChange={(e) => setDraft(c.consultantId, { rupees: Math.max(0, Number(e.target.value) || 0) })}
-                                      className="w-20 px-2 py-1 text-center text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    />
-                                    <span className="text-[10px] font-medium text-slate-400">/ referral</span>
-                                  </div>
-                                )}
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] font-bold text-slate-400">Rs</span>
+                                  <input
+                                    type="number" min="0"
+                                    value={d.rupees}
+                                    onChange={(e) => setDraft(c.consultantId, { rupees: Math.max(0, Number(e.target.value) || 0) })}
+                                    className="w-24 px-2 py-1 text-center text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                  />
+                                  <span className="text-[10px] font-medium text-slate-400">/ referral</span>
+                                </div>
                                 <div className="ml-auto flex items-center gap-1.5">
                                   {hasOverride && (
                                     <button
@@ -883,6 +903,29 @@ const AdminHospitals = () => {
           </div>
         </div>
       )}
+
+      {/* Record Password Protection Modals */}
+      <SetRecordPasswordModal
+        isOpen={!!setPassUser}
+        onClose={() => setSetPassUser(null)}
+        user={setPassUser}
+        onSuccess={(hasPassword) => {
+          setHospitals(prev => prev.map(item => item._id === setPassUser._id ? { ...item, hasRecordPassword: hasPassword } : item));
+          if (selected?._id === setPassUser._id) {
+            setSelected(prev => ({ ...prev, hasRecordPassword: hasPassword }));
+          }
+        }}
+      />
+
+      <VerifyRecordPasswordModal
+        isOpen={verifyModal.isOpen}
+        onClose={() => setVerifyModal({ isOpen: false, user: null, actionName: '', onVerified: null })}
+        user={verifyModal.user}
+        actionName={verifyModal.actionName}
+        onSuccess={() => {
+          if (verifyModal.onVerified) verifyModal.onVerified();
+        }}
+      />
     </div>
   );
 };

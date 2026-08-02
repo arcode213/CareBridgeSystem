@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  FlaskConical, Plus, Trash2, MapPin, Percent, FileText, RefreshCw, Wallet, CheckCircle2, Send, Download,
+  FlaskConical, Plus, Trash2, MapPin, Percent, FileText, RefreshCw, Send, Download,
 } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
@@ -17,7 +15,6 @@ import { downloadPdf as downloadRecordPdf } from '../utils/downloadFile';
 const TABS = [
   { key: 'new', label: 'New Referral' },
   { key: 'mine', label: 'My Referrals' },
-  { key: 'earnings', label: 'Lab Earnings' },
 ];
 
 const STATUS_BADGE = {
@@ -39,7 +36,6 @@ const NewReferral = ({ onCreated }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selectedLab, setSelectedLab] = useState(null);
-  const [discount, setDiscount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   // All registered laboratories — powers the "select by name" dropdown.
@@ -48,13 +44,10 @@ const NewReferral = ({ onCreated }) => {
     queryFn: async () => (await api.get('/lab-referrals/suggestions')).data.suggestions || [],
   });
 
-  // The consultant's own admin-set max patient discount (per-consultant cap,
-  // not per-lab). Applies to every lab this consultant refers to.
   const { data: me } = useQuery({
     queryKey: ['me'],
     queryFn: async () => (await api.get('/profile/me')).data.data,
   });
-  const maxDiscount = me?.profile?.maxLabDiscountPercentage ?? 0;
 
   const setField = (k, v) => setPatient((p) => ({ ...p, [k]: v }));
   const setTest = (i, k, v) => setTests((p) => p.map((t, idx) => (idx === i ? { ...t, [k]: v } : t)));
@@ -90,7 +83,6 @@ const NewReferral = ({ onCreated }) => {
 
   const pickLab = (lab) => {
     setSelectedLab(lab);
-    if (discount > maxDiscount) setDiscount(maxDiscount);
   };
 
   const submit = async (e) => {
@@ -106,7 +98,6 @@ const NewReferral = ({ onCreated }) => {
         age: Number(patient.age),
         recommendedTests: cleanTests,
         targetLaboratoryId: selectedLab.laboratoryId,
-        discountPercentage: Number(discount) || 0,
       });
       if (res.data.success) {
         toast.success('Lab referral created');
@@ -114,7 +105,6 @@ const NewReferral = ({ onCreated }) => {
         setTests([{ testName: '', note: '' }]);
         setSelectedLab(null);
         setSuggestions([]);
-        setDiscount(0);
         onCreated();
       }
     } catch (err) {
@@ -233,23 +223,7 @@ const NewReferral = ({ onCreated }) => {
           </div>
         )}
 
-        {selectedLab && (
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-            <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mb-1"><Percent size={13} /> Patient discount % (your max {maxDiscount}%)</label>
-            <input
-              type="number"
-              min={0}
-              max={maxDiscount}
-              value={discount}
-              onChange={(e) => {
-                const v = Math.min(Number(e.target.value) || 0, maxDiscount);
-                setDiscount(v);
-              }}
-              className={`${inputClass} w-32`}
-            />
-            <p className="text-[11px] text-slate-400 mt-1">Your maximum discount is set by the platform admin.</p>
-          </div>
-        )}
+
       </div>
 
       <button type="submit" disabled={submitting || !selectedLab} className="w-full flex items-center justify-center gap-2 py-3 bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-sm rounded-xl disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 transition-all">
@@ -306,7 +280,13 @@ const MyReferrals = () => {
       {referrals.map((r) => (
         <div
           key={r._id}
-          onClick={() => setDetailId(r._id)}
+          onClick={() => {
+            if (r.status === 'closed') {
+              toast.error('This referral is closed and locked forever. Details cannot be viewed.');
+              return;
+            }
+            setDetailId(r._id);
+          }}
           className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3 cursor-pointer hover:border-sky-300 dark:hover:border-sky-700 transition-colors"
         >
           <div className="flex items-center justify-between gap-3">
@@ -323,9 +303,8 @@ const MyReferrals = () => {
             ))}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
             <div><span className="text-slate-400 font-bold uppercase block">Lab</span><span className="font-semibold text-slate-700 dark:text-slate-300">{r.targetLaboratoryId?.labName || '—'}</span></div>
-            <div><span className="text-slate-400 font-bold uppercase block">Discount</span><span className="font-semibold">{r.discountPercentage || 0}%</span></div>
             <div><span className="text-slate-400 font-bold uppercase block">Bill</span><span className="font-semibold tabular-nums">{r.billTotalPaisa ? formatPkr(r.billTotalPaisa) : '—'}</span></div>
             <div><span className="text-slate-400 font-bold uppercase block">Expected Report</span><span className="font-semibold">{r.expectedReportAt ? new Date(r.expectedReportAt).toLocaleString() : '—'}</span></div>
           </div>
@@ -359,192 +338,6 @@ const MyReferrals = () => {
   );
 };
 
-// ── Lab earnings ────────────────────────────────────────────────────────────────
-const LabEarnings = () => {
-  const queryClient = useQueryClient();
-  const { data: earnings, isLoading: l1 } = useQuery({
-    queryKey: ['lab-earnings'],
-    queryFn: async () => (await api.get('/lab-settlements/consultant/earnings')).data.data,
-  });
-  const { data: payouts = [], isLoading: l2 } = useQuery({
-    queryKey: ['lab-consultant-payouts'],
-    queryFn: async () => (await api.get('/lab-settlements/consultant')).data.data,
-  });
-
-  const verify = async (settlementId) => {
-    try {
-      await api.post(`/lab-settlements/${settlementId}/consultant-verify`);
-      toast.success('Payout confirmed');
-      queryClient.invalidateQueries({ queryKey: ['lab-consultant-payouts'] });
-      queryClient.invalidateQueries({ queryKey: ['lab-earnings'] });
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to confirm');
-    }
-  };
-
-  const STATUS_LABEL = {
-    verified: 'Received',
-    pending_verification: 'Pending confirmation',
-    pending_payout: 'Awaiting payout',
-  };
-
-  const downloadCsv = () => {
-    if (payouts.length === 0) return toast.error('No earning records to download');
-    try {
-      const headers = ['Laboratory', 'Amount (PKR)', 'Period Start', 'Period End', 'Status'];
-      const rows = payouts.map((p) => [
-        `"${(p.labName || '').replace(/"/g, '""')}"`,
-        (p.amountPaisa / 100).toFixed(2),
-        new Date(p.billingPeriodStart).toLocaleDateString(),
-        new Date(p.billingPeriodEnd).toLocaleDateString(),
-        STATUS_LABEL[p.status] || p.status,
-      ]);
-      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Lab_Earnings_${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success('CSV downloaded');
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to generate CSV');
-    }
-  };
-
-  const downloadPdf = () => {
-    if (payouts.length === 0) return toast.error('No earning records to download');
-    try {
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-
-      doc.setFontSize(22);
-      doc.setTextColor(30, 41, 59);
-      doc.text('CareBridge Health', 14, 22);
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Laboratory Earnings Report', 14, 28);
-      doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth - 14, 28, { align: 'right' });
-
-      doc.setDrawColor(226, 232, 240);
-      doc.line(14, 32, pageWidth - 14, 32);
-
-      doc.setFontSize(10);
-      doc.setTextColor(30, 41, 59);
-      doc.text(`Total: ${formatPkr(earnings?.totalPaisa || 0)}`, 14, 40);
-      doc.text(`Paid: ${formatPkr(earnings?.paidPaisa || 0)}`, 14, 45);
-      doc.text(`Accrued (pending): ${formatPkr(earnings?.accruedPaisa || 0)}`, 14, 50);
-
-      const rows = payouts.map((p) => [
-        p.labName || '—',
-        formatPkr(p.amountPaisa),
-        `${new Date(p.billingPeriodStart).toLocaleDateString()} - ${new Date(p.billingPeriodEnd).toLocaleDateString()}`,
-        STATUS_LABEL[p.status] || p.status,
-      ]);
-
-      autoTable(doc, {
-        startY: 58,
-        head: [['Laboratory', 'Amount', 'Billing Period', 'Status']],
-        body: rows,
-        theme: 'striped',
-        headStyles: { fillColor: [14, 165, 233] },
-        styles: { fontSize: 9 },
-      });
-
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(148, 163, 184);
-        doc.text(`Page ${i} of ${pageCount} - CareBridge Health System - Confidential`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
-      }
-
-      doc.save(`Lab_Earnings_${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success('PDF downloaded');
-    } catch (e) {
-      console.error(e);
-      toast.error('Failed to generate PDF');
-    }
-  };
-
-  if (l1 && l2) return <Loader message="Loading lab earnings..." />;
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-slate-900 text-white rounded-2xl p-5">
-          <Wallet className="w-6 h-6 text-sky-400 mb-2" />
-          <p className="text-xs text-slate-400 font-bold uppercase">Total</p>
-          <p className="text-2xl font-black text-sky-400 tabular-nums">{formatPkr(earnings?.totalPaisa || 0)}</p>
-        </div>
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5">
-          <p className="text-xs text-slate-400 font-bold uppercase">Paid</p>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{formatPkr(earnings?.paidPaisa || 0)}</p>
-        </div>
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5">
-          <p className="text-xs text-slate-400 font-bold uppercase">Accrued (pending)</p>
-          <p className="text-2xl font-black text-amber-600 dark:text-amber-400 tabular-nums">{formatPkr(earnings?.accruedPaisa || 0)}</p>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h3 className="text-sm font-black text-slate-900 dark:text-slate-50">Settlement Payouts</h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={downloadCsv}
-              disabled={payouts.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Download size={14} className="text-emerald-600 dark:text-emerald-400" /> CSV
-            </button>
-            <button
-              onClick={downloadPdf}
-              disabled={payouts.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FileText size={14} className="text-red-600 dark:text-red-400" /> PDF
-            </button>
-          </div>
-        </div>
-        {payouts.length === 0 ? (
-          <p className="text-sm text-slate-400">No lab settlement payouts yet.</p>
-        ) : (
-          payouts.map((p) => (
-            <div key={p.settlementId} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{p.labName}</p>
-                <p className="text-xs text-slate-500">{formatPkr(p.amountPaisa)} • {new Date(p.billingPeriodStart).toLocaleDateString()} → {new Date(p.billingPeriodEnd).toLocaleDateString()}</p>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                {p.payoutReceiptFileUrl && (
-                  <a
-                    href={p.payoutReceiptFileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline"
-                  >
-                    <FileText size={14} /> View receipt
-                  </a>
-                )}
-                {p.status === 'verified' ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600"><CheckCircle2 size={14} /> Received</span>
-                ) : p.status === 'pending_verification' ? (
-                  <button onClick={() => verify(p.settlementId)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">Confirm received</button>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400">Awaiting payout</span>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-};
-
 const ConsultantLaboratory = () => {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('new');
@@ -557,7 +350,7 @@ const ConsultantLaboratory = () => {
         </div>
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-50">Laboratory</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Refer patients for tests, track reports, and view your lab commissions.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Refer patients for tests and track reports.</p>
         </div>
       </div>
 
@@ -575,7 +368,6 @@ const ConsultantLaboratory = () => {
 
       {tab === 'new' && <NewReferral onCreated={() => { queryClient.invalidateQueries({ queryKey: ['my-lab-referrals'] }); setTab('mine'); }} />}
       {tab === 'mine' && <MyReferrals />}
-      {tab === 'earnings' && <LabEarnings />}
     </div>
   );
 };

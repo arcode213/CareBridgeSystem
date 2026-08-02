@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { FileText, Search, ChevronDown, ChevronUp, Clock, User, Phone, Shield, Calendar, CreditCard, Download } from 'lucide-react';
+import { FileText, Search, ChevronDown, ChevronUp, Clock, User, Phone, Shield, Calendar, CreditCard, Download, Lock } from 'lucide-react';
 import { useHospitalReferrals } from '../hooks/useReferrals';
 import api from '../utils/api';
 import ClinicalNotesLog from '../components/ClinicalNotesLog';
 import Loader from '../components/Loader';
 import { downloadPdf } from '../utils/downloadFile';
 import { ageLabel } from '../utils/dob';
+import toast from 'react-hot-toast';
 
 const urgencyStyles = {
   emergency: { card: 'border-red-200',   badge: 'bg-red-50 text-red-600 border-red-100',    text: 'text-red-600' },
@@ -35,7 +36,11 @@ const HospitalReferrals = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const toggleExpand = async (id) => {
+  const toggleExpand = async (id, status) => {
+    if (status === 'closed') {
+      toast.error('This referral is closed and locked forever. Details cannot be viewed.');
+      return;
+    }
     if (expandedId === id) {
       setExpandedId(null);
     } else {
@@ -47,7 +52,8 @@ const HospitalReferrals = () => {
             setExpandedData(prev => ({ ...prev, [id]: res.data.data }));
           }
         } catch (err) {
-          console.error('Failed to load referral details', err);
+          toast.error(err.response?.data?.message || 'Failed to load referral details');
+          setExpandedId(null);
         }
       }
     }
@@ -140,7 +146,7 @@ const HospitalReferrals = () => {
                 {/* Header Section (Always Visible) */}
                 <div
                   className="p-5 sm:p-6 cursor-pointer select-none"
-                  onClick={() => toggleExpand(referral._id)}
+                  onClick={() => toggleExpand(referral._id, referral.status)}
                 >
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex gap-4 min-w-0">
@@ -160,10 +166,11 @@ const HospitalReferrals = () => {
                             {referral.referralCode}
                           </span>
                           <span
-                            className={`px-2 py-0.5 border rounded-full text-[10px] font-bold uppercase ${
+                            className={`px-2 py-0.5 border rounded-full text-[10px] font-bold uppercase inline-flex items-center gap-1 ${
                               statusStyles[referral.status] || ''
                             }`}
                           >
+                            {referral.status === 'closed' && <Lock size={10} className="text-slate-500" />}
                             {referral.status}
                           </span>
                         </div>
@@ -320,12 +327,21 @@ const HospitalReferrals = () => {
                       </div>
                     </div>
 
+                    {/* Closed & Locked Banner if status is closed */}
+                    {referral.status === 'closed' && (
+                      <div className="flex items-center gap-2.5 p-4 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-700 dark:text-slate-200 text-xs font-bold shadow-sm">
+                        <Lock size={16} className="text-slate-500 shrink-0" />
+                        <span>This referral is closed & locked forever. It cannot be edited, re-admitted, or modified by facility or consultant.</span>
+                      </div>
+                    )}
+
                     {/* Clinical Notes Timeline / Log */}
                     <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
                       <ClinicalNotesLog
                         referralId={referral._id}
                         initialNotes={referral.clinicalNotes || []}
                         onNoteAdded={() => refetch()}
+                        isClosed={referral.status === 'closed'}
                       />
                     </div>
                   </div>

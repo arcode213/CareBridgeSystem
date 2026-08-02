@@ -159,7 +159,7 @@ const SmartIntakeForm = () => {
           const defaultDept =
             h.departments?.includes(res.data.detectedDept)
               ? res.data.detectedDept
-              : h.departments?.[0] || res.data.detectedDept || '';
+              : h.departments?.[0] || res.data.detectedDept || 'General Medicine';
           if (defaultDept) deptDefaults[h.hospitalId] = defaultDept;
         });
         setSelectedDepartments((prev) => ({ ...deptDefaults, ...prev }));

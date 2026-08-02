@@ -7,6 +7,8 @@ const Consultant = require('../models/Consultant');
 const { logAction } = require('../utils/logger');
 const User = require('../models/User');
 const notificationService = require('../services/notificationService');
+const PlatformSettings = require('../models/PlatformSettings');
+const commissionService = require('../services/commissionService');
 
 // 1. List admissions eligible for weekly settlement (Billed and not settled)
 exports.listPendingAdmissions = async (req, res) => {
@@ -38,18 +40,30 @@ exports.listPendingAdmissions = async (req, res) => {
       snapByAdmission[p.admissionId.toString()] = p;
     }
 
-    const results = admissions.map(adm => {
+    const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
+
+    const results = await Promise.all(admissions.map(async (adm) => {
       const doc = adm.toObject();
       const snap = snapByAdmission[adm._id.toString()];
-      const fallback = Math.round((doc.billTotalPaisa || 0) * ((hospital.deductionPercentage || 20) / 100));
-      // platform charge (admin revenue) + doctor commission = what the hospital owes for this case
-      doc.platformChargePaisa = snap ? (snap.platformChargePaisa ?? snap.adminSharePaisa ?? 0) : fallback;
-      doc.doctorCommissionPaisa = snap ? (snap.doctorCommissionPaisa ?? snap.amountPaisa ?? 0) : 0;
-      doc.totalCutPaisa = snap ? (snap.totalCutPaisa || snap.platformCutPaisa || 0) : fallback;
-      // calculatedPlatformCutPaisa kept = the TOTAL the hospital owes (back-compat field name)
+      if (snap) {
+        doc.platformChargePaisa = snap.platformChargePaisa ?? snap.adminSharePaisa ?? 0;
+        doc.doctorCommissionPaisa = snap.doctorCommissionPaisa ?? snap.amountPaisa ?? 0;
+        doc.totalCutPaisa = snap.totalCutPaisa || snap.platformCutPaisa || 0;
+      } else {
+        const consultant = await Consultant.findById(adm.consultantId);
+        const split = commissionService.computeHospitalSplit({
+          billPaisa: doc.billTotalPaisa || 0,
+          consultant,
+          hospital,
+          settings,
+        });
+        doc.platformChargePaisa = split.platformChargePaisa;
+        doc.doctorCommissionPaisa = split.doctorCommissionPaisa;
+        doc.totalCutPaisa = split.totalCutPaisa;
+      }
       doc.calculatedPlatformCutPaisa = doc.totalCutPaisa;
       return doc;
-    });
+    }));
 
     res.json({ success: true, data: results });
   } catch (error) {
@@ -63,7 +77,7 @@ exports.createSettlement = async (req, res) => {
   try {
     const { billingPeriodStart, billingPeriodEnd, admissionIds, billSummaryFileUrl, notes } = req.body;
     
-    if (!billingPeriodStart || !billingPeriodEnd || !admissionIds || !admissionIds.length || !billSummaryFileUrl) {
+    if (!billingPeriodStart || !billingPeriodEnd || !admissionIds || !admissionIds.length) {
       return res.status(400).json({ success: false, message: 'Missing required settlement parameters' });
     }
 
@@ -87,44 +101,69 @@ exports.createSettlement = async (req, res) => {
     // 2. Load accrued payouts for these admissions to extract precise splits
     const payouts = await Payout.find({
       admissionId: { $in: admissionIds },
-      status: 'accrued',
       weeklySettlementId: null
     });
 
-    // 3. Compute sums from the immutable payout snapshots (mode-agnostic identity:
-    //    totalCut == doctorCommission + platformCharge). facility owes Σ totalCut.
-    const grossAmountPaisa = admissions.reduce((sum, adm) => sum + (adm.billTotalPaisa || 0), 0);
-    const facilityTotalPayablePaisa = payouts.reduce(
-      (sum, p) => sum + (p.totalCutPaisa || p.platformCutPaisa || 0),
-      0
-    );
-    const doctorCommissionTotalPaisa = payouts.reduce(
-      (sum, p) => sum + (p.doctorCommissionPaisa || p.amountPaisa || 0),
-      0
-    );
-    const platformChargeTotalPaisa = payouts.reduce(
-      (sum, p) => sum + (p.platformChargePaisa || p.adminSharePaisa || 0),
-      0
-    );
-    const calculatedPlatformCutPaisa = facilityTotalPayablePaisa; // what the hospital transfers
-
-    // 4. Group payouts by consultant, snapshotting the commission FROM the payout
-    //    (not the live consultant) so a mid-cycle rate change can't alter a settled amount.
-    const consultantMap = {};
-    for (const payout of payouts) {
-      const cIdStr = payout.consultantId.toString();
-      if (!consultantMap[cIdStr]) {
-        consultantMap[cIdStr] = {
-          consultantId: payout.consultantId,
-          amountPaisa: 0,
-          commissionPercentage: payout.commissionPercentage || 0,
-          commissionType: payout.commissionType || 'percentage',
-          fixedCommissionPaisa: payout.fixedCommissionPaisa || 0,
-          status: 'pending_payout'
-        };
-      }
-      consultantMap[cIdStr].amountPaisa += payout.amountPaisa;
+    const snapByAdmission = {};
+    for (const p of payouts) {
+      if (p.admissionId) snapByAdmission[p.admissionId.toString()] = p;
     }
+
+    // 3. Compute sums from the immutable payout snapshots or dynamic fallbacks
+    const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
+    const grossAmountPaisa = admissions.reduce((sum, adm) => sum + (adm.billTotalPaisa || 0), 0);
+    
+    let facilityTotalPayablePaisa = 0;
+    let doctorCommissionTotalPaisa = 0;
+    let platformChargeTotalPaisa = 0;
+
+    const consultantMap = {};
+    
+    for (const adm of admissions) {
+      const snap = snapByAdmission[adm._id.toString()];
+      let platformChargePaisa = 0;
+      let doctorCommissionPaisa = 0;
+      let totalCutPaisa = 0;
+
+      if (snap) {
+        platformChargePaisa = snap.platformChargePaisa ?? snap.adminSharePaisa ?? 0;
+        doctorCommissionPaisa = snap.doctorCommissionPaisa ?? snap.amountPaisa ?? 0;
+        totalCutPaisa = snap.totalCutPaisa || snap.platformCutPaisa || 0;
+      } else {
+        const consultant = await Consultant.findById(adm.consultantId);
+        const split = commissionService.computeHospitalSplit({
+          billPaisa: adm.billTotalPaisa || 0,
+          consultant,
+          hospital,
+          settings,
+        });
+        platformChargePaisa = split.platformChargePaisa;
+        doctorCommissionPaisa = split.doctorCommissionPaisa;
+        totalCutPaisa = split.totalCutPaisa;
+      }
+
+      facilityTotalPayablePaisa += totalCutPaisa;
+      doctorCommissionTotalPaisa += doctorCommissionPaisa;
+      platformChargeTotalPaisa += platformChargePaisa;
+
+      const cId = adm.consultantId;
+      if (cId) {
+        const cIdStr = cId.toString();
+        if (!consultantMap[cIdStr]) {
+          consultantMap[cIdStr] = {
+            consultantId: cId,
+            amountPaisa: 0,
+            commissionPercentage: snap ? (snap.commissionPercentage || 0) : 0,
+            commissionType: snap ? (snap.commissionType || 'percentage') : 'percentage',
+            fixedCommissionPaisa: snap ? (snap.fixedCommissionPaisa || 0) : 0,
+            status: 'pending_payout'
+          };
+        }
+        consultantMap[cIdStr].amountPaisa += doctorCommissionPaisa;
+      }
+    }
+
+    const calculatedPlatformCutPaisa = facilityTotalPayablePaisa;
     const consultantPayouts = Object.values(consultantMap);
 
     // 5. Create settlement record
@@ -296,7 +335,7 @@ exports.adminVerifyHospitalReceipt = async (req, res) => {
     }
 
     if (action === 'approve') {
-      settlement.status = 'paid_pending_consultant_payout';
+      settlement.status = 'completed';
       settlement.adminVerifiedAt = new Date();
       settlement.adminVerifierId = req.user.id;
     } else {

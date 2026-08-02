@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Plus, User, Stethoscope, Phone, Mail, Trash2, Edit2, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, User, Stethoscope, Phone, Mail, Trash2, Edit2, CheckCircle, XCircle, Lock } from 'lucide-react';
 import Loader from '../components/Loader';
+import { SetRecordPasswordModal, VerifyRecordPasswordModal } from '../components/RecordPasswordModal';
 
 const DoctorManagement = () => {
   const [doctors, setDoctors] = useState([]);
@@ -11,12 +12,32 @@ const DoctorManagement = () => {
   const [formData, setFormData] = useState({
     name: '',
     specialty: '',
-    pmdcNumber: '',
     consultationFee: '',
     phone: '',
     email: '',
     isAvailable: true
   });
+
+  // Password Protection States
+  const [unlockedRecords, setUnlockedRecords] = useState({});
+  const [setPassUser, setSetPassUser] = useState(null);
+  const [verifyModal, setVerifyModal] = useState({ isOpen: false, user: null, actionName: '', onVerified: null });
+
+  const protectedAction = (user, actionName, callback) => {
+    if (!user || !user.hasRecordPassword || unlockedRecords[user._id]) {
+      callback();
+    } else {
+      setVerifyModal({
+        isOpen: true,
+        user,
+        actionName,
+        onVerified: () => {
+          setUnlockedRecords(prev => ({ ...prev, [user._id]: true }));
+          callback();
+        }
+      });
+    }
+  };
 
   useEffect(() => {
     fetchDoctors();
@@ -45,7 +66,7 @@ const DoctorManagement = () => {
       }
       setShowModal(false);
       setEditingDoctor(null);
-      setFormData({ name: '', specialty: '', pmdcNumber: '', consultationFee: '', phone: '', email: '', isAvailable: true });
+      setFormData({ name: '', specialty: '', consultationFee: '', phone: '', email: '', isAvailable: true });
       fetchDoctors();
     } catch (err) {
       alert('Failed to save doctor details');
@@ -83,7 +104,7 @@ const DoctorManagement = () => {
         <button 
           onClick={() => {
             setEditingDoctor(null);
-            setFormData({ name: '', specialty: '', pmdcNumber: '', consultationFee: '', phone: '', email: '', isAvailable: true });
+            setFormData({ name: '', specialty: '', consultationFee: '', phone: '', email: '', isAvailable: true });
             setShowModal(true);
           }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-blue-200"
@@ -105,29 +126,46 @@ const DoctorManagement = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {doctors.map((doc) => (
             <div key={doc._id} className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
-              <div className={`absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 rounded-full opacity-[0.03] transition-transform group-hover:scale-150 ${doc.isAvailable ? 'bg-green-600' : 'bg-red-600'}`}></div>
+              <div className={`absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 rounded-full opacity-[0.03] transition-transform group-hover:scale-150 pointer-events-none ${doc.isAvailable ? 'bg-green-600' : 'bg-red-600'}`}></div>
               
               <div className="flex justify-between items-start mb-4">
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${doc.isAvailable ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
                   <User size={28} strokeWidth={2.5} />
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => { setEditingDoctor(doc); setFormData({ name: doc.name || '', specialty: doc.specialty || '', pmdcNumber: doc.pmdcNumber || '', consultationFee: doc.consultationFee / 100, phone: doc.phone || '', email: doc.email || '', isAvailable: doc.isAvailable }); setShowModal(true); }} className="p-2 hover:bg-slate-50 text-slate-400 hover:text-blue-600 rounded-xl transition-colors">
+                <div className="flex gap-1 relative z-10">
+                  <button 
+                    onClick={() => setSetPassUser(doc)}
+                    title={doc.hasRecordPassword ? "Password Protection Active (Click to Manage)" : "Set Record Access Password"}
+                    className={`p-2 rounded-xl transition-colors ${
+                      doc.hasRecordPassword 
+                        ? 'bg-amber-100 text-amber-700' 
+                        : 'hover:bg-slate-50 text-slate-400 hover:text-amber-600'
+                    }`}
+                  >
+                    <Lock size={18} />
+                  </button>
+                  <button onClick={() => protectedAction(doc, 'edit doctor details', () => { setEditingDoctor(doc); setFormData({ name: doc.name || '', specialty: doc.specialty || '', consultationFee: doc.consultationFee ? doc.consultationFee / 100 : '', phone: doc.phone || '', email: doc.email || '', isAvailable: doc.isAvailable }); setShowModal(true); })} className="p-2 hover:bg-slate-50 text-slate-400 hover:text-blue-600 rounded-xl transition-colors">
                     <Edit2 size={18} />
                   </button>
-                  <button onClick={() => handleDelete(doc._id)} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl transition-colors">
+                  <button onClick={() => protectedAction(doc, 'delete doctor record', () => handleDelete(doc._id))} className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl transition-colors">
                     <Trash2 size={18} />
                   </button>
                 </div>
               </div>
 
               <div className="mb-6">
-                <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{doc.name}</h3>
+                <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                  {doc.name}
+                  {doc.hasRecordPassword && (
+                    <span title="Password Protected Record" className="text-amber-500">
+                      <Lock size={15} />
+                    </span>
+                  )}
+                </h3>
                 <div className="flex items-center gap-1.5 text-slate-500 font-medium mt-1">
                   <Stethoscope size={14} className="text-blue-500" />
                   {doc.specialty}
                 </div>
-                <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">PMDC: {doc.pmdcNumber}</div>
               </div>
 
               <div className="space-y-3 pt-4 border-t border-slate-50">
@@ -140,9 +178,9 @@ const DoctorManagement = () => {
                   {doc.phone || 'No phone'}
                 </div>
                 <div className="flex items-center justify-between pt-2">
-                  <span className="text-sm font-bold text-slate-900">{doc.consultationFee / 100} PKR</span>
+                  <span className="text-sm font-bold text-slate-900">{doc.consultationFee ? doc.consultationFee / 100 : 0} PKR</span>
                   <button 
-                    onClick={() => toggleAvailability(doc)}
+                    onClick={() => protectedAction(doc, 'change doctor availability', () => toggleAvailability(doc))}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${doc.isAvailable ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
                   >
                     {doc.isAvailable ? <CheckCircle size={12} /> : <XCircle size={12} />}
@@ -167,14 +205,6 @@ const DoctorManagement = () => {
                   type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})}
                   className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all font-medium"
                   placeholder="e.g. Dr. Ahmed Khan"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">PMDC Number</label>
-                <input 
-                  type="text" required value={formData.pmdcNumber} onChange={(e) => setFormData({...formData, pmdcNumber: e.target.value})}
-                  className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all font-medium"
-                  placeholder="e.g. 12345-P"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -219,6 +249,28 @@ const DoctorManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Record Password Protection Modals */}
+      <SetRecordPasswordModal
+        isOpen={!!setPassUser}
+        onClose={() => setSetPassUser(null)}
+        user={setPassUser}
+        customEndpoint={setPassUser ? `/hospitals/doctors/${setPassUser._id}` : null}
+        onSuccess={(hasPassword) => {
+          setDoctors(prev => prev.map(item => item._id === setPassUser._id ? { ...item, hasRecordPassword: hasPassword } : item));
+        }}
+      />
+
+      <VerifyRecordPasswordModal
+        isOpen={verifyModal.isOpen}
+        onClose={() => setVerifyModal({ isOpen: false, user: null, actionName: '', onVerified: null })}
+        user={verifyModal.user}
+        customEndpoint={verifyModal.user ? `/hospitals/doctors/${verifyModal.user._id}` : null}
+        actionName={verifyModal.actionName}
+        onSuccess={() => {
+          if (verifyModal.onVerified) verifyModal.onVerified();
+        }}
+      />
     </div>
   );
 };

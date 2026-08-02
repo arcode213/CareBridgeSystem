@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle2, Wallet, ChevronDown, ChevronUp } from 'lucide-react';
+import { ClipboardList, CheckCircle2, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import api from '../utils/api';
-import { formatPkr } from '../utils/formatPkr';
 import toast from 'react-hot-toast';
 import { useAdmissions, useHospitalPipeline } from '../hooks/useReferrals';
 import { useQueryClient } from '@tanstack/react-query';
@@ -16,50 +15,6 @@ const HospitalAdmissions = () => {
   const { data: admissions = [], isLoading: admissionsLoading } = useAdmissions();
   
   const [expanded, setExpanded] = useState(null);
-  const [form, setForm] = useState({
-    services: [{ description: '', amount: '' }],
-    billTotalPaisa: '0',
-    paymentMethod: 'manual',
-    paymentReference: '',
-    patientBillFileUrl: '',
-  });
-  const [uploadingBill, setUploadingBill] = useState(false);
-
-  const addServiceRow = () => {
-    const updatedServices = [...(form.services || []), { description: '', amount: '' }];
-    const total = updatedServices.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-    setForm({
-      ...form,
-      services: updatedServices,
-      billTotalPaisa: String(total),
-    });
-  };
-
-  const updateServiceRow = (index, field, value) => {
-    const updatedServices = (form.services || []).map((s, idx) => {
-      if (idx === index) {
-        return { ...s, [field]: value };
-      }
-      return s;
-    });
-    const total = updatedServices.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-    setForm({
-      ...form,
-      services: updatedServices,
-      billTotalPaisa: String(total),
-    });
-  };
-
-  const removeServiceRow = (index) => {
-    const updatedServices = (form.services || []).filter((_, idx) => idx !== index);
-    const total = updatedServices.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-    setForm({
-      ...form,
-      services: updatedServices,
-      billTotalPaisa: String(total || 0),
-    });
-  };
-
   const [admittingReferral, setAdmittingReferral] = useState(null);
   const [admitForm, setAdmitForm] = useState({
     roomNumber: '',
@@ -165,55 +120,19 @@ const HospitalAdmissions = () => {
     }
   };
 
-  const saveAdmission = async (id) => {
+  const confirmBillPayment = async (id) => {
     try {
-      const servicesPayload = (form.services || [])
-        .filter(s => s.description.trim())
-        .map(s => ({
-          description: s.description.trim(),
-          amountPaisa: Math.round((Number(s.amount) || 0) * 100),
-        }));
-      await api.patch(`/hospitals/admissions/${id}`, {
-        services: servicesPayload,
-        billTotalPaisa: Math.round(Number(form.billTotalPaisa) * 100),
-        paymentMethod: 'manual',
-        patientBillFileUrl: form.patientBillFileUrl || undefined,
-      });
-      toast.success('Billing draft saved.');
-      setExpanded(null);
-      queryClient.invalidateQueries({ queryKey: ['admissions'] });
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Update failed');
-    }
-  };
-
-  const complete = async (id) => {
-    try {
-      const servicesPayload = (form.services || [])
-        .filter(s => s.description.trim())
-        .map(s => ({
-          description: s.description.trim(),
-          amountPaisa: Math.round((Number(s.amount) || 0) * 100),
-        }));
-      // 1. Always save current form data first to ensure DB has the latest bill total
-      await api.patch(`/hospitals/admissions/${id}`, {
-        services: servicesPayload,
-        billTotalPaisa: Math.round(Number(form.billTotalPaisa) * 100),
-        paymentMethod: 'manual',
-        patientBillFileUrl: form.patientBillFileUrl || undefined,
-      });
-
-      // 2. Finalize
       await api.post(`/hospitals/admissions/${id}/complete`);
-      toast.success('Case closed — consultant payout triggered.');
-      setExpanded(null);
+      toast.success('Bill payment confirmed!');
       queryClient.invalidateQueries({ queryKey: ['admissions'] });
       queryClient.invalidateQueries({ queryKey: ['pipeline'] });
     } catch (e) {
-      console.error('Finalization failed:', e);
-      toast.error(e.response?.data?.message || 'Finalization failed. Ensure bill total is set.');
+      console.error('Bill payment confirmation failed:', e);
+      toast.error(e.response?.data?.message || 'Failed to confirm bill payment');
     }
   };
+
+
 
   if (pipelineLoading || admissionsLoading) {
     return <Loader message="Loading admissions..." />;
@@ -228,9 +147,9 @@ const HospitalAdmissions = () => {
           <ClipboardList className="w-7 h-7" />
         </div>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Admissions & billing</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Admissions</h1>
           <p className="text-slate-500 text-sm mt-1">
-            Admit accepted referrals, record services in PKR, confirm payment (SRS §4.1, §12).
+            Admit accepted referrals and manage patient room and bed placement.
           </p>
         </div>
       </div>
@@ -316,7 +235,7 @@ const HospitalAdmissions = () => {
       <section className="space-y-3">
         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-          Active & billing
+          Active admissions
         </h2>
         {admissions.length === 0 ? (
           <p className="text-slate-500 text-sm py-6 text-center">No admission records yet.</p>
@@ -355,8 +274,8 @@ const HospitalAdmissions = () => {
                       <span className="font-bold text-slate-400 uppercase tracking-wider block text-[9px] mb-0.5">Room & Bed Number</span>
                       <span className="font-semibold text-slate-700">Room: {a.roomNumber} · Bed: {a.bedNumber}</span>
                     </div>
-                    {a.status === 'active' && (
-                      <div className="col-span-full pt-2">
+                    {a.status === 'active' ? (
+                      <div className="col-span-full pt-2 flex items-center justify-between gap-2 border-t border-slate-200/60 mt-2">
                         <button
                           type="button"
                           onClick={() => openEditAdmission(a)}
@@ -364,168 +283,25 @@ const HospitalAdmissions = () => {
                         >
                           Edit room / bed / doctor
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => confirmBillPayment(a._id)}
+                          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                        >
+                          <CheckCircle2 size={14} />
+                          Bill Pay Confirm
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="col-span-full pt-2 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 border-t border-slate-200/60 mt-2">
+                        <Lock size={13} className="text-slate-400" />
+                        Closed & Billed (Locked Forever)
                       </div>
                     )}
                   </div>
                 )}
 
-                {a.status !== 'billed' && (
-                  <>
-                    {expanded === a._id ? (
-                      <div className="mt-4 p-5 rounded-2xl bg-slate-50 border border-slate-100 shadow-inner">
-                        <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-200">
-                          <div>
-                            <h3 className="font-bold text-slate-800">Finalize Billing & Payout</h3>
-                            <p className="text-xs text-slate-500">Record services and confirm payment method</p>
-                          </div>
-                          <div className="text-right bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Status</p>
-                            <p className="font-bold text-blue-700">Billing in Progress</p>
-                          </div>
-                        </div>
 
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-650 uppercase tracking-wider block">Billing Services & Procedures</label>
-                            {(form.services || []).map((service, index) => (
-                              <div key={index} className="flex gap-2 items-center">
-                                <input
-                                  type="text"
-                                  placeholder="Service / Procedure description (e.g. Lab test, Consultation)"
-                                  className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                                  value={service.description}
-                                  onChange={(e) => updateServiceRow(index, 'description', e.target.value)}
-                                />
-                                <input
-                                  type="number"
-                                  placeholder="PKR"
-                                  className="w-28 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white text-right font-semibold"
-                                  value={service.amount}
-                                  onChange={(e) => updateServiceRow(index, 'amount', e.target.value)}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removeServiceRow(index)}
-                                  className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors shrink-0 font-bold"
-                                  title="Remove Service"
-                                >
-                                  &times;
-                                </button>
-                              </div>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={addServiceRow}
-                              className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1"
-                            >
-                              + Add Billing Service Line
-                            </button>
-                          </div>
-
-                          <div className="grid sm:grid-cols-2 gap-4 border-t border-slate-200 pt-4">
-                            <div className="space-y-1 sm:col-span-2">
-                              <label className="text-xs font-semibold text-slate-600">Total Patient Bill (PKR) <span className="text-red-500">*</span></label>
-                              <input
-                                type="number"
-                                readOnly
-                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-lg font-bold text-slate-800 bg-slate-50 outline-none transition-all shadow-sm cursor-not-allowed"
-                                placeholder="0.00"
-                                value={form.billTotalPaisa}
-                              />
-                            </div>
-                          <div className="space-y-1 sm:col-span-2">
-                            <label className="text-xs font-semibold text-slate-600">Patient Bill Document (Image/PDF) <span className="text-red-500">*</span></label>
-                            <div className="flex items-center gap-3">
-                              <label className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors text-sm font-semibold text-slate-700">
-                                {uploadingBill ? 'Uploading...' : 'Upload File'}
-                                <input 
-                                  type="file" 
-                                  className="hidden" 
-                                  accept=".pdf,.png,.jpg,.jpeg"
-                                  disabled={uploadingBill}
-                                  onChange={async (e) => {
-                                    const file = e.target.files[0];
-                                    if (!file) return;
-                                    setUploadingBill(true);
-                                    const formData = new FormData();
-                                    formData.append('file', file);
-                                    try {
-                                      const res = await api.post('/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-                                      if (res.data.success) {
-                                        setForm({ ...form, patientBillFileUrl: res.data.url });
-                                        toast.success('Bill document uploaded!');
-                                      }
-                                    } catch (err) {
-                                      toast.error('Failed to upload document');
-                                    } finally {
-                                      setUploadingBill(false);
-                                    }
-                                  }}
-                                />
-                              </label>
-                              {form.patientBillFileUrl && (
-                                <a href={form.patientBillFileUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline font-bold">
-                                  View Uploaded Bill
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                        <div className="mt-6 flex flex-wrap gap-3 items-center justify-end border-t border-slate-200 pt-4">
-                          <button
-                            type="button"
-                            onClick={() => setExpanded(null)}
-                            className="px-4 py-2.5 text-sm font-semibold text-slate-500 hover:bg-slate-200 rounded-xl transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => saveAdmission(a._id)}
-                            className="px-5 py-2.5 rounded-xl bg-slate-800 text-white text-sm font-semibold shadow-md hover:bg-slate-900 transition-colors"
-                          >
-                            Save Draft
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => complete(a._id)}
-                            className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-all flex items-center gap-2"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            Confirm Payment & Close
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setExpanded(a._id);
-                          setForm({
-                            services: a.services && a.services.length > 0
-                              ? a.services.map(s => ({ description: s.description, amount: String(s.amountPaisa / 100) }))
-                              : [{ description: '', amount: '' }],
-                            billTotalPaisa: a.billTotalPaisa ? String(a.billTotalPaisa / 100) : '0',
-                            paymentMethod: 'manual',
-                            patientBillFileUrl: a.patientBillFileUrl || '',
-                          });
-                        }}
-                        className="mt-3 px-4 py-2 bg-blue-50 text-blue-700 font-semibold rounded-xl text-sm hover:bg-blue-100 transition-colors w-fit flex items-center gap-2"
-                      >
-                        <Wallet className="w-4 h-4" />
-                        Process Payment
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {a.billTotalPaisa > 0 && (
-                  <p className="text-sm text-slate-600">
-                    Bill: <span className="font-bold text-slate-900">{formatPkr(a.billTotalPaisa)}</span>
-                  </p>
-                )}
               </li>
             ))}
           </ul>

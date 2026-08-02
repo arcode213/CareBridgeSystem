@@ -187,7 +187,7 @@ const ConsultantEarnings = () => {
                         <span className="text-slate-455 dark:text-slate-500 block text-[10px] font-bold uppercase tracking-wider mb-0.5">Workflow Status</span>
                         {item.status === 'pending_payout' && (
                           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-[9px] uppercase tracking-wider">
-                            <Clock size={10} /> Disbursing Payment
+                            <Clock size={10} /> Processing Payment
                           </span>
                         )}
                         {item.status === 'pending_verification' && (

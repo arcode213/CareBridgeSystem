@@ -538,6 +538,26 @@ const referralReceivedHospitalEmail = ({ hospitalName, patientName, referralCode
     cta: { href: `${frontendBase()}/hospital/inbox`, label: 'Open referral inbox' },
   });
 
+const referralAssignedDoctorEmail = ({ doctorName, consultantName, hospitalName, patientName, referralCode, department, urgency }) =>
+  buildActionEmail({
+    category: 'Doctor Referral Notification',
+    title: 'New patient referral assigned to you',
+    preheader: `Referral ${referralCode} for ${patientName} has been assigned to you at ${hospitalName}.`,
+    name: doctorName ? (doctorName.startsWith('Dr.') ? doctorName : `Dr. ${doctorName}`) : 'Doctor',
+    paragraphs: [
+      `You have been selected as the assigned doctor for a new patient referral at <strong>${escapeHtml(hospitalName)}</strong> with <strong>${escapeHtml(urgency)}</strong> priority.`,
+      `Referred by consultant <strong>${escapeHtml(consultantName)}</strong>.`,
+    ],
+    details: [
+      { label: 'Referral code', value: referralCode },
+      { label: 'Patient name', value: patientName },
+      { label: 'Department', value: department },
+      { label: 'Referring consultant', value: consultantName },
+      { label: 'Urgency', value: urgency },
+    ],
+    cta: { href: `${frontendBase()}/hospital/inbox`, label: 'Open hospital inbox' },
+  });
+
 const referralStatusUpdateEmail = ({
   recipientName,
   patientName,
@@ -622,6 +642,7 @@ module.exports = {
   resetPasswordEmailText,
   referralSubmittedConsultantEmail,
   referralReceivedHospitalEmail,
+  referralAssignedDoctorEmail,
   referralStatusUpdateEmail,
   clinicalNoteEmail,
 };

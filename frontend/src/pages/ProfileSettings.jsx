@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, CreditCard, ShieldCheck, Save, Loader2, KeyRound, Eye, EyeOff, Building2, Palette, X } from 'lucide-react';
+import { User, ShieldCheck, Save, Loader2, KeyRound, Eye, EyeOff, Building2, Palette, X } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../features/auth/AuthContext';
@@ -383,93 +383,6 @@ const ProfileSettings = () => {
                           })}
                         />
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Consultant Wallet / Payout Settings */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                    <CreditCard size={16} className="text-emerald-600" />
-                    Preferred Payout Account
-                  </div>
-                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="space-y-1 sm:col-span-2">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Account Type</label>
-                        <div className="flex gap-3">
-                          {['jazzcash', 'easypaisa', 'bank'].map(type => (
-                            <button
-                              key={type}
-                              type="button"
-                              onClick={() => setData({
-                                ...data,
-                                profile: {
-                                  ...data.profile,
-                                  payoutAccount: { ...data.profile.payoutAccount, accountType: type }
-                                }
-                              })}
-                              className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase transition-all ${
-                                data.profile.payoutAccount?.accountType === type 
-                                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' 
-                                  : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
-                              }`}
-                            >
-                              {type}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Account Number</label>
-                        <input 
-                          type="text"
-                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
-                          placeholder="e.g. 03XXXXXXXXX"
-                          value={data.profile.payoutAccount?.accountNumber || ''}
-                          onChange={(e) => setData({
-                            ...data,
-                            profile: {
-                              ...data.profile,
-                              payoutAccount: { ...data.profile.payoutAccount, accountNumber: e.target.value }
-                            }
-                          })}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-400 uppercase">Account Holder Name</label>
-                        <input 
-                          type="text"
-                          className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
-                          placeholder="Full name as on account"
-                          value={data.profile.payoutAccount?.accountHolder || ''}
-                          onChange={(e) => setData({
-                            ...data,
-                            profile: {
-                              ...data.profile,
-                              payoutAccount: { ...data.profile.payoutAccount, accountHolder: e.target.value }
-                            }
-                          })}
-                        />
-                      </div>
-                      {data.profile.payoutAccount?.accountType === 'bank' && (
-                        <div className="space-y-1 sm:col-span-2">
-                          <label className="text-xs font-bold text-slate-400 uppercase">Bank Name & Branch</label>
-                          <input 
-                            type="text"
-                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-medium"
-                            placeholder="e.g. HBL - I.I Chundrigar Road"
-                            value={data.profile.payoutAccount?.bankName || ''}
-                            onChange={(e) => setData({
-                              ...data,
-                              profile: {
-                                ...data.profile,
-                                payoutAccount: { ...data.profile.payoutAccount, bankName: e.target.value }
-                              }
-                            })}
-                          />
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

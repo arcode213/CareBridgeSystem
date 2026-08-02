@@ -18,6 +18,7 @@ const generateToken = (user) => {
       id: user._id.toString(),
       role: user.role,
       name: user.name,
+      email: user.email,
       createdBy: user.createdBy ? user.createdBy.toString() : null,
     },
     process.env.JWT_SECRET,

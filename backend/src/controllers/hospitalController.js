@@ -1,3 +1,4 @@
+const bcrypt = require('bcrypt');
 const Hospital = require('../models/Hospital');
 const { getHospitalForUser } = require('../utils/resolveOrg');
 const Referral = require('../models/Referral');
@@ -10,8 +11,13 @@ exports.listDoctors = async (req, res) => {
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital profile not found' });
     }
-    const doctors = await HospitalDoctor.find({ hospitalId: hospital._id }).sort({ name: 1 });
-    res.json({ success: true, data: doctors });
+    const doctors = await HospitalDoctor.find({ hospitalId: hospital._id }).sort({ name: 1 }).lean();
+    const data = doctors.map(d => ({
+      ...d,
+      hasRecordPassword: !!d.recordPasswordHash,
+      recordPasswordHash: undefined
+    }));
+    res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching doctors' });
   }
@@ -70,6 +76,69 @@ exports.deleteDoctor = async (req, res) => {
     res.json({ success: true, message: 'Doctor removed' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error deleting doctor' });
+  }
+};
+
+exports.setDoctorRecordPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    let filter = { _id: id };
+    if (req.user.role !== 'admin') {
+      const hospital = await getHospitalForUser(req.user);
+      if (!hospital) return res.status(404).json({ success: false, message: 'Hospital profile not found' });
+      filter.hospitalId = hospital._id;
+    }
+
+    let hash = null;
+    if (password && password.trim().length > 0) {
+      hash = await bcrypt.hash(password, 10);
+    }
+
+    const doctor = await HospitalDoctor.findOneAndUpdate(
+      filter,
+      { recordPasswordHash: hash },
+      { new: true }
+    );
+
+    if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+
+    res.json({
+      success: true,
+      message: hash ? 'Doctor record password set successfully' : 'Doctor record password removed',
+      hasRecordPassword: !!hash,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to update doctor record password' });
+  }
+};
+
+exports.verifyDoctorRecordPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    let filter = { _id: id };
+    if (req.user.role !== 'admin') {
+      const hospital = await getHospitalForUser(req.user);
+      if (!hospital) return res.status(404).json({ success: false, message: 'Hospital profile not found' });
+      filter.hospitalId = hospital._id;
+    }
+
+    const doctor = await HospitalDoctor.findOne(filter);
+    if (!doctor || !doctor.recordPasswordHash) {
+      return res.json({ success: true, verified: true });
+    }
+
+    const isMatch = await bcrypt.compare(password, doctor.recordPasswordHash);
+    if (!isMatch) {
+      return res.status(403).json({ success: false, verified: false, message: 'Incorrect record password' });
+    }
+
+    res.json({ success: true, verified: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to verify record password' });
   }
 };
 

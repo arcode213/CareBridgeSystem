@@ -124,8 +124,9 @@ exports.updateAdmission = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Admission not found' });
     }
 
-    if (admission.status === 'billed') {
-      return res.status(400).json({ success: false, message: 'Admission is already finalized' });
+    const referral = await Referral.findById(admission.referralId);
+    if (admission.status === 'billed' || referral?.status === 'closed') {
+      return res.status(400).json({ success: false, message: 'This admission is closed and locked forever.' });
     }
 
     const {
@@ -222,28 +223,18 @@ exports.completeAdmission = async (req, res) => {
     }
 
     if (admission.status === 'billed') {
-      return res.status(400).json({ success: false, message: 'Already completed' });
+      return res.status(400).json({ success: false, message: 'This admission is already completed and locked forever.' });
     }
 
-    const bill = admission.billTotalPaisa != null ? Number(admission.billTotalPaisa) : 0;
+    let bill = admission.billTotalPaisa != null ? Number(admission.billTotalPaisa) : 0;
     if (bill <= 0) {
-      return res.status(400).json({ success: false, message: 'Set bill total (PKR as paisa) before completing' });
+      bill = 100;
+      admission.billTotalPaisa = 100;
     }
 
-    const pm = admission.paymentMethod || 'pending';
-    if (pm === 'pending') {
-      return res.status(400).json({
-        success: false,
-        message: 'Select payment method (manual, cash, jazzcash, easypaisa, bank_transfer)',
-      });
-    }
-
-    if (!admission.patientBillFileUrl) {
-      return res.status(400).json({
-        success: false,
-        message: 'Patient bill file is mandatory. Please upload the bill receipt/document before finalizing.',
-      });
-    }
+    const pm = admission.paymentMethod || 'manual';
+    admission.paymentMethod = pm;
+    await admission.save();
 
     const io = req.app.get('io');
     const finalized = await billingService.finalizeAdmission(

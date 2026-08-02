@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   Receipt, Calendar, Info, Upload, Check, AlertCircle, Clock, 
-  ArrowRight, FileText, Download, Landmark, ArrowUpRight, CheckCircle2 
+  ArrowRight, FileText, Download, Landmark, ArrowUpRight, CheckCircle2, Banknote 
 } from 'lucide-react';
 import api from '../utils/api';
 import { formatPkr } from '../utils/formatPkr';
@@ -139,14 +139,29 @@ const HospitalSettlements = () => {
     }
   };
 
+  // Submit cash payment for a settlement
+  const handleCashPayment = async (settlementId) => {
+    try {
+      setUploadingReceipt(prev => ({ ...prev, [settlementId]: true }));
+      const submitRes = await api.post(`/settlements/${settlementId}/upload-receipt`, {
+        hospitalReceiptFileUrl: 'CASH_PAYMENT'
+      });
+      if (submitRes.data.success) {
+        toast.success('Cash payment recorded successfully! Awaiting admin verification.');
+        fetchData();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit cash payment');
+    } finally {
+      setUploadingReceipt(prev => ({ ...prev, [settlementId]: false }));
+    }
+  };
+
   // Submit new weekly settlement
   const handleCreateSettlement = async (e) => {
     e.preventDefault();
     if (selectedAdmissionIds.length === 0) {
       return toast.error('Select at least one completed case to settle');
-    }
-    if (!summaryFile) {
-      return toast.error('Please upload your Weekly Bill Summary document');
     }
 
     // When no date range is chosen, derive the billing period from the selected cases.
@@ -331,8 +346,8 @@ const HospitalSettlements = () => {
                                 <span className="font-mono text-xs font-bold text-teal-600 dark:text-teal-400 truncate">
                                   {adm.referralId?.referralCode}
                                 </span>
-                                <span className="text-xs font-black text-slate-800 dark:text-slate-100">
-                                  {formatPkr(adm.billTotalPaisa)}
+                                <span className="text-xs font-black text-teal-600 dark:text-teal-400">
+                                  Platform Fee: {formatPkr(adm.platformChargePaisa)}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between gap-2 mt-0.5">
@@ -355,56 +370,12 @@ const HospitalSettlements = () => {
               {/* Aggregated Totals Preview Card */}
               {selectedAdmissionIds.length > 0 && (
                 <div className="bg-slate-900 text-white rounded-xl p-5 space-y-3 shadow-md border border-slate-850">
-                  <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                    <span className="text-xs text-slate-400 font-bold">Aggregated Gross Billed</span>
-                    <span className="text-lg font-black tabular-nums">{formatPkr(selectedGrossPaisa)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400">Platform Charge</span>
-                    <span className="font-bold text-slate-200 tabular-nums">{formatPkr(selectedPlatformPaisa)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400">Doctor Commission</span>
-                    <span className="font-bold text-slate-200 tabular-nums">{formatPkr(selectedCommissionPaisa)}</span>
-                  </div>
                   <div className="flex justify-between items-center border-t border-dashed border-white/10 pt-3">
-                    <span className="text-xs text-slate-350 font-black">Total Due to Platform (You Pay Manually)</span>
-                    <span className="text-xl font-extrabold text-teal-400 tabular-nums">{formatPkr(calculatedPlatformCutPaisa)}</span>
+                    <span className="text-xs text-slate-350 font-black">Total Platform Fee Due (You Pay Manually)</span>
+                    <span className="text-xl font-extrabold text-teal-400 tabular-nums">{formatPkr(selectedPlatformPaisa)}</span>
                   </div>
                 </div>
               )}
-
-              {/* Upload PDF summary */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  2. Upload Weekly Bill Summary Document (Image or PDF)
-                </label>
-                <div className="flex items-center gap-4">
-                  <label className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl p-6 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <Upload className="w-8 h-8 text-slate-400 dark:text-slate-500 mb-2" />
-                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                      {uploadingSummary ? 'Uploading file...' : summaryFile ? 'File attached successfully' : 'Browse Weekly Summary Statement'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 mt-1">Accepts PDF, JPG, PNG (Max 5MB)</span>
-                    <input 
-                      type="file"
-                      accept=".pdf,.png,.jpg,.jpeg"
-                      onChange={handleSummaryUpload}
-                      disabled={uploadingSummary}
-                      className="hidden"
-                    />
-                  </label>
-                  
-                  {summaryFile && (
-                    <div className="p-3 bg-teal-50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-400 rounded-xl border border-teal-100/50 flex items-center gap-2">
-                      <FileText size={18} />
-                      <a href={summaryFile} target="_blank" rel="noreferrer" className="text-xs font-bold underline hover:text-teal-800">
-                        View Uploaded Document
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
 
               {/* Notes */}
               <div>
@@ -420,7 +391,7 @@ const HospitalSettlements = () => {
               {/* Generate button */}
               <button
                 type="submit"
-                disabled={selectedAdmissionIds.length === 0 || !summaryFile}
+                disabled={selectedAdmissionIds.length === 0}
                 className="w-full flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-sm rounded-xl shadow-md disabled:bg-slate-200 dark:disabled:bg-slate-850 disabled:text-slate-450 dark:disabled:text-slate-500 transition-all cursor-pointer active:scale-[0.98]"
               >
                 Submit Settlement & Await Verification
@@ -522,18 +493,10 @@ const HospitalSettlements = () => {
                 </div>
 
                 {/* Grid details */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Platform Charge</span>
-                    <span className="font-bold text-slate-700 dark:text-slate-300 tabular-nums">{formatPkr(settlement.platformChargeTotalPaisa ?? settlement.calculatedPlatformCutPaisa)}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Doctor Commission</span>
-                    <span className="font-bold text-slate-700 dark:text-slate-300 tabular-nums">{formatPkr(settlement.doctorCommissionTotalPaisa ?? 0)}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Total Due</span>
-                    <span className="font-black text-teal-600 dark:text-teal-400 tabular-nums">{formatPkr(settlement.facilityTotalPayablePaisa ?? settlement.calculatedPlatformCutPaisa)}</span>
+                    <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Platform Fee Due</span>
+                    <span className="font-black text-teal-600 dark:text-teal-400 tabular-nums">{formatPkr(settlement.platformChargeTotalPaisa ?? settlement.facilityTotalPayablePaisa ?? settlement.calculatedPlatformCutPaisa)}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-0.5">Cases Included</span>
@@ -553,20 +516,20 @@ const HospitalSettlements = () => {
                   </div>
                 )}
 
-                {/* Upload action box for manual payment */}
+                {/* Upload or Cash payment action box for manual payment */}
                 {settlement.status === 'pending_payment' && (
                   <div className="bg-slate-50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
                     <div className="space-y-1">
                       <p className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                         <Landmark size={14} className="text-teal-600 dark:text-teal-400" />
-                        Transfer Platform Fee manually & attach proof receipt
+                        Pay Platform Fee ({formatPkr(settlement.platformChargeTotalPaisa ?? settlement.facilityTotalPayablePaisa ?? settlement.calculatedPlatformCutPaisa)})
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-                        Please pay {formatPkr(settlement.calculatedPlatformCutPaisa)} to our bank details above, then upload the transaction screenshot receipt.
+                        Transfer online to our bank details above and upload proof receipt, or confirm payment via Cash.
                       </p>
                     </div>
-                    <div className="shrink-0">
-                      <label className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-lg shadow-sm cursor-pointer transition-colors active:scale-95">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <label className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-lg shadow-sm cursor-pointer transition-colors active:scale-95">
                         <Upload size={14} />
                         {uploadingReceipt[settlement._id] ? 'Uploading...' : 'Upload Transfer Receipt'}
                         <input 
@@ -577,75 +540,42 @@ const HospitalSettlements = () => {
                           className="hidden"
                         />
                       </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCashPayment(settlement._id)}
+                        disabled={uploadingReceipt[settlement._id]}
+                        className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg shadow-sm transition-colors active:scale-95 disabled:opacity-50 cursor-pointer"
+                      >
+                        <Banknote size={14} />
+                        Pay via Cash
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {/* Document details */}
-                <div className="flex flex-wrap gap-3 text-xs pt-2">
-                  <a 
-                    href={settlement.billSummaryFileUrl} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-250 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition-all"
-                  >
-                    <FileText size={13} className="text-teal-600 dark:text-teal-400" />
-                    Weekly Summary Bill
-                  </a>
-                  
-                  {settlement.hospitalReceiptFileUrl && (
-                    <a 
-                      href={settlement.hospitalReceiptFileUrl} 
-                      target="_blank" 
-                      rel="noreferrer" 
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-250 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition-all"
-                    >
-                      <ArrowUpRight size={13} className="text-teal-600 dark:text-teal-400" />
-                      Hospital Payment Receipt
-                    </a>
-                  )}
-                </div>
-
-                {/* Consultant payouts detail tracker */}
-                {settlement.consultantPayouts?.length > 0 && (
-                  <div className="border-t border-slate-50 dark:border-slate-850 pt-4 space-y-2.5 transition-colors">
-                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Doctor Commissions Distribution Tracker</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {settlement.consultantPayouts.map(pay => (
-                        <div 
-                          key={pay._id} 
-                          className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-850 p-3 rounded-xl flex items-center justify-between gap-3 text-xs transition-colors"
-                        >
-                          <div>
-                            <p className="font-bold text-slate-700 dark:text-slate-300">
-                              Dr. {pay.consultantId?.userId?.name || 'Accredited Consultant'}
-                            </p>
-                            <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                              Calculated Share: <span className="font-bold text-slate-650 dark:text-slate-400">{formatPkr(pay.amountPaisa)}</span> ({pay.commissionPercentage}%)
-                            </p>
-                          </div>
-                          <div>
-                            {pay.status === 'pending_payout' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-bold text-[9px] uppercase tracking-wider">
-                                Awaiting Payout
-                              </span>
-                            )}
-                            {pay.status === 'pending_verification' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-550/10 text-amber-700 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wider animate-pulse">
-                                Paid, Verification Pending
-                              </span>
-                            )}
-                            {pay.status === 'verified' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 font-bold text-[9px] uppercase tracking-wider">
-                                Verified & Signed Off
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                {/* Document & Payment details */}
+                {settlement.hospitalReceiptFileUrl && (
+                  <div className="flex flex-wrap gap-3 text-xs pt-2">
+                    {settlement.hospitalReceiptFileUrl === 'CASH_PAYMENT' ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-emerald-200 dark:border-emerald-900 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+                        <Banknote size={13} /> Cash Payment Submitted
+                      </span>
+                    ) : (
+                      <a 
+                        href={settlement.hospitalReceiptFileUrl} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-250 dark:border-slate-800 rounded-lg text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold transition-all"
+                      >
+                        <ArrowUpRight size={13} className="text-teal-600 dark:text-teal-400" />
+                        Hospital Payment Receipt
+                      </a>
+                    )}
                   </div>
                 )}
+
+
 
               </div>
             ))}

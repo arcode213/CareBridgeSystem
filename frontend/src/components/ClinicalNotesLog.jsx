@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Send, User, Clock, ShieldCheck } from 'lucide-react';
+import { Send, User, Clock, ShieldCheck, Lock } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../features/auth/AuthContext';
 
-const ClinicalNotesLog = ({ referralId, initialNotes = [], onNoteAdded }) => {
+const ClinicalNotesLog = ({ referralId, initialNotes = [], onNoteAdded, isClosed = false }) => {
   const { user } = useAuth();
   const [notes, setNotes] = useState(initialNotes);
   const [content, setContent] = useState('');
@@ -89,26 +89,33 @@ const ClinicalNotesLog = ({ referralId, initialNotes = [], onNoteAdded }) => {
         )}
       </div>
 
-      {/* Input Form */}
-      <form onSubmit={handleSubmit} className="relative">
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={`Add a ${type} note...`}
-          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] resize-none transition-all"
-        />
-        <button
-          type="submit"
-          disabled={isSubmitting || !content.trim()}
-          className="absolute bottom-3 right-3 p-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg shadow-blue-200"
-        >
-          {isSubmitting ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <Send size={16} />
-          )}
-        </button>
-      </form>
+      {/* Input Form or Locked Banner */}
+      {isClosed ? (
+        <div className="p-3.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-center text-xs text-slate-600 dark:text-slate-300 font-semibold flex items-center justify-center gap-2">
+          <Lock size={15} className="text-slate-400" />
+          This referral is closed & locked forever. No further notes can be added.
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="relative">
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder={`Add a ${type} note...`}
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] resize-none transition-all"
+          />
+          <button
+            type="submit"
+            disabled={isSubmitting || !content.trim()}
+            className="absolute bottom-3 right-3 p-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all disabled:opacity-50 shadow-lg shadow-blue-200"
+          >
+            {isSubmitting ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Send size={16} />
+            )}
+          </button>
+        </form>
+      )}
     </div>
   );
 };

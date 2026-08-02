@@ -97,7 +97,7 @@ ReferralSchema.pre('save', async function () {
     const doc = await Counter.findOneAndUpdate(
       { _id: `referralCode_${year}` },
       { $inc: { seq: 1 } },
-      { new: true, upsert: true }
+      { new: true, returnDocument: 'after', upsert: true }
     );
     this.referralCode = `CB-${year}-${String(doc.seq).padStart(4, '0')}`;
   }

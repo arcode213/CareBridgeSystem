@@ -60,8 +60,6 @@ const LabSettlements = () => {
   const toggle = (id) => setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const selectedObjs = pending.filter((r) => selected.includes(r._id));
   const grossPaisa = selectedObjs.reduce((s, r) => s + (r.billTotalPaisa || 0), 0);
-  const platformChargePaisa = selectedObjs.reduce((s, r) => s + (r.platformChargePaisa || 0), 0);
-  const commissionPaisa = selectedObjs.reduce((s, r) => s + (r.doctorCommissionPaisa || 0), 0);
   const platformCutPaisa = selectedObjs.reduce((s, r) => s + (r.calculatedPlatformCutPaisa || 0), 0);
 
   const handleReceiptUpload = async (e) => {
@@ -196,8 +194,7 @@ const LabSettlements = () => {
         {selected.length > 0 && (
           <div className="bg-slate-900 text-white rounded-xl p-5 space-y-3">
             <div className="flex justify-between border-b border-white/10 pb-3"><span className="text-xs text-slate-400 font-bold">Gross Billed</span><span className="text-lg font-black tabular-nums">{formatPkr(grossPaisa)}</span></div>
-            <div className="flex justify-between text-xs"><span className="text-slate-400">Platform Charge</span><span className="font-bold text-slate-200 tabular-nums">{formatPkr(platformChargePaisa)}</span></div>
-            <div className="flex justify-between text-xs"><span className="text-slate-400">Doctor Commission</span><span className="font-bold text-slate-200 tabular-nums">{formatPkr(commissionPaisa)}</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-400">Platform Charge</span><span className="font-bold text-slate-200 tabular-nums">{formatPkr(platformCutPaisa)}</span></div>
             <div className="flex justify-between border-t border-dashed border-white/10 pt-3"><span className="text-xs text-slate-300 font-black">Total Due to Platform</span><span className="text-xl font-extrabold text-sky-400 tabular-nums">{formatPkr(platformCutPaisa)}</span></div>
           </div>
         )}
@@ -242,9 +239,8 @@ const LabSettlements = () => {
                 {STATUS_BADGE(s.status)}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                <div><span className="text-slate-400 font-bold uppercase block mb-0.5">Platform</span><span className="font-bold tabular-nums">{formatPkr(s.platformChargeTotalPaisa ?? s.calculatedPlatformCutPaisa)}</span></div>
-                <div><span className="text-slate-400 font-bold uppercase block mb-0.5">Commission</span><span className="font-bold tabular-nums">{formatPkr(s.doctorCommissionTotalPaisa ?? 0)}</span></div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+                <div><span className="text-slate-400 font-bold uppercase block mb-0.5">Platform Charge</span><span className="font-bold tabular-nums">{formatPkr(s.facilityTotalPayablePaisa ?? s.calculatedPlatformCutPaisa)}</span></div>
                 <div><span className="text-slate-400 font-bold uppercase block mb-0.5">Total Due</span><span className="font-black text-sky-600 dark:text-sky-400 tabular-nums">{formatPkr(s.facilityTotalPayablePaisa ?? s.calculatedPlatformCutPaisa)}</span></div>
                 <div><span className="text-slate-400 font-bold uppercase block mb-0.5">Cases</span><span className="font-bold">{s.labReferralIds?.length || 0}</span></div>
               </div>

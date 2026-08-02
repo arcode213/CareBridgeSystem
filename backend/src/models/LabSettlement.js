@@ -38,9 +38,7 @@ const LabSettlementSchema = new mongoose.Schema(
       enum: [
         'pending_payment', // Summary uploaded, lab has not uploaded payment receipt
         'pending_admin_verification', // Lab paid, uploaded receipt, awaiting admin verification
-        'paid_pending_consultant_payout', // Admin verified lab payment, admin needs to pay consultants
-        'paid_pending_consultant_verification', // Admin paid consultants & uploaded receipts, waiting for consultant verification
-        'completed', // All consultants confirmed receiving payout
+        'completed', // Payment verified by admin
       ],
       default: 'pending_payment',
     },

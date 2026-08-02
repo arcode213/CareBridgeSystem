@@ -7,7 +7,6 @@ import Loader from '../../components/Loader';
 const AdminSettings = () => {
   // Financial Engine Settings State
   const [hospPct, setHospPct] = useState(20);
-  const [consPct, setConsPct] = useState(60);
   const [thresholdPKR, setThresholdPKR] = useState(10000);
   const [holdPKR, setHoldPKR] = useState(9500);
 
@@ -34,7 +33,6 @@ const AdminSettings = () => {
       if (res.data.success) {
         const d = res.data.data;
         setHospPct(d.defaultHospitalDeductionPercentage ?? 20);
-        setConsPct(d.defaultConsultantCommissionPercentage ?? 60);
         setThresholdPKR((d.walletThresholdPaisa ?? 1000000) / 100);
         setHoldPKR((d.walletInitialHoldPaisa ?? 950000) / 100);
         
@@ -61,7 +59,6 @@ const AdminSettings = () => {
     try {
       await api.put('/admin/settings', {
         defaultHospitalDeductionPercentage: Number(hospPct),
-        defaultConsultantCommissionPercentage: Number(consPct),
         walletThresholdPaisa: Number(thresholdPKR) * 100, // back to paisa
         walletInitialHoldPaisa: Number(holdPKR) * 100, // back to paisa
         platformName,
@@ -113,9 +110,8 @@ const AdminSettings = () => {
 
   // Estimator Calculations based on settings
   const platformCut = Math.round(totalAmount * (hospPct / 100));
-  const consultantShare = Math.round(platformCut * (consPct / 100));
   const hospitalNets = totalAmount - platformCut;
-  const adminShare = platformCut - consultantShare;
+  const adminShare = platformCut;
 
   if (isLoading) {
     return <Loader message="Loading platform configuration..." />;
@@ -167,25 +163,6 @@ const AdminSettings = () => {
                     </div>
                   </div>
                   <p className="text-[10px] text-slate-400">Fallback platform cut deducted from patient bill.</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-xs font-black uppercase text-slate-500 tracking-wider">Default Consultant split (%)</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      required
-                      value={consPct}
-                      onChange={(e) => setConsPct(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                      className="w-full rounded-2xl border border-slate-200 px-5 py-4 font-mono text-lg focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all bg-slate-50/50"
-                    />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">
-                      %
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-slate-400">Physician share of the deducted platform cut.</p>
                 </div>
               </div>
 
@@ -447,17 +424,6 @@ const AdminSettings = () => {
 
                 {/* Sub-splits from Platform Cut */}
                 <div className="pl-6 border-l-2 border-slate-800 space-y-2 mt-1">
-                  {/* Consultant Share */}
-                  <div className="flex justify-between items-center bg-white/5 border border-white/10 p-3 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <div>
-                        <p className="text-xs font-bold">Consultant Share</p>
-                        <p className="text-[9px] text-slate-400">{consPct}% of Platform Cut</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-black text-emerald-400">PKR {consultantShare.toLocaleString()}</span>
-                  </div>
 
                   {/* Admin Net Share */}
                   <div className="flex justify-between items-center bg-white/5 border border-white/10 p-3 rounded-xl">
@@ -465,7 +431,7 @@ const AdminSettings = () => {
                       <span className="w-2 h-2 rounded-full bg-amber-500" />
                       <div>
                         <p className="text-xs font-bold">Platform Net Share</p>
-                        <p className="text-[9px] text-slate-400">Admin Cut ({100 - consPct}%)</p>
+                        <p className="text-[9px] text-slate-400">Admin Cut (100%)</p>
                       </div>
                     </div>
                     <span className="text-xs font-black text-amber-400">PKR {adminShare.toLocaleString()}</span>

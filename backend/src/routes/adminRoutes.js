@@ -30,6 +30,8 @@ router.patch('/hospitals/:id/doctors/:doctorId', adminController.adminUpdateHosp
 router.delete('/hospitals/:id/doctors/:doctorId', adminController.adminDeleteHospitalDoctor);
 router.patch('/consultants/:id', adminController.adminUpdateConsultant);
 router.post('/users/:id/change-password', adminController.adminChangePassword);
+router.post('/users/:id/record-password', adminController.setRecordPassword);
+router.post('/users/:id/verify-record-password', adminController.verifyRecordPassword);
 router.delete('/users/:id', adminController.adminDeleteUser);
 
 router.get('/analytics', adminController.getPlatformAnalytics);

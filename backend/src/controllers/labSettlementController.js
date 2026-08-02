@@ -16,6 +16,10 @@ exports.listPendingReferrals = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
     }
 
+    const PlatformSettings = require('../models/PlatformSettings');
+    const commissionService = require('../services/commissionService');
+    const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
+
     const referrals = await LabReferral.find({
       targetLaboratoryId: lab._id,
       status: 'closed',
@@ -35,11 +39,19 @@ exports.listPendingReferrals = async (req, res) => {
     const results = referrals.map((ref) => {
       const doc = ref.toObject();
       const snap = snapByReferral[ref._id.toString()];
-      const fallback = Math.round((doc.billTotalPaisa || 0) * ((lab.deductionPercentage || 20) / 100));
-      doc.platformChargePaisa = snap ? (snap.platformChargePaisa ?? snap.adminSharePaisa ?? 0) : fallback;
-      doc.doctorCommissionPaisa = snap ? (snap.doctorCommissionPaisa ?? snap.amountPaisa ?? 0) : 0;
-      doc.totalCutPaisa = snap ? (snap.totalCutPaisa || snap.platformCutPaisa || 0) : fallback;
-      doc.calculatedPlatformCutPaisa = doc.totalCutPaisa; // total the lab owes (back-compat name)
+      
+      const currentSplit = commissionService.computeLabSplit({
+        tests: doc.services || [],
+        discountPercentage: doc.discountPercentage || 0,
+        consultant: doc.consultantId,
+        lab,
+        settings,
+      });
+
+      doc.platformChargePaisa = currentSplit.platformChargePaisa;
+      doc.doctorCommissionPaisa = currentSplit.doctorCommissionPaisa;
+      doc.totalCutPaisa = currentSplit.totalCutPaisa;
+      doc.calculatedPlatformCutPaisa = currentSplit.platformCutPaisa;
       return doc;
     });
 
@@ -66,13 +78,17 @@ exports.createSettlement = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Laboratory profile not found' });
     }
 
-    // 1. Verify referrals are eligible
+    const PlatformSettings = require('../models/PlatformSettings');
+    const commissionService = require('../services/commissionService');
+    const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
+
+    // 1. Verify referrals are eligible and populate consultantId
     const referrals = await LabReferral.find({
       _id: { $in: labReferralIds },
       targetLaboratoryId: lab._id,
       status: 'closed',
       weeklySettlementId: null,
-    });
+    }).populate('consultantId');
 
     if (referrals.length !== labReferralIds.length) {
       return res.status(400).json({ success: false, message: 'Some selected referrals are invalid or already settled' });
@@ -85,42 +101,25 @@ exports.createSettlement = async (req, res) => {
       weeklySettlementId: null,
     });
 
-    // 3. Compute sums from the immutable payout snapshots (lab owes Σ totalCut).
     const grossAmountPaisa = referrals.reduce((sum, r) => sum + (r.billTotalPaisa || 0), 0);
-    const facilityTotalPayablePaisa = payouts.reduce(
-      (sum, p) => sum + (p.totalCutPaisa || p.platformCutPaisa || 0),
-      0
-    );
-    const doctorCommissionTotalPaisa = payouts.reduce(
-      (sum, p) => sum + (p.doctorCommissionPaisa || p.amountPaisa || 0),
-      0
-    );
-    const platformChargeTotalPaisa = payouts.reduce(
-      (sum, p) => sum + (p.platformChargePaisa || p.adminSharePaisa || 0),
-      0
-    );
-    const calculatedPlatformCutPaisa = facilityTotalPayablePaisa; // what the lab transfers
+    
+    let facilityTotalPayablePaisa = 0;
 
-    // 4. Group payouts by consultant, snapshotting commission FROM the payout (not live).
-    const consultantMap = {};
-    for (const payout of payouts) {
-      const cIdStr = payout.consultantId.toString();
-      if (!consultantMap[cIdStr]) {
-        consultantMap[cIdStr] = {
-          consultantId: payout.consultantId,
-          amountPaisa: 0,
-          commissionPercentage: payout.commissionPercentage || 0,
-          commissionType: payout.commissionType || 'percentage',
-          fixedCommissionPaisa: payout.fixedCommissionPaisa || 0,
-          status: 'pending_payout',
-        };
-      }
-      consultantMap[cIdStr].amountPaisa += payout.amountPaisa;
+    for (const referral of referrals) {
+      const currentSplit = commissionService.computeLabSplit({
+        tests: referral.services || [],
+        discountPercentage: referral.discountPercentage || 0,
+        consultant: referral.consultantId,
+        lab,
+        settings,
+      });
+
+      facilityTotalPayablePaisa += currentSplit.platformCutPaisa;
     }
-    const consultantPayouts = Object.values(consultantMap);
+    
+    const calculatedPlatformCutPaisa = facilityTotalPayablePaisa;
 
-    // 5. Create settlement record — lab pays the platform fee and uploads its
-    //    receipt at creation, so it goes straight to admin verification.
+    // 5. Create settlement record
     const settlement = await LabSettlement.create({
       laboratoryId: lab._id,
       billingPeriodStart: new Date(billingPeriodStart),
@@ -129,19 +128,16 @@ exports.createSettlement = async (req, res) => {
       grossAmountPaisa,
       deductionPercentage: lab.deductionPercentage || 20,
       calculatedPlatformCutPaisa,
-      doctorCommissionTotalPaisa,
-      platformChargeTotalPaisa,
       facilityTotalPayablePaisa,
       labReceiptFileUrl,
       labPaidAt: new Date(),
       notes,
       status: 'pending_admin_verification',
-      consultantPayouts,
+      consultantPayouts: [],
     });
 
-    // 6. Link referrals and payouts to this settlement
+    // 6. Link referrals to this settlement
     await LabReferral.updateMany({ _id: { $in: labReferralIds } }, { $set: { weeklySettlementId: settlement._id } });
-    await LabPayout.updateMany({ labReferralId: { $in: labReferralIds } }, { $set: { weeklySettlementId: settlement._id } });
 
     // 7. Audit log
     await logAction({
@@ -289,7 +285,7 @@ exports.adminVerifyLabReceipt = async (req, res) => {
     }
 
     if (action === 'approve') {
-      settlement.status = 'paid_pending_consultant_payout';
+      settlement.status = 'completed';
       settlement.adminVerifiedAt = new Date();
       settlement.adminVerifierId = req.user.id;
     } else {
@@ -337,182 +333,3 @@ exports.adminVerifyLabReceipt = async (req, res) => {
   }
 };
 
-// 7. Admin uploads proof of manual payout to a consultant under a settlement
-exports.adminUploadConsultantPayout = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { consultantId, payoutReceiptFileUrl } = req.body;
-
-    if (!consultantId || !payoutReceiptFileUrl) {
-      return res.status(400).json({ success: false, message: 'Consultant ID and payout receipt URL are required' });
-    }
-
-    const settlement = await LabSettlement.findById(id);
-    if (!settlement) {
-      return res.status(404).json({ success: false, message: 'Settlement not found' });
-    }
-
-    if (!['paid_pending_consultant_payout', 'paid_pending_consultant_verification'].includes(settlement.status)) {
-      return res.status(400).json({ success: false, message: 'Invalid settlement status for payouts' });
-    }
-
-    const payoutIndex = settlement.consultantPayouts.findIndex((p) => p.consultantId.toString() === consultantId);
-    if (payoutIndex === -1) {
-      return res.status(404).json({ success: false, message: 'Consultant not associated with this settlement' });
-    }
-
-    settlement.consultantPayouts[payoutIndex].payoutReceiptFileUrl = payoutReceiptFileUrl;
-    settlement.consultantPayouts[payoutIndex].paidAt = new Date();
-    settlement.consultantPayouts[payoutIndex].status = 'pending_verification';
-    settlement.status = 'paid_pending_consultant_verification';
-    await settlement.save();
-
-    await logAction({
-      actorId: req.user.id,
-      action: 'ADMIN_LAB_CONSULTANT_PAYOUT_UPLOADED',
-      entityId: settlement._id,
-      entityModel: 'LabSettlement',
-      details: { consultantId, payoutReceiptFileUrl },
-    });
-
-    const consultant = await Consultant.findById(consultantId).populate('userId', 'name email phone');
-    const payoutAmount = settlement.consultantPayouts[payoutIndex]?.amountPaisa;
-    if (consultant?.userId) {
-      notificationService
-        .notifyConsultantPayout(consultant.userId, payoutAmount)
-        .catch((err) => console.error('Lab consultant payout notify failed:', err.message));
-    }
-
-    res.json({ success: true, message: 'Consultant payout receipt uploaded successfully', data: settlement });
-  } catch (error) {
-    console.error('[ADMIN_LAB_CONSULTANT_PAYOUT_ERROR]', error);
-    res.status(500).json({ success: false, message: 'Failed to upload payout proof' });
-  }
-};
-
-// 8. Consultant lists lab payouts assigned to them
-exports.consultantListPayouts = async (req, res) => {
-  try {
-    const consultant = await Consultant.findOne({ userId: req.user.id });
-    if (!consultant) {
-      return res.status(404).json({ success: false, message: 'Consultant profile not found' });
-    }
-
-    const settlements = await LabSettlement.find({ 'consultantPayouts.consultantId': consultant._id })
-      .populate('laboratoryId', 'labName branding')
-      .sort({ createdAt: -1 });
-
-    const payoutsList = settlements.map((s) => {
-      const myPayout = s.consultantPayouts.find((p) => p.consultantId.toString() === consultant._id.toString());
-      return {
-        settlementId: s._id,
-        billingPeriodStart: s.billingPeriodStart,
-        billingPeriodEnd: s.billingPeriodEnd,
-        labName: s.laboratoryId?.labName || 'Unknown Laboratory',
-        branding: s.laboratoryId?.branding,
-        myPayoutId: myPayout._id,
-        amountPaisa: myPayout.amountPaisa,
-        commissionPercentage: myPayout.commissionPercentage,
-        payoutReceiptFileUrl: myPayout.payoutReceiptFileUrl,
-        paidAt: myPayout.paidAt,
-        status: myPayout.status,
-        verifiedAt: myPayout.verifiedAt,
-        masterStatus: s.status,
-      };
-    });
-
-    res.json({ success: true, data: payoutsList });
-  } catch (error) {
-    console.error('[CONSULTANT_LIST_LAB_PAYOUTS_ERROR]', error);
-    res.status(500).json({ success: false, message: 'Failed to list payouts' });
-  }
-};
-
-// 9. Consultant verifies/confirms manual lab payout received
-exports.consultantVerifyPayout = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const consultant = await Consultant.findOne({ userId: req.user.id });
-    if (!consultant) {
-      return res.status(404).json({ success: false, message: 'Consultant profile not found' });
-    }
-
-    const settlement = await LabSettlement.findById(id);
-    if (!settlement) {
-      return res.status(404).json({ success: false, message: 'Settlement not found' });
-    }
-
-    const payoutIndex = settlement.consultantPayouts.findIndex(
-      (p) => p.consultantId.toString() === consultant._id.toString()
-    );
-    if (payoutIndex === -1) {
-      return res.status(404).json({ success: false, message: 'Consultant not associated with this settlement' });
-    }
-
-    if (settlement.consultantPayouts[payoutIndex].status !== 'pending_verification') {
-      return res.status(400).json({ success: false, message: 'Payout is not in pending verification state' });
-    }
-
-    settlement.consultantPayouts[payoutIndex].status = 'verified';
-    settlement.consultantPayouts[payoutIndex].verifiedAt = new Date();
-
-    // Mark the matching LabPayout records 'paid'
-    await LabPayout.updateMany(
-      { weeklySettlementId: settlement._id, consultantId: consultant._id },
-      { $set: { status: 'paid' } }
-    );
-
-    const allVerified = settlement.consultantPayouts.every((p) => p.status === 'verified');
-    if (allVerified) {
-      settlement.status = 'completed';
-    }
-
-    await settlement.save();
-
-    await logAction({
-      actorId: req.user.id,
-      action: 'LAB_CONSULTANT_PAYOUT_VERIFIED',
-      entityId: settlement._id,
-      entityModel: 'LabSettlement',
-      details: { amountPaisa: settlement.consultantPayouts[payoutIndex].amountPaisa },
-    });
-
-    res.json({ success: true, message: 'Payout marked as received and verified successfully!', data: settlement });
-  } catch (error) {
-    console.error('[CONSULTANT_VERIFY_LAB_PAYOUT_ERROR]', error);
-    res.status(500).json({ success: false, message: 'Failed to verify payout' });
-  }
-};
-
-// 10. Consultant lab earnings summary (Laboratory tab only)
-exports.consultantLabEarnings = async (req, res) => {
-  try {
-    const consultant = await Consultant.findOne({ userId: req.user.id });
-    if (!consultant) {
-      return res.status(404).json({ success: false, message: 'Consultant profile not found' });
-    }
-
-    const payouts = await LabPayout.find({ consultantId: consultant._id })
-      .populate('laboratoryId', 'labName')
-      .populate('labReferralId', 'referralCode patientName')
-      .sort({ createdAt: -1 });
-
-    const accruedPaisa = payouts
-      .filter((p) => p.status === 'accrued')
-      .reduce((sum, p) => sum + (p.amountPaisa || 0), 0);
-    const paidPaisa = payouts.filter((p) => p.status === 'paid').reduce((sum, p) => sum + (p.amountPaisa || 0), 0);
-
-    res.json({
-      success: true,
-      data: {
-        accruedPaisa,
-        paidPaisa,
-        totalPaisa: accruedPaisa + paidPaisa,
-        payouts,
-      },
-    });
-  } catch (error) {
-    console.error('[CONSULTANT_LAB_EARNINGS_ERROR]', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch lab earnings' });
-  }
-};

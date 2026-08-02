@@ -50,40 +50,7 @@ exports.finalizeLabReferral = async (referralId, io) => {
   referral.closedAt = new Date();
   await referral.save();
 
-  // 4. Accrue payout with full split audit details (legacy + additive snapshot).
-  await LabPayout.create({
-    consultantId: referral.consultantId,
-    labReferralId: referral._id,
-    laboratoryId: referral.targetLaboratoryId,
-    amountPaisa: consultantSharePaisa,
-    totalBillPaisa: billTotal,
-    discountPercentage: discountPct,
-    // legacy-compatible fields
-    deductionPercentage: split.deductionPercentage,
-    platformCutPaisa: split.platformCutPaisa,
-    commissionPercentage: split.commissionPercentage,
-    adminSharePaisa: split.adminSharePaisa,
-    // additive (v2) snapshot
-    commissionModel: split.commissionModel,
-    commissionType: split.commissionType,
-    fixedCommissionPaisa: split.fixedCommissionPaisa,
-    platformChargeType: split.platformChargeType,
-    platformChargePercentage: split.platformChargePercentage,
-    fixedPlatformChargePaisa: split.fixedPlatformChargePaisa,
-    testCount: split.testCount,
-    doctorCommissionPaisa: split.doctorCommissionPaisa,
-    platformChargePaisa: split.platformChargePaisa,
-    totalCutPaisa: split.totalCutPaisa,
-    status: 'accrued',
-    note:
-      split.commissionModel === 'additive'
-        ? `Lab case closed — bill ${billTotal / 100} PKR (Additive per-test: doctor ${split.doctorCommissionPaisa / 100} + platform ${split.platformChargePaisa / 100} = ${split.totalCutPaisa / 100} PKR over ${split.testCount} test(s), Discount: ${discountPct}%)`
-        : `Lab case closed — bill ${billTotal / 100} PKR (Lab Cut: ${split.deductionPercentage}%, Consultant split: ${split.commissionPercentage}%, Discount: ${discountPct}%)`,
-  });
 
-  console.log(
-    `[LAB_BILLING] Accrued payout of ${consultantSharePaisa / 100} PKR for Consultant ${referral.consultantId} (LabReferral: ${referral._id})`
-  );
 
   // 5. Emit real-time updates
   if (io) {

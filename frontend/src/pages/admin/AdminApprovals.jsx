@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, Eye, X, CheckCircle, XCircle, Mail, Phone, Building2, UserCheck, Stethoscope, FileText } from 'lucide-react';
+import { ShieldCheck, Eye, X, CheckCircle, XCircle, Mail, Phone, Building2, UserCheck, Stethoscope, FileText, FlaskConical } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import DetailModal from '../../components/DetailModal';
@@ -65,7 +65,7 @@ const AdminApprovals = () => {
   };
 
   const urgencyBadge = (role) => {
-    const colors = { consultant: 'bg-blue-50 text-blue-700', hospital: 'bg-teal-50 text-teal-700' };
+    const colors = { consultant: 'bg-blue-50 text-blue-700', hospital: 'bg-teal-50 text-teal-700', laboratory: 'bg-indigo-50 text-indigo-700' };
     return colors[role] || 'bg-slate-100 text-slate-600';
   };
 
@@ -212,6 +212,42 @@ const AdminApprovals = () => {
                   </div>
                 </div>
                 {/* Registration Documents (Q3) */}
+                <div className="border-t border-slate-50 pt-4">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Verification Documents</p>
+                  <div className="space-y-2">
+                    {(selected.profile.registrationDocuments || []).length === 0 ? (
+                      <p className="text-xs text-red-500 italic">No documents uploaded</p>
+                    ) : (
+                      selected.profile.registrationDocuments.map((doc, idx) => (
+                        <a key={idx} href={doc.url} target="_blank" rel="noreferrer"
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-300 transition-all group">
+                          <div className="flex items-center gap-3">
+                            <FileText size={16} className="text-blue-600" />
+                            <span className="text-sm font-semibold text-slate-700">{doc.name}</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-blue-600 uppercase opacity-0 group-hover:opacity-100 transition-opacity">View Document</span>
+                        </a>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selected.role === 'laboratory' && selected.profile && (
+              <div className="border-t border-slate-100 pt-5 space-y-4">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
+                  <FlaskConical size={16} /> Laboratory Details
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Lab Name" value={selected.profile.labName} />
+                  <Field label="Reg. Number" value={selected.profile.registrationNumber} />
+                  <Field label="Representative CNIC" value={selected.profile.representativeCnic} />
+                  <Field label="Address" value={selected.profile.address} />
+                  <Field label="Phone verified" value={selected.isPhoneVerified ? 'Yes' : 'No'} />
+                  <Field label="Email verified" value={selected.isEmailVerified ? 'Yes' : 'No'} />
+                </div>
+                {/* Registration Documents */}
                 <div className="border-t border-slate-50 pt-4">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Verification Documents</p>
                   <div className="space-y-2">

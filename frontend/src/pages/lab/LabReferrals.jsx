@@ -399,7 +399,16 @@ const LabReferrals = () => {
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center gap-1.5">
                       {['accepted', 'reported', 'closed'].includes(r.status) ? (
-                        <button onClick={() => setActive(r)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-lg transition-colors">
+                        <button
+                          onClick={() => {
+                            if (r.status === 'closed') {
+                              toast.error('This referral is closed and locked forever. Details cannot be viewed.');
+                              return;
+                            }
+                            setActive(r);
+                          }}
+                          className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-lg transition-colors"
+                        >
                           {r.status === 'closed' ? 'View' : 'Manage'}
                         </button>
                       ) : (

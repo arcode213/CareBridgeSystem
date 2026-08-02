@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import {
-  FlaskConical, CheckCircle2, Ban, Save, FileText, Upload, Receipt, Users, ClipboardList, Wallet, X, Eye, Download,
+  FlaskConical, CheckCircle2, Ban, Save, FileText, Upload, Receipt, Users, ClipboardList, X, Eye, Download, Lock
 } from 'lucide-react';
 import api from '../../utils/api';
 import { formatPkr } from '../../utils/formatPkr';
@@ -9,12 +9,12 @@ import toast from 'react-hot-toast';
 import Loader from '../../components/Loader';
 import LabReferralDetailModal from '../../components/LabReferralDetailModal';
 import { downloadPdf } from '../../utils/downloadFile';
+import { SetRecordPasswordModal, VerifyRecordPasswordModal } from '../../components/RecordPasswordModal';
 
 const SUBTABS = [
   { key: 'labs', label: 'Labs', icon: FlaskConical },
   { key: 'referrals', label: 'Lab Referrals', icon: ClipboardList },
   { key: 'settlements', label: 'Settlements', icon: Receipt },
-  { key: 'payouts', label: 'Payouts', icon: Wallet },
 ];
 
 const uploadFile = async (file) => {
@@ -129,12 +129,6 @@ const LabDetailModal = ({ labId, onClose, onSaved }) => {
           <div className="p-10 text-center text-slate-400 text-sm">Loading…</div>
         ) : (
           <div className="p-5 space-y-6">
-            {/* Earnings summary */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-slate-900 text-white rounded-xl p-4"><p className="text-[10px] text-slate-400 font-bold uppercase">Commission Total</p><p className="text-lg font-black text-sky-400 tabular-nums">{formatPkr(summary.totalPaisa || 0)}</p></div>
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-4"><p className="text-[10px] text-slate-400 font-bold uppercase">Paid</p><p className="text-lg font-black text-emerald-600 tabular-nums">{formatPkr(summary.paidPaisa || 0)}</p></div>
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-4"><p className="text-[10px] text-slate-400 font-bold uppercase">Accrued</p><p className="text-lg font-black text-amber-600 tabular-nums">{formatPkr(summary.accruedPaisa || 0)}</p></div>
-            </div>
 
             {/* Editable profile */}
             <section className="space-y-3">
@@ -310,10 +304,32 @@ const LabDetailModal = ({ labId, onClose, onSaved }) => {
 
 // ── Labs management ─────────────────────────────────────────────────────────────
 const LabsPanel = () => {
+  const { user: loggedInUser } = useAuth();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('');
   const [edits, setEdits] = useState({});
   const [detailLabId, setDetailLabId] = useState(null);
+
+  // Password Protection States
+  const [unlockedRecords, setUnlockedRecords] = useState({});
+  const [setPassUser, setSetPassUser] = useState(null);
+  const [verifyModal, setVerifyModal] = useState({ isOpen: false, user: null, actionName: '', onVerified: null });
+
+  const protectedAction = (user, actionName, callback) => {
+    if (!user || !user.hasRecordPassword || unlockedRecords[user._id]) {
+      callback();
+    } else {
+      setVerifyModal({
+        isOpen: true,
+        user,
+        actionName,
+        onVerified: () => {
+          setUnlockedRecords(prev => ({ ...prev, [user._id]: true }));
+          callback();
+        }
+      });
+    }
+  };
 
   const { data: labs = [], isLoading } = useQuery({
     queryKey: ['admin-labs', statusFilter],
@@ -322,9 +338,7 @@ const LabsPanel = () => {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['admin-labs'] });
 
-  // A single mutation guards against double-clicks (button is disabled while the
-  // request is in flight) and always refetches authoritative server state on
-  // success — so the suspend/approve toggle is reliable and never races.
+  // A single mutation guards against double-clicks
   const statusMutation = useMutation({
     mutationFn: ({ id, status }) => api.patch(`/admin/labs/${id}/status`, { status }),
     onSuccess: (_res, { status }) => {
@@ -333,7 +347,7 @@ const LabsPanel = () => {
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
   });
-  // Which lab id is currently being toggled (to disable only that row's buttons).
+  // Which lab id is currently being toggled
   const togglingId = statusMutation.isPending ? statusMutation.variables?.id : null;
 
   const saveEconomics = async (lab) => {
@@ -370,12 +384,32 @@ const LabsPanel = () => {
             <div key={lab._id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="font-black text-slate-900 dark:text-slate-50">{lab.labName}</p>
+                  <p className="font-black text-slate-900 dark:text-slate-50 flex items-center gap-1.5">
+                    {lab.labName}
+                    {lab.userId?.hasRecordPassword && (
+                      <span title="Password Protected Record" className="text-amber-500">
+                        <Lock size={13} />
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-slate-500">{lab.userId?.email} • {lab.city}{lab.area ? `, ${lab.area}` : ''} • Reg: {lab.registrationNumber || '—'}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setDetailLabId(lab._id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-sky-200 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/20 font-bold text-xs rounded-lg"><Eye size={13} /> Details</button>
-                  <button onClick={() => downloadPdf(`/exports/admin/laboratories/${lab._id}`, `Laboratory_${(lab.labName || 'file').replace(/\s+/g, '_')}.pdf`)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-lg"><Download size={13} /> File</button>
+                  {['info@carebridgesystem.com', 'admin@carebridge.com', 'admin@carebridge.local'].includes(loggedInUser?.email) && (
+                    <button 
+                      onClick={() => setSetPassUser(lab.userId)}
+                      title={lab.userId?.hasRecordPassword ? "Password Protection Active (Click to Manage)" : "Set Record Access Password"}
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        lab.userId?.hasRecordPassword 
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400' 
+                          : 'hover:bg-slate-100 text-slate-400 hover:text-amber-600'
+                      }`}
+                    >
+                      <Lock size={16} />
+                    </button>
+                  )}
+                  <button onClick={() => protectedAction(lab.userId, 'view laboratory details', () => setDetailLabId(lab._id))} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-sky-200 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/20 font-bold text-xs rounded-lg"><Eye size={13} /> Details</button>
+                  <button onClick={() => protectedAction(lab.userId, 'download laboratory file', () => downloadPdf(`/exports/admin/laboratories/${lab._id}`, `Laboratory_${(lab.labName || 'file').replace(/\s+/g, '_')}.pdf`))} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-lg"><Download size={13} /> File</button>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${status === 'active' ? 'bg-emerald-100 text-emerald-700' : status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{status}</span>
                 </div>
               </div>
@@ -393,14 +427,14 @@ const LabsPanel = () => {
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Platform deduction %</label>
                   <input type="number" className={inputClass} defaultValue={lab.deductionPercentage} onChange={(ev) => setEdits((s) => ({ ...s, [lab._id]: { ...s[lab._id], deductionPercentage: Number(ev.target.value) } }))} />
                 </div>
-                <button onClick={() => saveEconomics(lab)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 font-bold text-xs rounded-lg hover:bg-slate-200"><Save size={13} /> Save</button>
+                <button onClick={() => protectedAction(lab.userId, 'save laboratory economics', () => saveEconomics(lab))} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 font-bold text-xs rounded-lg hover:bg-slate-200"><Save size={13} /> Save</button>
 
                 <div className="ml-auto flex gap-2">
                   {status !== 'active' && (
-                    <button onClick={() => statusMutation.mutate({ id: lab._id, status: 'active' })} disabled={togglingId === lab._id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"><CheckCircle2 size={13} /> {togglingId === lab._id ? 'Saving…' : 'Approve'}</button>
+                    <button onClick={() => protectedAction(lab.userId, 'approve laboratory', () => statusMutation.mutate({ id: lab._id, status: 'active' }))} disabled={togglingId === lab._id} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"><CheckCircle2 size={13} /> {togglingId === lab._id ? 'Saving…' : 'Approve'}</button>
                   )}
                   {status === 'active' && (
-                    <button onClick={() => statusMutation.mutate({ id: lab._id, status: 'suspended' })} disabled={togglingId === lab._id} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"><Ban size={13} /> {togglingId === lab._id ? 'Saving…' : 'Suspend'}</button>
+                    <button onClick={() => protectedAction(lab.userId, 'suspend laboratory', () => statusMutation.mutate({ id: lab._id, status: 'suspended' }))} disabled={togglingId === lab._id} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"><Ban size={13} /> {togglingId === lab._id ? 'Saving…' : 'Suspend'}</button>
                   )}
                 </div>
               </div>
@@ -412,10 +446,39 @@ const LabsPanel = () => {
       {detailLabId && (
         <LabDetailModal
           labId={detailLabId}
-          onClose={() => setDetailLabId(null)}
+          onClose={() => {
+            const currentLab = labs.find(l => l._id === detailLabId);
+            if (currentLab?.userId) {
+              setUnlockedRecords(prev => {
+                const next = { ...prev };
+                delete next[currentLab.userId._id];
+                return next;
+              });
+            }
+            setDetailLabId(null);
+          }}
           onSaved={() => queryClient.invalidateQueries({ queryKey: ['admin-labs'] })}
         />
       )}
+
+      <SetRecordPasswordModal
+        isOpen={!!setPassUser}
+        onClose={() => setSetPassUser(null)}
+        user={setPassUser}
+        onSuccess={() => {
+          refresh();
+        }}
+      />
+
+      <VerifyRecordPasswordModal
+        isOpen={verifyModal.isOpen}
+        onClose={() => setVerifyModal({ isOpen: false, user: null, actionName: '', onVerified: null })}
+        user={verifyModal.user}
+        actionName={verifyModal.actionName}
+        onSuccess={() => {
+          if (verifyModal.onVerified) verifyModal.onVerified();
+        }}
+      />
     </div>
   );
 };
@@ -489,20 +552,10 @@ const SETTLEMENT_STATUS = {
     cls: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400',
     hint: 'The lab uploaded a payment receipt — review it below, then approve or reject.',
   },
-  paid_pending_consultant_payout: {
-    label: 'Pay Consultants',
-    cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400',
-    hint: 'Payment verified. Upload a payout receipt for each consultant below.',
-  },
-  paid_pending_consultant_verification: {
-    label: 'Awaiting Consultant Confirmation',
-    cls: 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400',
-    hint: 'Payouts dispatched. Waiting for consultants to confirm they received their payment.',
-  },
   completed: {
     label: 'Completed',
     cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
-    hint: 'All consultants confirmed their payouts. This settlement is closed.',
+    hint: 'Payment verified. This settlement is closed.',
   },
 };
 
@@ -591,84 +644,13 @@ const SettlementsPanel = () => {
             </div>
           )}
 
-          {['paid_pending_consultant_payout', 'paid_pending_consultant_verification', 'completed'].includes(s.status) && s.consultantPayouts?.length > 0 && (
-            <div className="border-t border-slate-50 dark:border-slate-800 pt-3 space-y-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Users size={12} /> Consultant Payouts</p>
-              {s.consultantPayouts.map((pay) => {
-                const key = `${s._id}-${pay.consultantId?._id || pay.consultantId}`;
-                const cId = pay.consultantId?._id || pay.consultantId;
-                return (
-                  <div key={cId} className="flex items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-950/20 rounded-xl p-3 text-xs">
-                    <div>
-                      <p className="font-bold text-slate-700 dark:text-slate-300">Dr. {pay.consultantId?.userId?.name || 'Consultant'}</p>
-                      <p className="text-slate-400">{formatPkr(pay.amountPaisa)} ({pay.commissionPercentage}%)</p>
-                    </div>
-                    {pay.status === 'verified' ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-600 font-bold"><CheckCircle2 size={13} /> Verified</span>
-                    ) : pay.status === 'pending_verification' ? (
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-amber-600">Paid, awaiting consultant</span>
-                        {pay.payoutReceiptFileUrl && (
-                          <a href={pay.payoutReceiptFileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 font-bold hover:underline"><Eye size={12} /> View</a>
-                        )}
-                        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-sky-200 dark:border-sky-900/50 text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/20 font-bold rounded-lg cursor-pointer">
-                          <Upload size={12} /> {busy[key] ? 'Uploading…' : 'Re-upload'}
-                          <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(ev) => uploadPayout(s._id, cId, ev.target.files[0])} className="hidden" />
-                        </label>
-                      </div>
-                    ) : (
-                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg cursor-pointer">
-                        <Upload size={12} /> {busy[key] ? 'Uploading…' : 'Upload payout'}
-                        <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(ev) => uploadPayout(s._id, cId, ev.target.files[0])} className="hidden" />
-                      </label>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       ))}
     </div>
   );
 };
 
-// ── Payouts ledger ──────────────────────────────────────────────────────────────
-const PayoutsPanel = () => {
-  const { data: payouts = [], isLoading } = useQuery({
-    queryKey: ['admin-lab-payouts'],
-    queryFn: async () => (await api.get('/admin/labs/payouts')).data.data,
-  });
-  if (isLoading) return <Loader message="Loading lab payouts..." />;
-  return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-x-auto shadow-sm">
-      <table className="min-w-full text-sm">
-        <thead className="bg-slate-50 dark:bg-slate-950/40 text-slate-500">
-          <tr>
-            <th className="text-left px-4 py-3 font-semibold">Consultant</th>
-            <th className="text-left px-4 py-3 font-semibold">Lab</th>
-            <th className="text-left px-4 py-3 font-semibold">Case</th>
-            <th className="text-left px-4 py-3 font-semibold">Bill</th>
-            <th className="text-left px-4 py-3 font-semibold">Commission</th>
-            <th className="text-left px-4 py-3 font-semibold">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-          {payouts.map((p) => (
-            <tr key={p._id}>
-              <td className="px-4 py-3">{p.consultantId?.userId?.name || '—'}</td>
-              <td className="px-4 py-3">{p.laboratoryId?.labName || '—'}</td>
-              <td className="px-4 py-3 font-mono text-xs">{p.labReferralId?.referralCode || '—'}</td>
-              <td className="px-4 py-3 tabular-nums">{formatPkr(p.totalBillPaisa)}</td>
-              <td className="px-4 py-3 tabular-nums font-bold">{formatPkr(p.amountPaisa)}</td>
-              <td className="px-4 py-3"><span className="text-xs font-bold capitalize">{p.status}</span></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
+
 
 const AdminLaboratory = () => {
   const [tab, setTab] = useState('labs');
@@ -680,7 +662,7 @@ const AdminLaboratory = () => {
         </div>
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-50">Laboratory</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Approve labs, set economics, oversee referrals, settlements, and payouts.</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Approve labs, set economics, oversee referrals, and settlements.</p>
         </div>
       </div>
 
@@ -698,7 +680,6 @@ const AdminLaboratory = () => {
       {tab === 'labs' && <LabsPanel />}
       {tab === 'referrals' && <ReferralsPanel />}
       {tab === 'settlements' && <SettlementsPanel />}
-      {tab === 'payouts' && <PayoutsPanel />}
     </div>
   );
 };

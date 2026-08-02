@@ -21,8 +21,8 @@ const WeeklySettlementSchema = new mongoose.Schema(
     platformChargeTotalPaisa: { type: Number, default: 0, min: 0 }, // Σ platform charge (admin revenue)
     facilityTotalPayablePaisa: { type: Number, default: 0, min: 0 }, // == calculatedPlatformCutPaisa (what hospital transfers)
     
-    // Bill summary document uploaded by hospital (PDF or image)
-    billSummaryFileUrl: { type: String, required: true },
+    // Bill summary document uploaded by hospital (PDF or image, optional)
+    billSummaryFileUrl: { type: String },
     
     // Hospital manual payment receipt details
     hospitalReceiptFileUrl: { type: String },

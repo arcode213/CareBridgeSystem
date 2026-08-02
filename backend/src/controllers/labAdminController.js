@@ -12,14 +12,22 @@ const notificationService = require('../services/notificationService');
 exports.listLabs = async (req, res) => {
   try {
     const labs = await Laboratory.find()
-      .populate('userId', 'name email phone status createdAt')
+      .populate('userId', 'name email phone status createdAt recordPasswordHash')
       .sort({ createdAt: -1 })
       .lean();
 
     const { status } = req.query;
     const filtered = status ? labs.filter((l) => l.userId?.status === status) : labs;
 
-    res.json({ success: true, data: filtered });
+    const enriched = filtered.map((l) => {
+      if (l.userId) {
+        l.userId.hasRecordPassword = !!l.userId.recordPasswordHash;
+        delete l.userId.recordPasswordHash;
+      }
+      return l;
+    });
+
+    res.json({ success: true, data: enriched });
   } catch (error) {
     console.error('[ADMIN_LIST_LABS_ERROR]', error);
     res.status(500).json({ success: false, message: 'Failed to list laboratories' });
@@ -28,9 +36,13 @@ exports.listLabs = async (req, res) => {
 
 exports.getLab = async (req, res) => {
   try {
-    const lab = await Laboratory.findById(req.params.id).populate('userId', 'name email phone status createdAt');
+    const lab = await Laboratory.findById(req.params.id).populate('userId', 'name email phone status createdAt recordPasswordHash').lean();
     if (!lab) {
       return res.status(404).json({ success: false, message: 'Laboratory not found' });
+    }
+    if (lab.userId) {
+      lab.userId.hasRecordPassword = !!lab.userId.recordPasswordHash;
+      delete lab.userId.recordPasswordHash;
     }
     res.json({ success: true, data: lab });
   } catch (error) {

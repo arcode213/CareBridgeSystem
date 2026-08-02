@@ -16,6 +16,7 @@ const {
   buildActionEmailText,
   referralSubmittedConsultantEmail,
   referralReceivedHospitalEmail,
+  referralAssignedDoctorEmail,
   referralStatusUpdateEmail,
   clinicalNoteEmail,
 } = require('./emailTemplates');
@@ -200,6 +201,7 @@ module.exports = {
   isResendConfigured,
   referralSubmittedConsultantEmail,
   referralReceivedHospitalEmail,
+  referralAssignedDoctorEmail,
   referralStatusUpdateEmail,
   clinicalNoteEmail,
 };

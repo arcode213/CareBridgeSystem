@@ -78,7 +78,6 @@ async function ensurePlatformData() {
   if (psCount === 0) {
     await PlatformSettings.create({
       defaultHospitalDeductionPercentage: 20,
-      defaultConsultantCommissionPercentage: 60,
       walletThresholdPaisa: 1000000,
       walletInitialHoldPaisa: 950000,
     });

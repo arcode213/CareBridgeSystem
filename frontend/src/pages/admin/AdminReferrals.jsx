@@ -244,6 +244,10 @@ const AdminReferrals = () => {
                       <div className="inline-flex items-center gap-1">
                         <button
                           onClick={() => {
+                            if (ref.status === 'closed') {
+                              toast.error('This referral is closed and locked forever. Details cannot be viewed.');
+                              return;
+                            }
                             setSelectedRef(ref);
                             setIsEditing(false);
                             setDeleteConfirmStep(0);

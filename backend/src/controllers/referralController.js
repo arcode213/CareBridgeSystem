@@ -18,6 +18,7 @@ const {
   sendEmail,
   referralSubmittedConsultantEmail,
   referralReceivedHospitalEmail,
+  referralAssignedDoctorEmail,
   referralStatusUpdateEmail,
   clinicalNoteEmail,
 } = require('../utils/emailService');
@@ -361,6 +362,31 @@ exports.createReferral = async (req, res) => {
       console.error('Hospital new referral notification failed:', err.message)
     );
 
+    // 3. Send alert email to assigned Hospital Doctor (if selected)
+    if (referral.targetDoctorId) {
+      try {
+        const targetDoctor = await HospitalDoctor.findById(referral.targetDoctorId);
+        if (targetDoctor && targetDoctor.email) {
+          sendEmail({
+            to: targetDoctor.email,
+            subject: `New referral assigned to you — ${referral.referralCode} — CareBridge Health`,
+            html: referralAssignedDoctorEmail({
+              doctorName: targetDoctor.name,
+              consultantName: req.user.name,
+              hospitalName: targetHospital.hospitalName,
+              patientName: referral.patientName,
+              referralCode: referral.referralCode,
+              department: referral.department,
+              urgency,
+            }),
+            text: `New referral ${referral.referralCode} for ${referral.patientName} assigned to Dr. ${targetDoctor.name} by ${req.user.name}.`,
+          });
+        }
+      } catch (err) {
+        console.error('Assigned doctor referral email notification failed:', err.message);
+      }
+    }
+
     const io = req.app.get('io');
     if (io) {
       io.to(`hospital:${targetHospitalId}`).emit('NEW_REFERRAL', {
@@ -380,7 +406,7 @@ exports.createReferral = async (req, res) => {
     });
   } catch (error) {
     console.error('Create referral error:', error);
-    res.status(500).json({ success: false, message: 'Error submitting referral' });
+    res.status(500).json({ success: false, message: error.message || 'Error submitting referral' });
   }
 };
 
@@ -513,6 +539,13 @@ exports.getReferralDetails = async (req, res) => {
       }
     }
 
+    if (referral.status === 'closed') {
+      return res.status(403).json({
+        success: false,
+        message: 'This referral is closed and locked forever. Details cannot be viewed.',
+      });
+    }
+
     let admission = null;
 
     // Fetch admission if admitted to hospital
@@ -542,6 +575,9 @@ exports.updateReferralStatus = async (req, res) => {
     }
 
     const hospital = await getHospitalForUser(req.user);
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital profile not found' });
+    }
 
     const referral = await Referral.findOne({
       _id: req.params.id,
@@ -553,6 +589,13 @@ exports.updateReferralStatus = async (req, res) => {
 
     if (!referral) {
       return res.status(404).json({ success: false, message: 'Referral not found or unauthorized' });
+    }
+
+    if (referral.status === 'closed') {
+      return res.status(400).json({
+        success: false,
+        message: 'This referral is closed and locked forever. No further status changes can be made.'
+      });
     }
 
     if (status === 'rejected') {
@@ -847,6 +890,13 @@ exports.addClinicalNote = async (req, res) => {
       .populate({ path: 'targetHospitalId', populate: { path: 'userId' } });
     if (!referral) {
       return res.status(404).json({ success: false, message: 'Referral not found' });
+    }
+
+    if (referral.status === 'closed') {
+      return res.status(400).json({
+        success: false,
+        message: 'This referral is closed and locked forever. No further clinical notes can be added.'
+      });
     }
 
     // Authorization check: Only assigned hospital or the referring consultant can add notes

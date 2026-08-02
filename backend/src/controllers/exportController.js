@@ -66,6 +66,9 @@ exports.consultantReferralRecord = async (req, res) => {
     if (referral.consultantId.toString() !== consultant._id.toString()) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
+    if (referral.status === 'closed') {
+      return res.status(403).json({ success: false, message: 'This referral is closed and locked forever. Details cannot be viewed.' });
+    }
 
     const { admission, labReferrals } = await loadRecordExtras(referral);
     stream(res, () => pdf.buildReferralRecordPdf(res, { referral, admission, labReferrals }));
@@ -105,6 +108,9 @@ exports.hospitalReferralRecord = async (req, res) => {
     if (!referral) return res.status(404).json({ success: false, message: 'Referral not found' });
     if (!referral.targetHospitalId || referral.targetHospitalId.toString() !== hospital._id.toString()) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    if (referral.status === 'closed') {
+      return res.status(403).json({ success: false, message: 'This referral is closed and locked forever. Details cannot be viewed.' });
     }
 
     const { admission, labReferrals } = await loadRecordExtras(referral);
