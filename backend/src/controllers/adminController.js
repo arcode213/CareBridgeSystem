@@ -67,11 +67,11 @@ exports.listAllUsers = async (req, res) => {
             .lean();
         } else if (u.role === 'hospital') {
           base.profile = await Hospital.findOne({ userId: u._id })
-            .select('hospitalName registrationNumber representativeCnic departments bedsInventory address city area deductionPercentage isActive isRegistrationVerified registrationDocuments ratePackages')
+            .select('hospitalName registrationNumber representativeCnic departments bedsInventory address city area deductionPercentage isActive isRegistrationVerified registrationDocuments ratePackages platformChargeType fixedPlatformChargePaisa')
             .lean();
         } else if (u.role === 'laboratory') {
           base.profile = await Laboratory.findOne({ userId: u._id })
-            .select('labName registrationNumber representativeCnic address city area deductionPercentage isActive isRegistrationVerified registrationDocuments testCatalog')
+            .select('labName registrationNumber representativeCnic address city area deductionPercentage isActive isRegistrationVerified registrationDocuments testCatalog platformChargeType fixedPlatformChargePaisaPerTest')
             .lean();
         }
         return base;
