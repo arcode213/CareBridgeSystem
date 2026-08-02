@@ -953,6 +953,56 @@ exports.adminUpdateHospitalDeduction = async (req, res) => {
 
     await hospital.save();
 
+    // Automatically update all accrued, unsettled payouts for this hospital to reflect the new default charges
+    const Payout = require('../models/Payout');
+    const Admission = require('../models/Admission');
+    const Consultant = require('../models/Consultant');
+    const PlatformSettings = require('../models/PlatformSettings');
+    const commissionService = require('../services/commissionService');
+
+    const admissions = await Admission.find({ hospitalId: hospital._id, status: 'billed', weeklySettlementId: null });
+    if (admissions.length > 0) {
+      const admissionIds = admissions.map(a => a._id);
+      const pendingPayouts = await Payout.find({ admissionId: { $in: admissionIds }, status: 'accrued' });
+      const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
+
+      for (const p of pendingPayouts) {
+        const adm = admissions.find(a => String(a._id) === String(p.admissionId));
+        if (!adm) continue;
+        const consultant = await Consultant.findById(p.consultantId);
+
+        const split = commissionService.computeHospitalSplit({
+          billPaisa: p.totalBillPaisa || adm.billTotalPaisa || 0,
+          consultant,
+          hospital,
+          settings,
+        });
+
+        if (p.platformChargePaisa !== split.platformChargePaisa || p.adminSharePaisa !== split.platformChargePaisa) {
+          p.deductionPercentage = split.deductionPercentage;
+          p.platformCutPaisa = split.platformCutPaisa;
+          p.commissionPercentage = split.commissionPercentage;
+          p.adminSharePaisa = split.adminSharePaisa;
+          p.commissionModel = split.commissionModel;
+          p.commissionType = split.commissionType;
+          p.fixedCommissionPaisa = split.fixedCommissionPaisa;
+          p.platformChargeType = split.platformChargeType;
+          p.platformChargePercentage = split.platformChargePercentage;
+          p.fixedPlatformChargePaisa = split.fixedPlatformChargePaisa;
+          p.doctorCommissionPaisa = split.doctorCommissionPaisa;
+          p.platformChargePaisa = split.platformChargePaisa;
+          p.totalCutPaisa = split.totalCutPaisa;
+
+          const bill = p.totalBillPaisa || adm.billTotalPaisa || 0;
+          p.note = split.commissionModel === 'additive'
+            ? `Case closed — bill ${bill / 100} PKR (Additive: doctor ${split.doctorCommissionPaisa / 100} + platform ${split.platformChargePaisa / 100} = ${split.totalCutPaisa / 100} PKR)`
+            : `Case closed — platform cut ${split.platformCutPaisa / 100} PKR (Legacy)`;
+
+          await p.save();
+        }
+      }
+    }
+
     await logAction({
       req,
       action: 'ADMIN_UPDATE_HOSPITAL_DEDUCTION',
@@ -1070,6 +1120,54 @@ exports.adminSetHospitalConsultantOverride = async (req, res) => {
     }
 
     await consultant.save();
+
+    // Automatically update all accrued, unsettled payouts for this specific consultant at this hospital
+    const Payout = require('../models/Payout');
+    const Admission = require('../models/Admission');
+    const PlatformSettings = require('../models/PlatformSettings');
+    const commissionService = require('../services/commissionService');
+
+    const admissions = await Admission.find({ hospitalId: hospital._id, consultantId: consultant._id, status: 'billed', weeklySettlementId: null });
+    if (admissions.length > 0) {
+      const admissionIds = admissions.map(a => a._id);
+      const pendingPayouts = await Payout.find({ admissionId: { $in: admissionIds }, status: 'accrued' });
+      const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
+
+      for (const p of pendingPayouts) {
+        const adm = admissions.find(a => String(a._id) === String(p.admissionId));
+        if (!adm) continue;
+
+        const split = commissionService.computeHospitalSplit({
+          billPaisa: p.totalBillPaisa || adm.billTotalPaisa || 0,
+          consultant,
+          hospital,
+          settings,
+        });
+
+        if (p.platformChargePaisa !== split.platformChargePaisa || p.adminSharePaisa !== split.platformChargePaisa) {
+          p.deductionPercentage = split.deductionPercentage;
+          p.platformCutPaisa = split.platformCutPaisa;
+          p.commissionPercentage = split.commissionPercentage;
+          p.adminSharePaisa = split.adminSharePaisa;
+          p.commissionModel = split.commissionModel;
+          p.commissionType = split.commissionType;
+          p.fixedCommissionPaisa = split.fixedCommissionPaisa;
+          p.platformChargeType = split.platformChargeType;
+          p.platformChargePercentage = split.platformChargePercentage;
+          p.fixedPlatformChargePaisa = split.fixedPlatformChargePaisa;
+          p.doctorCommissionPaisa = split.doctorCommissionPaisa;
+          p.platformChargePaisa = split.platformChargePaisa;
+          p.totalCutPaisa = split.totalCutPaisa;
+
+          const bill = p.totalBillPaisa || adm.billTotalPaisa || 0;
+          p.note = split.commissionModel === 'additive'
+            ? `Case closed — bill ${bill / 100} PKR (Additive: doctor ${split.doctorCommissionPaisa / 100} + platform ${split.platformChargePaisa / 100} = ${split.totalCutPaisa / 100} PKR)`
+            : `Case closed — platform cut ${split.platformCutPaisa / 100} PKR (Legacy)`;
+
+          await p.save();
+        }
+      }
+    }
 
     await logAction({
       req,

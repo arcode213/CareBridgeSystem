@@ -265,6 +265,54 @@ exports.setLabConsultantOverride = async (req, res) => {
 
     await consultant.save();
 
+    // Automatically update all accrued, unsettled lab payouts for this specific consultant at this lab
+    const LabPayout = require('../models/LabPayout');
+    const LabReferral = require('../models/LabReferral');
+    const PlatformSettings = require('../models/PlatformSettings');
+    const commissionService = require('../services/commissionService');
+
+    const referrals = await LabReferral.find({ targetLaboratoryId: lab._id, consultantId: consultant._id, status: 'closed', weeklySettlementId: null });
+    if (referrals.length > 0) {
+      const referralIds = referrals.map(r => r._id);
+      const pendingPayouts = await LabPayout.find({ labReferralId: { $in: referralIds }, status: 'accrued' });
+      const settings = await PlatformSettings.findOne().sort({ updatedAt: -1 });
+
+      for (const p of pendingPayouts) {
+        const ref = referrals.find(r => String(r._id) === String(p.labReferralId));
+        if (!ref) continue;
+
+        const split = commissionService.computeLabSplit({
+          tests: ref.services || [],
+          discountPercentage: ref.discountPercentage || 0,
+          consultant,
+          lab,
+          settings,
+        });
+
+        if (p.platformChargePaisa !== split.platformChargePaisa) {
+          p.deductionPercentage = split.deductionPercentage;
+          p.platformCutPaisa = split.platformCutPaisa;
+          p.commissionPercentage = split.commissionPercentage;
+          
+          p.commissionModel = split.commissionModel;
+          p.commissionType = split.commissionType;
+          p.fixedCommissionPaisa = split.fixedCommissionPaisa;
+          p.platformChargeType = split.platformChargeType;
+          p.platformChargePercentage = split.platformChargePercentage;
+          p.fixedPlatformChargePaisaPerTest = split.fixedPlatformChargePaisaPerTest;
+          p.doctorCommissionPaisa = split.doctorCommissionPaisa;
+          p.platformChargePaisa = split.platformChargePaisa;
+          p.totalCutPaisa = split.totalCutPaisa;
+
+          p.note = split.commissionModel === 'additive'
+            ? `Lab case closed — (Additive: doctor ${split.doctorCommissionPaisa / 100} + platform ${split.platformChargePaisa / 100} = ${split.totalCutPaisa / 100} PKR)`
+            : `Lab case closed — platform cut ${split.platformCutPaisa / 100} PKR (Legacy)`;
+
+          await p.save();
+        }
+      }
+    }
+
     await logAction({
       actorId: req.user.id,
       action: remove ? 'ADMIN_CLEAR_LAB_CONSULTANT_OVERRIDE' : 'ADMIN_SET_LAB_CONSULTANT_OVERRIDE',

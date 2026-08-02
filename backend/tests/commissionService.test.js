@@ -32,11 +32,20 @@ test('legacy hospital reproduces nested numbers exactly (bill 10,000)', () => {
   const consultant = { commissionPercentage: 60 }; // no commissionModel -> legacy
   const r = svc.computeHospitalSplit({ billPaisa: 1000000, consultant, hospital, settings });
   assert.strictEqual(r.platformCutPaisa, 200000);
-  assert.strictEqual(r.doctorCommissionPaisa, 120000);
-  assert.strictEqual(r.platformChargePaisa, 80000);
-  assert.strictEqual(r.adminSharePaisa, 80000);
+  assert.strictEqual(r.doctorCommissionPaisa, 0); // Doctor commission is 0 for hospital admissions
+  assert.strictEqual(r.platformChargePaisa, 200000);
+  assert.strictEqual(r.adminSharePaisa, 200000);
   assert.strictEqual(r.totalCutPaisa, 200000);
   assert.strictEqual(r.totalCutPaisa, r.doctorCommissionPaisa + r.platformChargePaisa);
+});
+
+test('legacy hospital on FIXED platform fallback (no override): applies to legacy consultant', () => {
+  const hospital = { platformChargeType: 'fixed', deductionPercentage: 20, fixedPlatformChargePaisa: 150000 }; // Rs 1,500
+  const consultant = { commissionPercentage: 60 }; // legacy
+  const r = svc.computeHospitalSplit({ billPaisa: 5000000, consultant, hospital, settings });
+  assert.strictEqual(r.platformChargePaisa, 150000); // falls back to default fixed Rs 1,500
+  assert.strictEqual(r.doctorCommissionPaisa, 0);
+  assert.strictEqual(r.totalCutPaisa, 150000);
 });
 
 test('legacy lab reproduces nested numbers with discount', () => {
@@ -51,7 +60,7 @@ test('legacy lab reproduces nested numbers with discount', () => {
   assert.strictEqual(r.totalCutPaisa, r.doctorCommissionPaisa + r.platformChargePaisa);
 });
 
-// ── ADDITIVE: commission on the CONSULTANT; platform charge is the FACILITY's ONE chosen
+// ── ADDITIVE: platform charge is the FACILITY's ONE chosen
 //    type (percentage OR fixed), applied to every referral regardless of consultant. ──
 
 test('additive hospital on FIXED platform: applies to every consultant', () => {
@@ -62,8 +71,10 @@ test('additive hospital on FIXED platform: applies to every consultant', () => {
   const b = svc.computeHospitalSplit({ billPaisa: 5000000, consultant: docPct, hospital, settings });
   assert.strictEqual(a.platformChargePaisa, 300000); // fixed for everyone
   assert.strictEqual(b.platformChargePaisa, 300000);
-  assert.strictEqual(a.totalCutPaisa, 1300000); // 10,000 + 3,000
-  assert.strictEqual(b.totalCutPaisa, 1050000); // 7,500 + 3,000
+  assert.strictEqual(a.doctorCommissionPaisa, 0); // Doctor commission is 0 for hospital admissions
+  assert.strictEqual(b.doctorCommissionPaisa, 0);
+  assert.strictEqual(a.totalCutPaisa, 300000);
+  assert.strictEqual(b.totalCutPaisa, 300000);
 });
 
 test('additive hospital on PERCENTAGE platform: applies to every consultant', () => {
@@ -74,8 +85,10 @@ test('additive hospital on PERCENTAGE platform: applies to every consultant', ()
   const b = svc.computeHospitalSplit({ billPaisa: 5000000, consultant: docPct, hospital, settings });
   assert.strictEqual(a.platformChargePaisa, 1000000); // 20% of bill for everyone
   assert.strictEqual(b.platformChargePaisa, 1000000);
-  assert.strictEqual(a.totalCutPaisa, 2000000); // 10,000 + 10,000
-  assert.strictEqual(b.totalCutPaisa, 1750000); // 7,500 + 10,000
+  assert.strictEqual(a.doctorCommissionPaisa, 0);
+  assert.strictEqual(b.doctorCommissionPaisa, 0);
+  assert.strictEqual(a.totalCutPaisa, 1000000);
+  assert.strictEqual(b.totalCutPaisa, 1000000);
 });
 
 // ───────────── ADDITIVE lab per-test (lab's single chosen type) ─────────────
@@ -128,15 +141,15 @@ test('additive hospital: per-consultant override changes ONLY the platform fee, 
   };
   const a = svc.computeHospitalSplit({ billPaisa: 5000000, consultant: base, hospital, settings });
   const b = svc.computeHospitalSplit({ billPaisa: 5000000, consultant: overridden, hospital, settings });
-  // Same doctor commission (15% of 50,000 = 7,500) in both cases.
-  assert.strictEqual(a.doctorCommissionPaisa, 750000);
-  assert.strictEqual(b.doctorCommissionPaisa, 750000);
+  // Same doctor commission (always 0) in both cases.
+  assert.strictEqual(a.doctorCommissionPaisa, 0);
+  assert.strictEqual(b.doctorCommissionPaisa, 0);
   // Platform fee: default 3,000 vs override 5,000.
   assert.strictEqual(a.platformChargePaisa, 300000);
   assert.strictEqual(b.platformChargePaisa, 500000);
-  // Hospital pays commission + platform fee.
-  assert.strictEqual(a.totalCutPaisa, 1050000);
-  assert.strictEqual(b.totalCutPaisa, 1250000);
+  // Hospital pays platform fee.
+  assert.strictEqual(a.totalCutPaisa, 300000);
+  assert.strictEqual(b.totalCutPaisa, 500000);
 });
 
 test('legacy hospital: per-consultant override applies additively, nested commission preserved', () => {
@@ -150,14 +163,14 @@ test('legacy hospital: per-consultant override applies additively, nested commis
   };
   const a = svc.computeHospitalSplit({ billPaisa: 1000000, consultant: base, hospital, settings });
   const b = svc.computeHospitalSplit({ billPaisa: 1000000, consultant: overridden, hospital, settings });
-  // Doctor commission is the SAME nested value (bill 20% cut, 60% of it = 120,000) with or without override.
-  assert.strictEqual(a.doctorCommissionPaisa, 120000);
-  assert.strictEqual(b.doctorCommissionPaisa, 120000);
-  // Platform fee: default nested admin share (80,000) vs override 10% of bill (100,000).
-  assert.strictEqual(a.platformChargePaisa, 80000);
+  // Doctor commission is 0.
+  assert.strictEqual(a.doctorCommissionPaisa, 0);
+  assert.strictEqual(b.doctorCommissionPaisa, 0);
+  // Platform fee: default nested admin share (200,000) vs override 10% of bill (100,000).
+  assert.strictEqual(a.platformChargePaisa, 200000);
   assert.strictEqual(b.platformChargePaisa, 100000);
-  // With override the hospital owes commission + fee (additive-shaped).
-  assert.strictEqual(b.totalCutPaisa, 220000);
+  // With override the hospital owes commission + fee.
+  assert.strictEqual(b.totalCutPaisa, 100000);
   assert.strictEqual(b.totalCutPaisa, b.doctorCommissionPaisa + b.platformChargePaisa);
 });
 
@@ -240,6 +253,6 @@ test('additive fixed platform still owed on tiny bill (facilityKeeps may be nega
   const hospital = { platformChargeType: 'fixed', deductionPercentage: 20, fixedPlatformChargePaisa: 50000 };
   const r = svc.computeHospitalSplit({ billPaisa: 100000, consultant, hospital, settings });
   assert.strictEqual(r.platformChargePaisa, 50000); // facility fixed platform
-  assert.strictEqual(r.totalCutPaisa, 200000);
-  assert.strictEqual(r.facilityKeepsPaisa, -100000);
+  assert.strictEqual(r.totalCutPaisa, 50000);
+  assert.strictEqual(r.facilityKeepsPaisa, 50000);
 });

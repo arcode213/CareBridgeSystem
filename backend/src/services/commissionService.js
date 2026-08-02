@@ -137,45 +137,24 @@ const computeHospitalSplit = ({ billPaisa, consultant, hospital, settings }) => 
 
   if (!isAdditive(consultant)) {
     // ── LEGACY (nested) — byte-for-byte the original billingService math ──
-    const deductionPercentage = (hospital && hospital.deductionPercentage) || (settings?.defaultHospitalDeductionPercentage ?? DEFAULT_DEDUCTION_PCT);
-    const platformCutPaisa = Math.round(bill * (deductionPercentage / 100));
     const doctorCommissionPaisa = 0; // Consultant commission is removed
 
-    // Per-consultant platform-fee override: the admin has set a special platform fee for this
-    // doctor at this hospital. It changes ONLY the platform charge (admin revenue) and therefore
-    // the hospital's total — the doctor's nested commission above is preserved exactly. The case
-    // becomes additive-shaped (facility owes commission + platform fee). Without an override the
-    // math is byte-for-byte the original nested split.
-    const override = findFacilityOverride('hospital', consultant, hospital);
-    if (override) {
-      const platformChargePaisa = component(override.type, override.fixedPaisa, override.pct, bill);
-      return makeResult({
-        billPaisa: bill,
-        doctorCommissionPaisa: 0,
-        platformChargePaisa,
-        platformCutPaisa: platformChargePaisa, // additive-shaped mirror == admin revenue
-        commissionModel: 'legacy',
-        commissionType: 'percentage',
-        commissionPercentage: 0,
-        platformChargeType: override.type,
-        platformChargePercentage: override.type === 'percentage' ? clampPct(override.pct) : 0,
-        fixedPlatformChargePaisa: override.type === 'fixed' ? toPaisaInt(override.fixedPaisa) : 0,
-        deductionPercentage: override.type === 'percentage' ? clampPct(override.pct) : 0,
-      });
-    }
+    // Resolve platform charge (uses per-consultant override if set, else falls back to hospital defaults)
+    const plat = resolvePlatformCharge('hospital', consultant, hospital, settings);
+    const platformChargePaisa = component(plat.type, plat.fixedPaisa, plat.pct, bill);
 
-    const platformChargePaisa = platformCutPaisa - doctorCommissionPaisa;
     return makeResult({
       billPaisa: bill,
       doctorCommissionPaisa: 0,
       platformChargePaisa,
-      platformCutPaisa, // legacy: facility owes the platform cut (== commission + charge)
+      platformCutPaisa: platformChargePaisa, // legacy: facility owes the platform cut (== commission + charge)
       commissionModel: 'legacy',
       commissionType: 'percentage',
       commissionPercentage: 0,
-      platformChargeType: 'percentage',
-      platformChargePercentage: 0,
-      deductionPercentage,
+      platformChargeType: plat.type,
+      platformChargePercentage: plat.type === 'percentage' ? clampPct(plat.pct) : 0,
+      fixedPlatformChargePaisa: plat.type === 'fixed' ? toPaisaInt(plat.fixedPaisa) : 0,
+      deductionPercentage: plat.type === 'percentage' ? clampPct(plat.pct) : 0,
     });
   }
 
